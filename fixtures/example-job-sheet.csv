@@ -1,0 +1,6 @@
+Client,Job,Due,Catalogue task,How long,Ref
+Acme Ltd,Replace pallet scanner,29/07/2026,,2h,JOB-100
+Bellver SA,"Quarterly stock audit, warehouse 2",30/07/2026,Warehouse stock count,,JOB-101
+Corta SL,Chase overdue delivery note,29/07/2026,,45 min,JOB-102
+Dorada,Broken row with no date,,,1h,JOB-103
+Elmar,Site visit prep,31/07/2026,,90,JOB-104
