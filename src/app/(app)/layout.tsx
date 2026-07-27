@@ -25,6 +25,7 @@ export default async function AppLayout({
 
           <nav className="flex flex-1 flex-wrap gap-1 text-sm">
             <NavLink href="/my-day">My day</NavLink>
+            <NavLink href="/plan">Plan week</NavLink>
             <NavLink href="/my-calendar">My calendar</NavLink>
             <NavLink href="/meetings">Meetings</NavLink>
             {isManager && <NavLink href="/team">Team</NavLink>}
