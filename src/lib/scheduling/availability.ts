@@ -1,4 +1,5 @@
 import { isoWeekday, dateKey } from "@/lib/time";
+import { isEffective } from "@/lib/absence/effective";
 
 /**
  * How much of a given day a person actually has, resolved from three sources
@@ -36,6 +37,11 @@ export type AbsenceInput = {
   scope: "FULL_DAY" | "PARTIAL";
   startMinutes?: number | null;
   endMinutes?: number | null;
+  /// Absences awaiting HR only count when they are sickness -- see
+  /// isEffective(). Omitting both fields means "counts", which is what
+  /// pre-approval records and test fixtures mean.
+  category?: "SICK" | "HOLIDAY" | "PERSONAL" | "OTHER";
+  status?: "PENDING" | "APPROVED" | "REJECTED";
 };
 
 export type Availability = {
@@ -130,6 +136,7 @@ export function computeAvailability(input: {
   let hitByAbsence = false;
   for (const absence of absences) {
     if (!coversDate(absence, date)) continue;
+    if (!isEffective(absence)) continue;
 
     if (absence.scope === "FULL_DAY") {
       hitByAbsence = true;
@@ -171,6 +178,7 @@ export function slotOverlapsAbsence(
   date: Date,
 ): boolean {
   if (!coversDate(absence, date)) return false;
+  if (!isEffective(absence)) return false;
   if (absence.scope === "FULL_DAY") return true;
   if (absence.startMinutes == null || absence.endMinutes == null) return false;
   return slot.start < absence.endMinutes && slot.end > absence.startMinutes;

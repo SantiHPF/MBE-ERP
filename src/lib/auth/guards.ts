@@ -10,11 +10,32 @@ import { getSessionUser, type SessionUser } from "./session";
 const RANK: Record<Role, number> = {
   WORKER: 1,
   MANAGER: 2,
+  // HR sits alongside MANAGER, not above it: they run people operations, not
+  // anyone else's schedule. Their extra powers are capabilities, below.
+  HR: 2,
   ADMIN: 3,
 };
 
 export function hasRole(user: { role: Role }, minimum: Role): boolean {
   return RANK[user.role] >= RANK[minimum];
+}
+
+/**
+ * Capabilities, kept separate from rank because HR's powers are not "more
+ * manager". A department manager cannot create accounts; HR can, everywhere.
+ */
+export function canManagePeople(user: { role: Role }): boolean {
+  return user.role === "HR" || user.role === "ADMIN";
+}
+
+export function canDecideAbsences(user: { role: Role }): boolean {
+  return user.role === "HR" || user.role === "ADMIN";
+}
+
+export async function requirePeopleAdmin(): Promise<SessionUser> {
+  const user = await requireUser();
+  if (!canManagePeople(user)) redirect("/my-day");
+  return user;
 }
 
 /** For pages: redirects to login rather than throwing. */

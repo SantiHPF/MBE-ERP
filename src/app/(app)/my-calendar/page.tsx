@@ -3,6 +3,7 @@ import { requireUser } from "@/lib/auth/guards";
 import { prisma } from "@/lib/db";
 import { getTeamWeek, weekStart } from "@/lib/team/week";
 import { addDays, dateKey, formatDuration } from "@/lib/time";
+import { effectiveLabel } from "@/lib/absence/effective";
 import { WeekGrid } from "../team/week-grid";
 import { AbsenceForm } from "./absence-form";
 
@@ -102,6 +103,23 @@ export default async function MyCalendarPage({
                     <span className="text-xs text-muted">part of the day</span>
                   )}
                   {a.note && <span className="text-muted">— {a.note}</span>}
+                  <span className="flex-1" />
+                  <span
+                    className={`rounded border px-1.5 py-px text-[9.5px] font-semibold tracking-wider uppercase ${
+                      a.status === "APPROVED"
+                        ? "border-run text-run"
+                        : a.status === "REJECTED"
+                          ? "border-stall text-stall"
+                          : "border-pause text-pause"
+                    }`}
+                  >
+                    {effectiveLabel(a)}
+                  </span>
+                  {a.status === "REJECTED" && a.decisionNote && (
+                    <span className="w-full text-xs text-stall">
+                      HR said: {a.decisionNote}
+                    </span>
+                  )}
                 </li>
               ))}
             </ul>

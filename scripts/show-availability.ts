@@ -28,14 +28,29 @@ async function main() {
     orderBy: [{ department: { name: "asc" } }, { username: "asc" }],
   });
 
-  const days = [0, 1, 2, 3, 4].map((n) => addDays(monday, n));
+  // Show Monday to Friday always, plus any weekend day somebody works --
+  // Saturday shifts are normal here and must not be silently dropped.
+  const allDays = [0, 1, 2, 3, 4, 5, 6].map((n) => addDays(monday, n));
+  const worked = new Set(
+    users.flatMap((u) => u.workingPatterns.map((p) => p.weekday)),
+  );
+  const days = allDays.filter((_, i) => i + 1 <= 5 || worked.has(i + 1));
 
   const absences = await prisma.absence.findMany({
-    where: { startDate: { lte: days[4] }, endDate: { gte: days[0] } },
+    where: {
+      startDate: { lte: allDays[6] },
+      endDate: { gte: allDays[0] },
+    },
   });
   const overrides = await prisma.dayOverride.findMany({
-    where: { date: { gte: days[0], lte: days[4] } },
+    where: { date: { gte: allDays[0], lte: allDays[6] } },
   });
+
+  // Widen the name column to fit the longest name rather than truncating.
+  const nameWidth = Math.max(
+    16,
+    ...users.map((u) => u.displayName.length + 2),
+  );
 
   console.log(`\nWeek of ${monday.toISOString().slice(0, 10)}\n`);
 
@@ -62,12 +77,18 @@ async function main() {
     });
 
     console.log(
-      `  ${user.displayName.padEnd(16)}${cells.join("")}   = ${formatDuration(weekTotal)}`,
+      `  ${user.displayName.padEnd(nameWidth)}${cells.join("")}   = ${formatDuration(weekTotal)}`,
     );
   }
 
   console.log(
-    `\n  ${"".padEnd(16)}${days.map((d) => weekdayName(((d.getUTCDay() + 6) % 7) + 1).slice(0, 3).padStart(8)).join("")}\n`,
+    `\n  ${"".padEnd(nameWidth)}${days
+      .map((d) =>
+        weekdayName(((d.getUTCDay() + 6) % 7) + 1)
+          .slice(0, 3)
+          .padStart(8),
+      )
+      .join("")}\n`,
   );
 
   // Show one person's windows in full, so breaks are visible.

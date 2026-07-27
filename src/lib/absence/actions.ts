@@ -5,6 +5,7 @@ import { z } from "zod";
 import { prisma } from "@/lib/db";
 import { requireUserOrThrow } from "@/lib/auth/guards";
 import { slotOverlapsAbsence } from "@/lib/scheduling/availability";
+import { isEffective } from "./effective";
 import { eachDay, parseClock, toDateOnly } from "@/lib/time";
 
 /**
@@ -91,7 +92,10 @@ export async function recordAbsence(
       return { error: "The end time must be after the start time" };
     }
 
-    const absence = await prisma.absence.create({
+    // Everything starts as a request for HR. Sickness still takes effect
+    // straight away -- see isEffective() -- so the schedule is never wrong
+    // about who is actually at work.
+    await prisma.absence.create({
       data: {
         userId: subjectId,
         startDate,
@@ -102,16 +106,21 @@ export async function recordAbsence(
         category: input.category,
         note: input.note,
         createdById: actor.id,
+        status: "PENDING",
       },
     });
 
-    const orphaned = await orphanAffectedTasks(subjectId, {
-      startDate,
-      endDate,
-      scope: input.scope,
-      startMinutes,
-      endMinutes,
-    });
+    const orphaned = isEffective({ category: input.category, status: "PENDING" })
+      ? await orphanAffectedTasks(subjectId, {
+          startDate,
+          endDate,
+          scope: input.scope,
+          startMinutes,
+          endMinutes,
+          category: input.category,
+          status: "PENDING",
+        })
+      : 0;
 
     revalidatePath("/my-calendar");
     revalidatePath("/my-day");
@@ -133,7 +142,7 @@ export async function recordAbsence(
  * afternoon absence leaves the morning's work alone. Finished tasks are left
  * as they are -- they already happened.
  */
-async function orphanAffectedTasks(
+export async function orphanAffectedTasks(
   userId: string,
   absence: {
     startDate: Date;
@@ -141,6 +150,8 @@ async function orphanAffectedTasks(
     scope: "FULL_DAY" | "PARTIAL";
     startMinutes: number | null;
     endMinutes: number | null;
+    category?: "SICK" | "HOLIDAY" | "PERSONAL" | "OTHER";
+    status?: "PENDING" | "APPROVED" | "REJECTED";
   },
 ): Promise<number> {
   const tasks = await prisma.task.findMany({

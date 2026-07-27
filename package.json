@@ -15,6 +15,7 @@
     "db:migrate": "prisma migrate dev",
     "db:studio": "prisma studio",
     "seed": "tsx prisma/seed.ts",
+    "seed:demo": "tsx prisma/seed-demo.ts",
     "schedule": "tsx scripts/run-schedule.ts",
     "ingest": "tsx scripts/ingest-sheet.ts"
   },

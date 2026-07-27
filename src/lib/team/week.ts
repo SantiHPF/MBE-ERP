@@ -57,8 +57,11 @@ export async function getTeamWeek(
   anchor: Date = new Date(),
 ): Promise<TeamWeek> {
   const monday = weekStart(anchor);
-  const days = [0, 1, 2, 3, 4].map((n) => addDays(monday, n));
-  const friday = days[4];
+  // The whole week is considered, not just Mon-Fri: split shifts and Saturday
+  // work are normal here. Which columns actually get shown is decided below,
+  // from who works when.
+  const allDays = [0, 1, 2, 3, 4, 5, 6].map((n) => addDays(monday, n));
+  const lastDay = allDays[6];
 
   const department = await prisma.department.findUniqueOrThrow({
     where: { id: departmentId },
@@ -74,19 +77,19 @@ export async function getTeamWeek(
 
   const [overrides, absences, tasks, orphanCount] = await Promise.all([
     prisma.dayOverride.findMany({
-      where: { userId: { in: userIds }, date: { gte: monday, lte: friday } },
+      where: { userId: { in: userIds }, date: { gte: monday, lte: lastDay } },
     }),
     prisma.absence.findMany({
       where: {
         userId: { in: userIds },
-        startDate: { lte: friday },
+        startDate: { lte: lastDay },
         endDate: { gte: monday },
       },
     }),
     prisma.task.findMany({
       where: {
         assigneeId: { in: userIds },
-        scheduledDate: { gte: monday, lte: friday },
+        scheduledDate: { gte: monday, lte: lastDay },
         status: { notIn: ["CANCELLED"] },
       },
       orderBy: { scheduledStart: "asc" },
@@ -95,6 +98,16 @@ export async function getTeamWeek(
       where: { departmentId, status: "ORPHANED" },
     }),
   ]);
+
+  // Show Monday to Friday always, plus any weekend day somebody actually
+  // works -- so a Saturday shift is visible instead of silently dropped.
+  const workedWeekdays = new Set(
+    users.flatMap((u) => u.workingPatterns.map((p) => p.weekday)),
+  );
+  const days = allDays.filter((date, index) => {
+    const weekday = index + 1;
+    return weekday <= 5 || workedWeekdays.has(weekday);
+  });
 
   const people: WeekPerson[] = users.map((user) => {
     const mine = {

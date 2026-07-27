@@ -28,8 +28,9 @@ export function AbsenceForm() {
         Tell them you are away
       </h2>
       <p className="mt-1 mb-3.5 text-xs text-muted">
-        Takes effect straight away. Whatever you were due to do goes to your
-        manager to decide — it will not be silently handed to someone else.
+        HR sees every request. A sick day applies straight away — you are not
+        counted as at work while you are off — and HR signs it off afterwards.
+        Holiday and personal leave wait for HR before they change anything.
       </p>
 
       <form action={submit} className="flex flex-col gap-3">
@@ -154,10 +155,10 @@ export function AbsenceForm() {
         )}
         {state.ok && (
           <p className="text-xs text-run">
-            Recorded.
+            Sent to HR.
             {state.orphaned
-              ? ` ${state.orphaned} ${state.orphaned === 1 ? "task" : "tasks"} sent to your manager.`
-              : " Nothing was scheduled, so nothing needed moving."}
+              ? ` You are off from now — ${state.orphaned} ${state.orphaned === 1 ? "task has" : "tasks have"} gone to your manager.`
+              : " Nothing changes on the schedule until HR approves it."}
           </p>
         )}
 
@@ -166,7 +167,7 @@ export function AbsenceForm() {
           disabled={pending}
           className="rounded border border-accent bg-accent px-3 py-1.5 text-[13px] font-medium text-accent-ink hover:brightness-110 disabled:opacity-50"
         >
-          {pending ? "Recording…" : "Record absence"}
+          {pending ? "Sending…" : "Send to HR"}
         </button>
       </form>
     </section>

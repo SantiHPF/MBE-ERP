@@ -23,6 +23,10 @@ datasource db {
 enum Role {
   WORKER
   MANAGER
+  /// People operations: creates accounts and decides absence requests, across
+  /// every department. Sits alongside MANAGER rather than above it -- HR does
+  /// not run anyone else's schedule.
+  HR
   ADMIN
 }
 
@@ -56,6 +60,7 @@ model User {
   dayOverrides    DayOverride[]
   absences        Absence[]        @relation("AbsenceSubject")
   absencesCreated Absence[]        @relation("AbsenceAuthor")
+  absencesDecided Absence[]        @relation("AbsenceDecider")
   tasks           Task[]           @relation("TaskAssignee")
   timeEntries     TimeEntry[]
   rotation        RotationLedger[]
@@ -132,6 +137,12 @@ enum AbsenceCategory {
   OTHER
 }
 
+enum AbsenceStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
 model Absence {
   id        String          @id @default(cuid())
   userId    String
@@ -146,10 +157,20 @@ model Absence {
   note      String?
   createdAt DateTime        @default(now())
 
+  /// HR decides every absence, but sickness does not wait for the decision --
+  /// see isEffective() in src/lib/absence/effective.ts. A pending sick day
+  /// already affects the schedule; a pending holiday does not.
+  status       AbsenceStatus @default(PENDING)
+  decidedById  String?
+  decidedBy    User?         @relation("AbsenceDecider", fields: [decidedById], references: [id])
+  decidedAt    DateTime?
+  decisionNote String?
+
   createdById String
   createdBy   User   @relation("AbsenceAuthor", fields: [createdById], references: [id])
 
   @@index([userId, startDate, endDate])
+  @@index([status])
 }
 
 // ------------------------------------------------------------------ work

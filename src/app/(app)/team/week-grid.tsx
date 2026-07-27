@@ -1,10 +1,10 @@
 import type { TeamWeek, WeekDay } from "@/lib/team/week";
 import { formatClock, formatDuration } from "@/lib/time";
 
-// Every cell is drawn on the same 07:00-19:00 scale so a short day visibly
-// reads as short next to a long one.
-const SCALE_START = 7 * 60;
-const SCALE_END = 19 * 60;
+// Every cell is drawn on the same scale so a short day visibly reads as short
+// next to a long one. The range covers a split shift finishing at 20:00.
+const SCALE_START = 8 * 60;
+const SCALE_END = 20 * 60;
 const SPAN = SCALE_END - SCALE_START;
 
 const pct = (minutes: number) => ((minutes - SCALE_START) / SPAN) * 100;
@@ -17,8 +17,15 @@ const BLOCK_STYLE: Record<string, string> = {
   ORPHANED: "bg-stall-wash border-l-stall",
 };
 
+const DAY_NAMES = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+
+/** The grid follows the dates it is given, which may include a weekend. */
+function dayName(isoDate: string): string {
+  const date = new Date(`${isoDate}T00:00:00Z`);
+  return DAY_NAMES[(date.getUTCDay() + 6) % 7];
+}
+
 export function WeekGrid({ week }: { week: TeamWeek }) {
-  const dayNames = ["Mon", "Tue", "Wed", "Thu", "Fri"];
   const today = new Date().toISOString().slice(0, 10);
 
   return (
@@ -30,7 +37,7 @@ export function WeekGrid({ week }: { week: TeamWeek }) {
               <th className="w-[190px] border border-line bg-surface-2 px-3 py-2 text-left text-[11px] font-semibold tracking-[0.07em] text-faint uppercase">
                 Person
               </th>
-              {week.dates.map((date, i) => (
+              {week.dates.map((date) => (
                 <th
                   key={date}
                   className={`border border-line px-3 py-2 text-left text-[11px] font-semibold tracking-[0.07em] uppercase ${
@@ -39,7 +46,7 @@ export function WeekGrid({ week }: { week: TeamWeek }) {
                       : "bg-surface-2 text-faint"
                   }`}
                 >
-                  {dayNames[i]}
+                  {dayName(date)}
                   {date === today && " · today"}
                 </th>
               ))}

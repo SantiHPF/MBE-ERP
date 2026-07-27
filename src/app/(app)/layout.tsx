@@ -1,4 +1,5 @@
-import { requireUser, hasRole } from "@/lib/auth/guards";
+import { requireUser, hasRole, canManagePeople, canDecideAbsences } from "@/lib/auth/guards";
+import { prisma } from "@/lib/db";
 import { logout } from "@/app/login/actions";
 import { NavLink } from "./nav-link";
 
@@ -9,7 +10,12 @@ export default async function AppLayout({
 }) {
   const user = await requireUser();
   const isManager = hasRole(user, "MANAGER");
-  const isAdmin = hasRole(user, "ADMIN");
+  const isHr = canDecideAbsences(user);
+
+  // Badge the queue so HR does not have to go looking for new requests.
+  const waiting = isHr
+    ? await prisma.absence.count({ where: { status: "PENDING" } })
+    : 0;
 
   return (
     <div className="min-h-screen">
@@ -23,7 +29,17 @@ export default async function AppLayout({
             <NavLink href="/meetings">Meetings</NavLink>
             {isManager && <NavLink href="/team">Team</NavLink>}
             {isManager && <NavLink href="/triage">Triage</NavLink>}
-            {isAdmin && <NavLink href="/admin">Admin</NavLink>}
+            {isHr && (
+              <NavLink href="/hr/absences">
+                Requests
+                {waiting > 0 && (
+                  <span className="num ml-1.5 rounded-full bg-pause px-1.5 py-px text-[10px] font-semibold text-white">
+                    {waiting}
+                  </span>
+                )}
+              </NavLink>
+            )}
+            {canManagePeople(user) && <NavLink href="/hr/people">People</NavLink>}
           </nav>
 
           <div className="flex items-center gap-3 text-sm">
