@@ -3,7 +3,12 @@
 import { useActionState } from "react";
 import type { DayTask } from "@/lib/tasks/day";
 import { formatClock, formatDuration } from "@/lib/time";
-import { completeTask, startTask, type ActionState } from "@/lib/tasks/actions";
+import {
+  completeTask,
+  startTask,
+  type ActionState,
+  type BlockingTask,
+} from "@/lib/tasks/actions";
 import { startMeetingForTask } from "@/lib/meetings/live";
 
 const initial: ActionState = {};
@@ -32,9 +37,11 @@ const STATE_EDGE: Record<string, string> = {
 export function TaskButton({
   task,
   onPause,
+  onBlocked,
 }: {
   task: DayTask;
   onPause: () => void;
+  onBlocked: (blocked: BlockingTask) => void;
 }) {
   return (
     <div
@@ -85,7 +92,7 @@ export function TaskButton({
       </div>
 
       <div className="shrink-0">
-        <Controls task={task} onPause={onPause} compact />
+        <Controls task={task} onPause={onPause} onBlocked={onBlocked} compact />
       </div>
     </div>
   );
@@ -124,13 +131,23 @@ function StateLabel({ task }: { task: DayTask }) {
 function Controls({
   task,
   onPause,
+  onBlocked,
   compact = false,
 }: {
   task: DayTask;
   onPause: () => void;
+  onBlocked?: (blocked: BlockingTask) => void;
   compact?: boolean;
 }) {
-  const [startState, start, starting] = useActionState(startTask, initial);
+  const [startState, start, starting] = useActionState(
+    async (prev: ActionState, formData: FormData) => {
+      const result = await startTask(prev, formData);
+      // The day runs in order; hand the blocker up so the page can ask why.
+      if (result.blockedBy) onBlocked?.(result.blockedBy);
+      return result;
+    },
+    initial,
+  );
   const [doneState, complete, completing] = useActionState(
     completeTask,
     initial,
@@ -142,7 +159,7 @@ function Controls({
     ? "px-2.5 py-1 text-[12px]"
     : "flex-1 px-3 py-1.5 text-[13px]";
 
-  const error = startState.error ?? doneState.error;
+  const error = startState.blockedBy ? undefined : (startState.error ?? doneState.error);
 
   return (
     <div className={compact ? "flex shrink-0 gap-1.5" : "flex gap-1.5"}>

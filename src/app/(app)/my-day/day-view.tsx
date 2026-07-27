@@ -2,8 +2,10 @@
 
 import { useEffect, useState } from "react";
 import type { DayTask, DayView } from "@/lib/tasks/day";
+import type { BlockingTask } from "@/lib/tasks/actions";
 import { formatClock, formatDuration } from "@/lib/time";
 import { PauseDialog } from "./pause-dialog";
+import { DeferDialog } from "./defer-dialog";
 import { MeetingPanel, StartMeetingButton } from "./meeting-panel";
 import { TaskButton } from "./task-button";
 
@@ -76,6 +78,7 @@ function buildDayRows(view: DayView, dayStart: number, dayEnd: number): DayRow[]
 export function DayViewClient({ view }: { view: DayView }) {
   const active = view.tasks.find((t) => t.id === view.activeTaskId);
   const [pausing, setPausing] = useState<string | null>(null);
+  const [blocked, setBlocked] = useState<BlockingTask | null>(null);
 
   // The stopwatch ticks locally; the server holds the truth. On any action the
   // page revalidates and the count re-syncs, so drift never accumulates.
@@ -147,7 +150,11 @@ export function DayViewClient({ view }: { view: DayView }) {
             {rows.map((row) =>
               row.kind === "task" ? (
                 <li key={row.task.id}>
-                  <TaskButton task={row.task} onPause={() => setPausing(row.task.id)} />
+                  <TaskButton
+                    task={row.task}
+                    onPause={() => setPausing(row.task.id)}
+                    onBlocked={setBlocked}
+                  />
                 </li>
               ) : (
                 <li
@@ -276,6 +283,15 @@ export function DayViewClient({ view }: { view: DayView }) {
           </section>
         </aside>
       </div>
+
+      {blocked && (
+        <DeferDialog
+          blocked={blocked}
+          today={view.date}
+          onClose={() => setBlocked(null)}
+          onDeferred={() => setBlocked(null)}
+        />
+      )}
 
       {pausing && (
         <PauseDialog

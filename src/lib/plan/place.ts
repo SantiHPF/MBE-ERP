@@ -17,6 +17,8 @@ export async function placeOnDay(
   taskId: string,
   userId: string,
   date: Date,
+  /** Earliest acceptable start, for work pushed later in the same day. */
+  notBefore = 0,
 ): Promise<{ placed: boolean }> {
   const day = toDateOnly(date);
 
@@ -62,7 +64,7 @@ export async function placeOnDay(
     free = next;
   }
 
-  const slot = findSlot(free, task.estimatedMinutes);
+  const slot = findSlot(free, task.estimatedMinutes, notBefore);
 
   await prisma.task.update({
     where: { id: taskId },

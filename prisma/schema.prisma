@@ -66,6 +66,7 @@ model User {
   rotation        RotationLedger[]
   sessions        Session[]
   triageActions   TriageAction[]
+  deferrals       TaskDeferral[]
   meetingsCreated Meeting[]        @relation("MeetingAuthor")
   meetingsAttended Meeting[]       @relation("MeetingAttendees")
   pinnedItems     ActionItem[]     @relation("ActionItemPin")
@@ -297,6 +298,7 @@ model Task {
 
   timeEntries   TimeEntry[]
   triageActions TriageAction[]
+  deferrals     TaskDeferral[]
   actionItem    ActionItem?
   /// Set when this task is itself a meeting being minuted.
   hostedMeeting Meeting?       @relation("MeetingSourceTask")
@@ -368,6 +370,23 @@ enum TriageResolution {
   REASSIGNED
   PUSHED
   CANCELLED
+}
+
+/// Why somebody could not do a task when they were meant to, and when they
+/// said they would instead. Written when the day's order is overridden.
+model TaskDeferral {
+  id        String   @id @default(cuid())
+  taskId    String
+  task      Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  reason    String
+  fromDate  DateTime @db.Date
+  toDate    DateTime @db.Date
+  createdAt DateTime @default(now())
+
+  @@index([taskId])
+  @@index([userId, createdAt])
 }
 
 /// Why a task moved. Written whenever a manager resolves an orphan.
