@@ -306,7 +306,7 @@ function NewTaskForm({
           defaultValue={30}
           min={1}
           max={720}
-          step={5}
+          step={1}
           required
           className="num w-24 rounded border border-line-strong bg-surface px-2 py-1.5 text-[13px]"
         />

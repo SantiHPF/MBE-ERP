@@ -200,7 +200,7 @@ export function MeetingPanel({
                 defaultValue={30}
                 min={1}
                 max={720}
-                step={5}
+                step={1}
                 title="Minutes"
                 className="num rounded border border-line-strong bg-surface px-2 py-1.5 text-[12.5px]"
               />

@@ -94,8 +94,9 @@ const NewItem = z.object({
   estimatedMinutes: z.coerce
     .number()
     .int()
-    .min(5, "At least 5 minutes")
-    .max(8 * 60, "Longer than a working day — split it up"),
+    // The catalogue has tasks as short as 2 minutes, so no artificial floor.
+    .min(1, "How long will it take?")
+    .max(12 * 60, "Longer than a working day — split it up"),
   dueDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Pick a due date"),
   pinnedAssigneeId: z.string().optional(),
 });

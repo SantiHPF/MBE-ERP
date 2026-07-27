@@ -137,9 +137,9 @@ export function LiveMeeting({
                   type="number"
                   name="estimatedMinutes"
                   defaultValue={60}
-                  min={5}
-                  max={480}
-                  step={5}
+                  min={1}
+                  max={720}
+                  step={1}
                   className="num w-full rounded border border-line-strong bg-surface-2 px-2 py-1.5 text-[13px]"
                 />
               </label>
