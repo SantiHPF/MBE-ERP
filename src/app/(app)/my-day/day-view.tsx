@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import type { DayView } from "@/lib/tasks/day";
 import { formatClock, formatDuration } from "@/lib/time";
 import { PauseDialog } from "./pause-dialog";
+import { MeetingPanel, StartMeetingButton } from "./meeting-panel";
 import { TaskButton } from "./task-button";
 
 const PX_PER_MIN = 1.05;
@@ -72,6 +73,14 @@ export function DayViewClient({ view }: { view: DayView }) {
 
   return (
     <>
+      {view.liveMeeting && (
+        <MeetingPanel
+          meeting={view.liveMeeting}
+          colleagues={view.colleagues}
+          today={view.date}
+        />
+      )}
+
       <div className="grid items-start gap-5 lg:grid-cols-[minmax(0,1fr)_316px]">
         {/* ------------------------------------------------------ the rota */}
         <section className="rounded border border-line bg-surface shadow-sm">
@@ -200,6 +209,12 @@ export function DayViewClient({ view }: { view: DayView }) {
             <section className="rounded border border-line bg-surface p-4 text-center text-sm text-muted shadow-sm">
               Nothing running. Start a task from the list.
             </section>
+          )}
+
+          {!view.liveMeeting && (
+            <div className="flex justify-center">
+              <StartMeetingButton />
+            </div>
           )}
 
           <section className="rounded border border-line bg-surface shadow-sm">

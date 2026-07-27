@@ -4,6 +4,7 @@ import { useActionState } from "react";
 import type { DayTask } from "@/lib/tasks/day";
 import { formatClock, formatDuration } from "@/lib/time";
 import { completeTask, startTask, type ActionState } from "@/lib/tasks/actions";
+import { startMeetingForTask } from "@/lib/meetings/live";
 
 const initial: ActionState = {};
 
@@ -140,14 +141,29 @@ function Controls({
           Pause
         </button>
       ) : (
-        <form action={start}>
+        <form
+          action={async (formData: FormData) => {
+            await start(formData);
+            // A meeting task opens its notes as part of starting, so nobody
+            // has to remember to go and write it up somewhere else.
+            if (task.isMeeting && !task.meetingId) {
+              const open = new FormData();
+              open.set("taskId", task.id);
+              await startMeetingForTask({}, open);
+            }
+          }}
+        >
           <input type="hidden" name="taskId" value={task.id} />
           <button
             type="submit"
             disabled={starting}
             className={`rounded border border-line-strong bg-surface font-medium hover:bg-surface-2 disabled:opacity-50 ${size}`}
           >
-            {task.status === "PAUSED" ? "Resume" : "Start"}
+            {task.status === "PAUSED"
+              ? "Resume"
+              : task.isMeeting
+                ? "Start + notes"
+                : "Start"}
           </button>
         </form>
       )}

@@ -188,6 +188,9 @@ model TaskTemplate {
   notes            String?
   /// Where to look for how to do it: "Ver Calendar", "Ver ModeloPreguntas".
   instructions     String?
+  /// True for tasks that are actually meetings -- starting one opens the
+  /// notes pane instead of just running a timer.
+  isMeeting        Boolean  @default(false)
   active           Boolean  @default(true)
   createdAt        DateTime @default(now())
 
@@ -295,6 +298,8 @@ model Task {
   timeEntries   TimeEntry[]
   triageActions TriageAction[]
   actionItem    ActionItem?
+  /// Set when this task is itself a meeting being minuted.
+  hostedMeeting Meeting?       @relation("MeetingSourceTask")
 
   @@index([departmentId, dueDate])
   @@index([assigneeId, scheduledDate])
@@ -403,7 +408,13 @@ model Meeting {
 
   attendees   User[]       @relation("MeetingAttendees")
   actionItems ActionItem[]
+  /// Work this meeting created.
   tasks       Task[]
+
+  /// The task being worked on *as* this meeting, when it was started from
+  /// My Day. Distinct from `tasks`, which is what the meeting produced.
+  sourceTaskId String? @unique
+  sourceTask   Task?   @relation("MeetingSourceTask", fields: [sourceTaskId], references: [id])
 
   @@index([date])
 }

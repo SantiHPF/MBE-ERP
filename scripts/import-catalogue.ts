@@ -26,6 +26,7 @@ type Entry = {
   estimatedMinutes: number;
   notes: string | null;
   instructions: string | null;
+  isMeeting?: boolean;
 };
 
 async function main() {
@@ -65,6 +66,7 @@ async function main() {
           estimatedMinutes: entry.estimatedMinutes,
           notes: entry.notes,
           instructions: entry.instructions,
+          isMeeting: entry.isMeeting ?? false,
           active: true,
         },
       });
@@ -77,6 +79,7 @@ async function main() {
           estimatedMinutes: entry.estimatedMinutes,
           notes: entry.notes,
           instructions: entry.instructions,
+          isMeeting: entry.isMeeting ?? false,
         },
       });
       created += 1;
