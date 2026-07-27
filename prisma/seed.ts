@@ -14,43 +14,44 @@ const prisma = new PrismaClient({
  * The scheduling tests lean on that, and so does anyone eyeballing the
  * calendar to check it looks right.
  */
-type PatternSpec = Record<number, [string, string, number]>;
+/** [start, end, breakMinutes, breakStart] -- breakStart positions the gap. */
+type PatternSpec = Record<number, [string, string, number, string?]>;
 
 const FULL_WEEK: PatternSpec = {
-  1: ["09:00", "18:00", 60],
-  2: ["09:00", "18:00", 60],
-  3: ["09:00", "18:00", 60],
-  4: ["09:00", "18:00", 60],
+  1: ["09:00", "18:00", 60, "13:00"],
+  2: ["09:00", "18:00", 60, "13:00"],
+  3: ["09:00", "18:00", 60, "13:00"],
+  4: ["09:00", "18:00", 60, "13:00"],
   5: ["09:00", "14:00", 0],
 };
 
 const LATE_MONDAY: PatternSpec = {
-  1: ["11:00", "18:00", 30],
-  2: ["09:00", "17:00", 60],
-  3: ["09:00", "17:00", 60],
-  4: ["09:00", "17:00", 60],
-  5: ["09:00", "17:00", 60],
+  1: ["11:00", "18:00", 30, "14:00"],
+  2: ["09:00", "17:00", 60, "13:00"],
+  3: ["09:00", "17:00", 60, "13:00"],
+  4: ["09:00", "17:00", 60, "13:00"],
+  5: ["09:00", "17:00", 60, "13:00"],
 };
 
 const THREE_DAYS: PatternSpec = {
-  1: ["09:00", "15:00", 30],
-  3: ["09:00", "15:00", 30],
-  5: ["09:00", "15:00", 30],
+  1: ["09:00", "15:00", 30, "12:00"],
+  3: ["09:00", "15:00", 30, "12:00"],
+  5: ["09:00", "15:00", 30, "12:00"],
 };
 
 const EARLY_SHIFT: PatternSpec = {
-  1: ["08:00", "16:00", 45],
-  2: ["08:00", "16:00", 45],
-  3: ["08:00", "16:00", 45],
-  4: ["08:00", "16:00", 45],
-  5: ["08:00", "16:00", 45],
+  1: ["08:00", "16:00", 45, "12:30"],
+  2: ["08:00", "16:00", 45, "12:30"],
+  3: ["08:00", "16:00", 45, "12:30"],
+  4: ["08:00", "16:00", 45, "12:30"],
+  5: ["08:00", "16:00", 45, "12:30"],
 };
 
 const NO_MONDAYS: PatternSpec = {
-  2: ["09:00", "18:00", 60],
-  3: ["09:00", "18:00", 60],
-  4: ["09:00", "18:00", 60],
-  5: ["09:00", "18:00", 60],
+  2: ["09:00", "18:00", 60, "13:00"],
+  3: ["09:00", "18:00", 60, "13:00"],
+  4: ["09:00", "18:00", 60, "13:00"],
+  5: ["09:00", "18:00", 60, "13:00"],
 };
 
 async function createUser(opts: {
@@ -72,13 +73,16 @@ async function createUser(opts: {
   });
 
   await prisma.workingPattern.createMany({
-    data: Object.entries(opts.pattern).map(([weekday, [start, end, brk]]) => ({
-      userId: user.id,
-      weekday: Number(weekday),
-      startMinutes: parseClock(start),
-      endMinutes: parseClock(end),
-      breakMinutes: brk,
-    })),
+    data: Object.entries(opts.pattern).map(
+      ([weekday, [start, end, brk, brkStart]]) => ({
+        userId: user.id,
+        weekday: Number(weekday),
+        startMinutes: parseClock(start),
+        endMinutes: parseClock(end),
+        breakMinutes: brk,
+        breakStartMinutes: brkStart ? parseClock(brkStart) : null,
+      }),
+    ),
   });
 
   return user;

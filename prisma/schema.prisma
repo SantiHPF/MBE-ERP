@@ -94,6 +94,10 @@ model WorkingPattern {
   startMinutes Int
   endMinutes   Int
   breakMinutes Int    @default(0)
+  /// When the break sits at a known time, tasks are scheduled around it and
+  /// the day splits in two. When null, the break still costs capacity but
+  /// work can be placed anywhere.
+  breakStartMinutes Int?
 
   @@unique([userId, weekday])
 }
@@ -108,6 +112,7 @@ model DayOverride {
   startMinutes Int
   endMinutes   Int
   breakMinutes Int      @default(0)
+  breakStartMinutes Int?
   note         String?
 
   @@unique([userId, date])
