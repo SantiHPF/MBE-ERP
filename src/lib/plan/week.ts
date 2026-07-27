@@ -50,6 +50,8 @@ export type PlanDayHeader = {
   rostered: boolean;
   capacityMinutes: number;
   claimedMinutes: number;
+  /** What is still going spare -- the number people actually plan against. */
+  freeMinutes: number;
   overBy: number;
 };
 
@@ -159,6 +161,7 @@ export async function getPlanWeek(
       rostered,
       capacityMinutes: availability.availableMinutes,
       claimedMinutes: claimed,
+      freeMinutes: Math.max(0, availability.availableMinutes - claimed),
       overBy: Math.max(0, claimed - availability.availableMinutes),
     };
   });

@@ -40,16 +40,29 @@ export default async function PlanPage({
               </span>
             )}
           </h1>
-          <p className="num mt-0.5 text-[13px] text-muted">
-            {formatDuration(week.totalClaimed)} taken of{" "}
-            {formatDuration(week.totalCapacity)}
+          <p className="num mt-0.5 text-[13px]">
             {spare >= 0 ? (
-              <span> · {formatDuration(spare)} still free</span>
+              <>
+                <span className="font-semibold">
+                  {formatDuration(spare)} unassigned
+                </span>
+                <span className="text-muted">
+                  {" "}
+                  · {formatDuration(week.totalClaimed)} taken of{" "}
+                  {formatDuration(week.totalCapacity)}
+                </span>
+              </>
             ) : (
-              <span className="text-stall">
-                {" "}
-                · {formatDuration(-spare)} over
-              </span>
+              <>
+                <span className="font-semibold text-stall">
+                  {formatDuration(-spare)} over capacity
+                </span>
+                <span className="text-muted">
+                  {" "}
+                  · {formatDuration(week.totalClaimed)} taken of{" "}
+                  {formatDuration(week.totalCapacity)}
+                </span>
+              </>
             )}
           </p>
         </div>

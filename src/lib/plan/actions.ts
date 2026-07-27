@@ -5,6 +5,7 @@ import { z } from "zod";
 import { prisma } from "@/lib/db";
 import { requireUserOrThrow } from "@/lib/auth/guards";
 import { toDateOnly } from "@/lib/time";
+import { placeOnDay } from "./place";
 
 /**
  * Planning is one gesture: tick a task on a day to take it, untick to let it
@@ -104,6 +105,7 @@ export async function toggleTaskDay(
         };
       }
 
+      await placeOnDay(parsed.data.taskId, user.id, date);
       revalidate();
       return { ok: true };
     }
@@ -136,6 +138,7 @@ export async function toggleTaskDay(
           data: { assigneeId: user.id, status: "ASSIGNED" },
         });
         if (count === 0) return { error: "Somebody just took that one." };
+        await placeOnDay(existing.id, user.id, date);
         revalidate();
         return { ok: true };
       }
@@ -144,7 +147,7 @@ export async function toggleTaskDay(
       };
     }
 
-    await prisma.task.create({
+    const created = await prisma.task.create({
       data: {
         title: template.name,
         estimatedMinutes: template.estimatedMinutes,
@@ -157,12 +160,62 @@ export async function toggleTaskDay(
       },
     });
 
+    await placeOnDay(created.id, user.id, date);
     revalidate();
     return { ok: true };
   } catch (error) {
     return {
       error: error instanceof Error ? error.message : "Could not save that",
     };
+  }
+}
+
+const NewTask = z.object({
+  title: z.string().trim().min(1, "What needs doing?"),
+  estimatedMinutes: z.coerce
+    .number()
+    .int()
+    .min(1, "How long will it take?")
+    .max(12 * 60, "Longer than a working day — split it up"),
+  date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Pick a day"),
+});
+
+/**
+ * Work that is not in the catalogue: a one-off that came up. It belongs to
+ * whoever added it straight away -- you would not invent a task for somebody
+ * else to discover.
+ */
+export async function createAdHocTask(
+  _prev: PlanState,
+  formData: FormData,
+): Promise<PlanState> {
+  try {
+    const user = await requireUserOrThrow();
+    const parsed = NewTask.safeParse({
+      title: formData.get("title"),
+      estimatedMinutes: formData.get("estimatedMinutes"),
+      date: formData.get("date"),
+    });
+    if (!parsed.success) return { error: parsed.error.issues[0].message };
+
+    const day = toDateOnly(new Date(`${parsed.data.date}T00:00:00Z`));
+    const task = await prisma.task.create({
+      data: {
+        title: parsed.data.title,
+        estimatedMinutes: parsed.data.estimatedMinutes,
+        dueDate: day,
+        departmentId: user.departmentId,
+        origin: "MANUAL",
+        status: "ASSIGNED",
+        assigneeId: user.id,
+      },
+    });
+
+    await placeOnDay(task.id, user.id, day);
+    revalidate();
+    return { ok: true, message: `Added ${parsed.data.title}.` };
+  } catch (error) {
+    return { error: error instanceof Error ? error.message : "Could not add it" };
   }
 }
 

@@ -1,9 +1,14 @@
 "use client";
 
-import { useMemo, useState, useTransition } from "react";
+import { useActionState, useMemo, useState, useTransition } from "react";
 import type { PlanCell, PlanRow, PlanWeek } from "@/lib/plan/week";
 import { formatDuration } from "@/lib/time";
-import { toggleTaskDay, toggleTaskRow, type PlanState } from "@/lib/plan/actions";
+import {
+  createAdHocTask,
+  toggleTaskDay,
+  toggleTaskRow,
+  type PlanState,
+} from "@/lib/plan/actions";
 
 type Filter = "all" | "mine" | "recurring" | "unclaimed";
 
@@ -11,6 +16,7 @@ export function PlanBoard({ week }: { week: PlanWeek }) {
   const [notice, setNotice] = useState<PlanState>({});
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState<Filter>("all");
+  const [adding, setAdding] = useState(false);
   const [pending, startTransition] = useTransition();
 
   const rows = useMemo(() => {
@@ -93,8 +99,26 @@ export function PlanBoard({ week }: { week: PlanWeek }) {
           ))}
         </div>
         <span className="num text-[12px] text-muted">{rows.length} tasks</span>
+        <span className="flex-1" />
+        <button
+          type="button"
+          onClick={() => setAdding((v) => !v)}
+          className="rounded border border-accent bg-accent px-2.5 py-1 text-[12px] font-medium text-accent-ink hover:brightness-110"
+        >
+          {adding ? "Close" : "+ New task"}
+        </button>
         {pending && <span className="text-[12px] text-muted">saving…</span>}
       </div>
+
+      {adding && (
+        <NewTaskForm
+          days={week.days}
+          onDone={(s) => {
+            setNotice(s);
+            if (s.ok) setAdding(false);
+          }}
+        />
+      )}
 
       {(notice.error ?? notice.message) && (
         <p
@@ -137,15 +161,21 @@ export function PlanBoard({ week }: { week: PlanWeek }) {
                     {day.date.slice(8)}/{day.date.slice(5, 7)}
                   </span>
                   {day.rostered ? (
+                    // What is still going spare, not what is used -- that is
+                    // the number you plan against.
                     <span
                       className={`num block text-[10px] ${
                         day.overBy > 0
                           ? "font-semibold text-stall"
-                          : "text-muted"
+                          : day.freeMinutes === 0
+                            ? "font-semibold text-pause"
+                            : "text-muted"
                       }`}
+                      title={`${formatDuration(day.claimedMinutes)} taken of ${formatDuration(day.capacityMinutes)}`}
                     >
-                      {formatDuration(day.claimedMinutes)}/
-                      {formatDuration(day.capacityMinutes)}
+                      {day.overBy > 0
+                        ? `${formatDuration(day.overBy)} over`
+                        : `${formatDuration(day.freeMinutes)} free`}
                     </span>
                   ) : (
                     <span className="block text-[10px] text-faint">off</span>
@@ -169,11 +199,6 @@ export function PlanBoard({ week }: { week: PlanWeek }) {
                       className="ml-1.5 cursor-help text-[10px] font-bold text-pause"
                     >
                       !
-                    </span>
-                  )}
-                  {row.recurring && (
-                    <span className="ml-1.5 text-[9.5px] tracking-wider text-faint uppercase">
-                      recurring
                     </span>
                   )}
                 </td>
@@ -231,6 +256,94 @@ export function PlanBoard({ week }: { week: PlanWeek }) {
         <span>started or done — can&rsquo;t change</span>
       </div>
     </>
+  );
+}
+
+function NewTaskForm({
+  days,
+  onDone,
+}: {
+  days: PlanWeek["days"];
+  onDone: (s: PlanState) => void;
+}) {
+  const [state, submit, pending] = useActionState(
+    async (p: PlanState, f: FormData) => {
+      const r = await createAdHocTask(p, f);
+      onDone(r);
+      return r;
+    },
+    {} as PlanState,
+  );
+
+  const workable = days.filter((d) => d.rostered);
+  const first = workable[0] ?? days[0];
+
+  return (
+    <form
+      action={submit}
+      className="mb-3 flex flex-wrap items-end gap-2 rounded border border-accent bg-accent-wash p-3"
+    >
+      <label className="flex-1 text-[11px] min-w-52">
+        <span className="mb-1 block font-semibold tracking-[0.07em] text-faint uppercase">
+          What needs doing
+        </span>
+        <input
+          name="title"
+          required
+          autoFocus
+          placeholder="Something not in the catalogue"
+          className="w-full rounded border border-line-strong bg-surface px-2.5 py-1.5 text-[13px]"
+        />
+      </label>
+
+      <label className="text-[11px]">
+        <span className="mb-1 block font-semibold tracking-[0.07em] text-faint uppercase">
+          Minutes
+        </span>
+        <input
+          type="number"
+          name="estimatedMinutes"
+          defaultValue={30}
+          min={1}
+          max={720}
+          step={5}
+          required
+          className="num w-24 rounded border border-line-strong bg-surface px-2 py-1.5 text-[13px]"
+        />
+      </label>
+
+      <label className="text-[11px]">
+        <span className="mb-1 block font-semibold tracking-[0.07em] text-faint uppercase">
+          Day
+        </span>
+        <select
+          name="date"
+          defaultValue={first?.date}
+          className="rounded border border-line-strong bg-surface px-2 py-1.5 text-[13px]"
+        >
+          {workable.map((d) => (
+            <option key={d.date} value={d.date}>
+              {d.label} {d.date.slice(8)}/{d.date.slice(5, 7)} ·{" "}
+              {formatDuration(d.freeMinutes)} free
+            </option>
+          ))}
+        </select>
+      </label>
+
+      <button
+        type="submit"
+        disabled={pending}
+        className="rounded border border-accent bg-accent px-3 py-1.5 text-[13px] font-medium text-accent-ink hover:brightness-110 disabled:opacity-50"
+      >
+        {pending ? "Adding…" : "Add to my week"}
+      </button>
+
+      {state.error && (
+        <p role="alert" className="w-full text-[12px] text-stall">
+          {state.error}
+        </p>
+      )}
+    </form>
   );
 }
 
