@@ -17,7 +17,8 @@
     "seed": "tsx prisma/seed.ts",
     "seed:demo": "tsx prisma/seed-demo.ts",
     "schedule": "tsx scripts/run-schedule.ts",
-    "ingest": "tsx scripts/ingest-sheet.ts"
+    "ingest": "tsx scripts/ingest-sheet.ts",
+    "import:catalogue": "tsx scripts/import-catalogue.ts"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"

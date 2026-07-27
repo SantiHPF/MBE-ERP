@@ -54,6 +54,14 @@ export function TaskButton({
         <span className="shrink-0 rounded border border-line bg-surface px-1.5 py-px text-[9.5px] font-semibold tracking-wider text-faint uppercase">
           {task.origin}
         </span>
+        {task.notes && (
+          <span
+            title={task.notes}
+            className="shrink-0 cursor-help rounded border border-pause px-1.5 py-px text-[9.5px] font-semibold tracking-wider text-pause uppercase"
+          >
+            note
+          </span>
+        )}
         <StateLabel task={task} />
         <span className="flex-1" />
         <Controls task={task} onPause={onPause} compact />

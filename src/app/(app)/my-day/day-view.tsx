@@ -178,6 +178,19 @@ export function DayViewClient({ view }: { view: DayView }) {
                 </p>
               )}
 
+              {/* Catalogue warnings belong in front of you while you work,
+                  not in a spreadsheet nobody reopens. */}
+              {active.notes && (
+                <p className="mb-3 rounded border border-line bg-surface-2 px-3 py-2 text-xs leading-relaxed">
+                  {active.notes}
+                </p>
+              )}
+              {active.instructions && (
+                <p className="mb-3 text-[11px] text-muted">
+                  How to: {active.instructions}
+                </p>
+              )}
+
               <TaskButton.Controls
                 task={active}
                 onPause={() => setPausing(active.id)}

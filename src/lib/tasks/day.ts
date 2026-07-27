@@ -15,6 +15,9 @@ export type DayTask = {
   /** Set while the task is paused, so the reason is visible in the list. */
   pauseReason: string | null;
   pauseText: string | null;
+  /** Warnings from the catalogue -- shown before the work, not buried. */
+  notes: string | null;
+  instructions: string | null;
 };
 
 export type DayView = {
@@ -58,6 +61,7 @@ export async function getDayView(
           include: { pauses: true },
           orderBy: { startedAt: "asc" },
         },
+        template: { select: { notes: true, instructions: true } },
       },
       orderBy: [{ scheduledStart: "asc" }, { title: "asc" }],
     }),
@@ -88,6 +92,8 @@ export async function getDayView(
       elapsedSeconds: elapsedSeconds(task.timeEntries, now),
       pauseReason: openPause?.reasonCode ?? null,
       pauseText: openPause?.reasonText ?? null,
+      notes: task.template?.notes ?? null,
+      instructions: task.template?.instructions ?? null,
     };
   });
 

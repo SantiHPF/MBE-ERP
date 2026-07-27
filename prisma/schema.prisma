@@ -182,6 +182,12 @@ model TaskTemplate {
   name             String
   category         String?
   estimatedMinutes Int
+  /// Warnings and gotchas from the catalogue -- "max 1 integrante por dia",
+  /// "apuntalo en el calendario para que no se solape". Shown on the task,
+  /// because a rule nobody sees at the moment of doing the work is not a rule.
+  notes            String?
+  /// Where to look for how to do it: "Ver Calendar", "Ver ModeloPreguntas".
+  instructions     String?
   active           Boolean  @default(true)
   createdAt        DateTime @default(now())
 

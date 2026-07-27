@@ -1,0 +1,1074 @@
+[
+  {
+    "department": "HR (Human Resources)",
+    "sheetCode": "RRHH",
+    "name": "Ofertas (1 Portal)",
+    "estimatedMinutes": 30,
+    "notes": "OJO, cuando te asignes esta tarea tienes que apuntar en NOTAS , en el calendar del departamento y en el tuyo particular, que canales y ofertas estás actualizando.",
+    "instructions": "Ver Calendar"
+  },
+  {
+    "department": "HR (Human Resources)",
+    "sheetCode": "RRHH",
+    "name": "Tabla Vacaciones",
+    "estimatedMinutes": 60,
+    "notes": null,
+    "instructions": "Ver Calendar"
+  },
+  {
+    "department": "HR (Human Resources)",
+    "sheetCode": "RRHH",
+    "name": "Vacaciones",
+    "estimatedMinutes": 5,
+    "notes": null,
+    "instructions": "Ver Calendar"
+  },
+  {
+    "department": "HR (Human Resources)",
+    "sheetCode": "RRHH",
+    "name": "Whatsapp",
+    "estimatedMinutes": 30,
+    "notes": "OJO, max 1integrante por dia, apuntalo en el calendario para que no se solape",
+    "instructions": "Lee los mensajes antes de enviarlos, apunta bien el histórico, mira antes las respuestas"
+  },
+  {
+    "department": "HR (Human Resources)",
+    "sheetCode": "RRHH",
+    "name": "Reunión Semanal y Prep",
+    "estimatedMinutes": 30,
+    "notes": "OJO, antes de Sentarte con su superior asegurate de que las tareas de la semana pasada están hechas, sino lo están pon un (+1). Anticipate a las desilusiones de tu jefe, evitalas.",
+    "instructions": null
+  },
+  {
+    "department": "HR (Human Resources)",
+    "sheetCode": "RRHH",
+    "name": "Comprobar asistencia",
+    "estimatedMinutes": 5,
+    "notes": "OJO, max 1integrante por dia, de acuerdo a las instrucciones",
+    "instructions": "Ver Calendar"
+  },
+  {
+    "department": "HR (Human Resources)",
+    "sheetCode": "RRHH",
+    "name": "Entrevista tutores",
+    "estimatedMinutes": 7,
+    "notes": null,
+    "instructions": "Ver ModeloPreguntas"
+  },
+  {
+    "department": "HR (Human Resources)",
+    "sheetCode": "RRHH",
+    "name": "Entrevista ref",
+    "estimatedMinutes": 10,
+    "notes": null,
+    "instructions": "Ver ModeloPreguntas"
+  },
+  {
+    "department": "HR (Human Resources)",
+    "sheetCode": "RRHH",
+    "name": "Preparar dosier salida",
+    "estimatedMinutes": 15,
+    "notes": null,
+    "instructions": "Ver ModeloPreguntas"
+  },
+  {
+    "department": "HR (Human Resources)",
+    "sheetCode": "RRHH",
+    "name": "Reunión solución P1N",
+    "estimatedMinutes": 30,
+    "notes": null,
+    "instructions": null
+  },
+  {
+    "department": "HR (Human Resources)",
+    "sheetCode": "RRHH",
+    "name": "Proceso",
+    "estimatedMinutes": 90,
+    "notes": null,
+    "instructions": "Ver ModeloPreguntas"
+  },
+  {
+    "department": "HR (Human Resources)",
+    "sheetCode": "RRHH",
+    "name": "Entrevista",
+    "estimatedMinutes": 10,
+    "notes": null,
+    "instructions": null
+  },
+  {
+    "department": "HR (Human Resources)",
+    "sheetCode": "RRHH",
+    "name": "Onboarding",
+    "estimatedMinutes": 60,
+    "notes": null,
+    "instructions": "Ver Guia onboarding"
+  },
+  {
+    "department": "HR (Human Resources)",
+    "sheetCode": "RRHH",
+    "name": "Upgrade descripción",
+    "estimatedMinutes": 15,
+    "notes": null,
+    "instructions": "Ver Calendar"
+  },
+  {
+    "department": "HR (Human Resources)",
+    "sheetCode": "RRHH",
+    "name": "Upgrade procedimiento",
+    "estimatedMinutes": 60,
+    "notes": null,
+    "instructions": "Ver Calendar"
+  },
+  {
+    "department": "HR (Human Resources)",
+    "sheetCode": "RRHH",
+    "name": "Preparacion proceso",
+    "estimatedMinutes": 30,
+    "notes": null,
+    "instructions": "Ver Calendar"
+  },
+  {
+    "department": "HR (Human Resources)",
+    "sheetCode": "RRHH",
+    "name": "Revisión Minq",
+    "estimatedMinutes": 5,
+    "notes": null,
+    "instructions": null
+  },
+  {
+    "department": "HR (Human Resources)",
+    "sheetCode": "RRHH",
+    "name": "Examen sorpresa",
+    "estimatedMinutes": 10,
+    "notes": null,
+    "instructions": "Ver Calendar"
+  },
+  {
+    "department": "HR (Human Resources)",
+    "sheetCode": "RRHH",
+    "name": "Cambio fecha",
+    "estimatedMinutes": 5,
+    "notes": null,
+    "instructions": "Ver Calendar"
+  },
+  {
+    "department": "HR (Human Resources)",
+    "sheetCode": "RRHH",
+    "name": "CRM",
+    "estimatedMinutes": 30,
+    "notes": null,
+    "instructions": null
+  },
+  {
+    "department": "HR (Human Resources)",
+    "sheetCode": "RRHH",
+    "name": "Llamadas candidatos",
+    "estimatedMinutes": 7,
+    "notes": null,
+    "instructions": "Seguir guion de Appsheet"
+  },
+  {
+    "department": "HR (Human Resources)",
+    "sheetCode": "RRHH",
+    "name": "Email",
+    "estimatedMinutes": 30,
+    "notes": null,
+    "instructions": null
+  },
+  {
+    "department": "HR (Human Resources)",
+    "sheetCode": "RRHH",
+    "name": "Sucesos",
+    "estimatedMinutes": 5,
+    "notes": null,
+    "instructions": "Ver Calendar"
+  },
+  {
+    "department": "HR (Human Resources)",
+    "sheetCode": "RRHH",
+    "name": "Teambuilding",
+    "estimatedMinutes": 30,
+    "notes": "OJO que tengas apuntada la tarea de teambuilding no significa que lo tengas que haer tu, sino que te encargas de hacerlo",
+    "instructions": "Ver Calendar"
+  },
+  {
+    "department": "HR (Human Resources)",
+    "sheetCode": "RRHH",
+    "name": "Revisión Portales",
+    "estimatedMinutes": 120,
+    "notes": "OJO esto se hace una, dos veces máximo al dia todo el equipo.",
+    "instructions": null
+  },
+  {
+    "department": "HR (Human Resources)",
+    "sheetCode": "RRHH",
+    "name": "Appsheet Mejoras",
+    "estimatedMinutes": 30,
+    "notes": null,
+    "instructions": null
+  },
+  {
+    "department": "HR (Human Resources)",
+    "sheetCode": "RRHH",
+    "name": "Reunion Calendar",
+    "estimatedMinutes": 60,
+    "notes": null,
+    "instructions": null
+  },
+  {
+    "department": "HR (Human Resources)",
+    "sheetCode": "RRHH",
+    "name": "Convenios",
+    "estimatedMinutes": 30,
+    "notes": null,
+    "instructions": null
+  },
+  {
+    "department": "HR (Human Resources)",
+    "sheetCode": "RRHH",
+    "name": "Anexos (Cada Uno)",
+    "estimatedMinutes": 5,
+    "notes": null,
+    "instructions": null
+  },
+  {
+    "department": "HR (Human Resources)",
+    "sheetCode": "RRHH",
+    "name": "Debriefing Proceso",
+    "estimatedMinutes": 30,
+    "notes": null,
+    "instructions": null
+  },
+  {
+    "department": "HR (Human Resources)",
+    "sheetCode": "RRHH",
+    "name": "Subir Tablas a Dossier Online",
+    "estimatedMinutes": 30,
+    "notes": null,
+    "instructions": null
+  },
+  {
+    "department": "HR (Human Resources)",
+    "sheetCode": "RRHH",
+    "name": "Supervisar PRODUCTIVIDAD pinetree hacia abajo",
+    "estimatedMinutes": 10,
+    "notes": null,
+    "instructions": null
+  },
+  {
+    "department": "MYD (Marketing y Diseño)",
+    "sheetCode": "MYD",
+    "name": "Mail",
+    "estimatedMinutes": 30,
+    "notes": null,
+    "instructions": null
+  },
+  {
+    "department": "MYD (Marketing y Diseño)",
+    "sheetCode": "MYD",
+    "name": "Whatsapp",
+    "estimatedMinutes": 30,
+    "notes": null,
+    "instructions": null
+  },
+  {
+    "department": "MYD (Marketing y Diseño)",
+    "sheetCode": "MYD",
+    "name": "Entrevista",
+    "estimatedMinutes": 60,
+    "notes": null,
+    "instructions": null
+  },
+  {
+    "department": "MYD (Marketing y Diseño)",
+    "sheetCode": "MYD",
+    "name": "Prep. Entrevista",
+    "estimatedMinutes": 20,
+    "notes": null,
+    "instructions": null
+  },
+  {
+    "department": "MYD (Marketing y Diseño)",
+    "sheetCode": "MYD",
+    "name": "Edicion Clip",
+    "estimatedMinutes": 180,
+    "notes": null,
+    "instructions": null
+  },
+  {
+    "department": "MYD (Marketing y Diseño)",
+    "sheetCode": "MYD",
+    "name": "Edición Post",
+    "estimatedMinutes": 60,
+    "notes": null,
+    "instructions": null
+  },
+  {
+    "department": "MYD (Marketing y Diseño)",
+    "sheetCode": "MYD",
+    "name": "Llamadas",
+    "estimatedMinutes": 15,
+    "notes": null,
+    "instructions": null
+  },
+  {
+    "department": "MYD (Marketing y Diseño)",
+    "sheetCode": "MYD",
+    "name": "Contacto Leads",
+    "estimatedMinutes": 30,
+    "notes": null,
+    "instructions": null
+  },
+  {
+    "department": "MYD (Marketing y Diseño)",
+    "sheetCode": "MYD",
+    "name": "Reunión Semanal y Prep",
+    "estimatedMinutes": 30,
+    "notes": null,
+    "instructions": null
+  },
+  {
+    "department": "MYD (Marketing y Diseño)",
+    "sheetCode": "MYD",
+    "name": "Reunión Ponentes",
+    "estimatedMinutes": 30,
+    "notes": null,
+    "instructions": null
+  },
+  {
+    "department": "MYD (Marketing y Diseño)",
+    "sheetCode": "MYD",
+    "name": "Busqueda Ponentes",
+    "estimatedMinutes": 60,
+    "notes": null,
+    "instructions": null
+  },
+  {
+    "department": "MYD (Marketing y Diseño)",
+    "sheetCode": "MYD",
+    "name": "Upgrade Procedimientos",
+    "estimatedMinutes": 60,
+    "notes": null,
+    "instructions": null
+  },
+  {
+    "department": "MYD (Marketing y Diseño)",
+    "sheetCode": "MYD",
+    "name": "Hacer CV y preguntas",
+    "estimatedMinutes": 45,
+    "notes": null,
+    "instructions": null
+  },
+  {
+    "department": "MYD (Marketing y Diseño)",
+    "sheetCode": "MYD",
+    "name": "Actualizar Appsheet",
+    "estimatedMinutes": 20,
+    "notes": null,
+    "instructions": null
+  },
+  {
+    "department": "ATIC (Informatica)",
+    "sheetCode": "ATIC",
+    "name": "Reporte Semanal",
+    "estimatedMinutes": 20,
+    "notes": null,
+    "instructions": null
+  },
+  {
+    "department": "ATIC (Informatica)",
+    "sheetCode": "ATIC",
+    "name": "Reunion Semanal",
+    "estimatedMinutes": 30,
+    "notes": null,
+    "instructions": null
+  },
+  {
+    "department": "ATIC (Informatica)",
+    "sheetCode": "ATIC",
+    "name": "Onboarding",
+    "estimatedMinutes": 180,
+    "notes": null,
+    "instructions": null
+  },
+  {
+    "department": "ATIC (Informatica)",
+    "sheetCode": "ATIC",
+    "name": "Revisión Minq RRHH/PILD",
+    "estimatedMinutes": 10,
+    "notes": null,
+    "instructions": null
+  },
+  {
+    "department": "ATIC (Informatica)",
+    "sheetCode": "ATIC",
+    "name": "Revisión Minq MCH",
+    "estimatedMinutes": 10,
+    "notes": null,
+    "instructions": null
+  },
+  {
+    "department": "ATIC (Informatica)",
+    "sheetCode": "ATIC",
+    "name": "Incidencias",
+    "estimatedMinutes": 60,
+    "notes": null,
+    "instructions": null
+  },
+  {
+    "department": "ATIC (Informatica)",
+    "sheetCode": "ATIC",
+    "name": "Desarrollo Nuevo Proyecto",
+    "estimatedMinutes": 60,
+    "notes": null,
+    "instructions": null
+  },
+  {
+    "department": "ATIC (Informatica)",
+    "sheetCode": "ATIC",
+    "name": "Revisión Proyectos Servidor",
+    "estimatedMinutes": 30,
+    "notes": null,
+    "instructions": null
+  },
+  {
+    "department": "ATIC (Informatica)",
+    "sheetCode": "ATIC",
+    "name": "Calendar",
+    "estimatedMinutes": 15,
+    "notes": null,
+    "instructions": null
+  },
+  {
+    "department": "ATIC (Informatica)",
+    "sheetCode": "ATIC",
+    "name": "Mail",
+    "estimatedMinutes": 5,
+    "notes": null,
+    "instructions": null
+  },
+  {
+    "department": "ATIC (Informatica)",
+    "sheetCode": "ATIC",
+    "name": "Tabla Productividad",
+    "estimatedMinutes": 15,
+    "notes": null,
+    "instructions": null
+  },
+  {
+    "department": "ATIC (Informatica)",
+    "sheetCode": "ATIC",
+    "name": "Mantenimiento BBDD",
+    "estimatedMinutes": 10,
+    "notes": null,
+    "instructions": null
+  },
+  {
+    "department": "ATIC (Informatica)",
+    "sheetCode": "ATIC",
+    "name": "Sucesos",
+    "estimatedMinutes": 5,
+    "notes": null,
+    "instructions": null
+  },
+  {
+    "department": "ATIC (Informatica)",
+    "sheetCode": "ATIC",
+    "name": "ERP",
+    "estimatedMinutes": 5,
+    "notes": null,
+    "instructions": null
+  },
+  {
+    "department": "ATIC (Informatica)",
+    "sheetCode": "ATIC",
+    "name": "Diario de abordo",
+    "estimatedMinutes": 10,
+    "notes": null,
+    "instructions": null
+  },
+  {
+    "department": "ATIC (Informatica)",
+    "sheetCode": "ATIC",
+    "name": "Incidencias Minq MCH",
+    "estimatedMinutes": 30,
+    "notes": null,
+    "instructions": null
+  },
+  {
+    "department": "ATIC (Informatica)",
+    "sheetCode": "ATIC",
+    "name": "Incidencias Minq MBE",
+    "estimatedMinutes": 30,
+    "notes": null,
+    "instructions": null
+  },
+  {
+    "department": "ATIC (Informatica)",
+    "sheetCode": "ATIC",
+    "name": "Incidencias ERP MCH",
+    "estimatedMinutes": 60,
+    "notes": null,
+    "instructions": null
+  },
+  {
+    "department": "ATIC (Informatica)",
+    "sheetCode": "ATIC",
+    "name": "Desarrollo ERP MBE",
+    "estimatedMinutes": 60,
+    "notes": null,
+    "instructions": null
+  },
+  {
+    "department": "ATIC (Informatica)",
+    "sheetCode": "ATIC",
+    "name": "Desarrollo ERP MCH",
+    "estimatedMinutes": 60,
+    "notes": null,
+    "instructions": null
+  },
+  {
+    "department": "ATIC (Informatica)",
+    "sheetCode": "ATIC",
+    "name": "Desarrollo Minq MCH",
+    "estimatedMinutes": 60,
+    "notes": null,
+    "instructions": null
+  },
+  {
+    "department": "ATIC (Informatica)",
+    "sheetCode": "ATIC",
+    "name": "Desarrollo Minq MBE",
+    "estimatedMinutes": 60,
+    "notes": null,
+    "instructions": null
+  },
+  {
+    "department": "ATIC (Informatica)",
+    "sheetCode": "ATIC",
+    "name": "Actualización de WPP",
+    "estimatedMinutes": 20,
+    "notes": null,
+    "instructions": null
+  },
+  {
+    "department": "ATIC (Informatica)",
+    "sheetCode": "ATIC",
+    "name": "Actualización Token Ewelink",
+    "estimatedMinutes": 30,
+    "notes": null,
+    "instructions": null
+  },
+  {
+    "department": "ATIC (Informatica)",
+    "sheetCode": "ATIC",
+    "name": "Enviar Facturas a ADE",
+    "estimatedMinutes": 60,
+    "notes": null,
+    "instructions": null
+  },
+  {
+    "department": "ATIC (Informatica)",
+    "sheetCode": "ATIC",
+    "name": "Actualización Claves y Contactos",
+    "estimatedMinutes": 30,
+    "notes": null,
+    "instructions": null
+  },
+  {
+    "department": "ATIC (Informatica)",
+    "sheetCode": "ATIC",
+    "name": "Proceso",
+    "estimatedMinutes": 90,
+    "notes": null,
+    "instructions": null
+  },
+  {
+    "department": "ATIC (Informatica)",
+    "sheetCode": "ATIC",
+    "name": "Defriefing Proceso",
+    "estimatedMinutes": 30,
+    "notes": null,
+    "instructions": null
+  },
+  {
+    "department": "ATIC (Informatica)",
+    "sheetCode": "ATIC",
+    "name": "Resumen Semanal y prep",
+    "estimatedMinutes": 30,
+    "notes": null,
+    "instructions": null
+  },
+  {
+    "department": "ATIC (Informatica)",
+    "sheetCode": "ATIC",
+    "name": "Teambuilding",
+    "estimatedMinutes": 10,
+    "notes": null,
+    "instructions": null
+  },
+  {
+    "department": "ATIC (Informatica)",
+    "sheetCode": "ATIC",
+    "name": "Mantener limpio y ordenado el drive",
+    "estimatedMinutes": 5,
+    "notes": null,
+    "instructions": null
+  },
+  {
+    "department": "ATIC (Informatica)",
+    "sheetCode": "ATIC",
+    "name": "Actualización de Whatsapp",
+    "estimatedMinutes": 60,
+    "notes": null,
+    "instructions": null
+  },
+  {
+    "department": "ATIC (Informatica)",
+    "sheetCode": "ATIC",
+    "name": "Código ERP Mantenimiento",
+    "estimatedMinutes": 60,
+    "notes": null,
+    "instructions": null
+  },
+  {
+    "department": "ATIC (Informatica)",
+    "sheetCode": "ATIC",
+    "name": "Código BBDD Mantenimiento",
+    "estimatedMinutes": 60,
+    "notes": null,
+    "instructions": null
+  },
+  {
+    "department": "ATIC (Informatica)",
+    "sheetCode": "ATIC",
+    "name": "Actualizar Claves&Contactos Atic",
+    "estimatedMinutes": 60,
+    "notes": null,
+    "instructions": null
+  },
+  {
+    "department": "ATIC (Informatica)",
+    "sheetCode": "ATIC",
+    "name": "Realizacion y guardado de datos de productividad semanal",
+    "estimatedMinutes": 60,
+    "notes": null,
+    "instructions": null
+  },
+  {
+    "department": "ADE (Admin & Legal)",
+    "sheetCode": "ADE",
+    "name": "Tareas del día: cuentas,chat y correos,reclamaciones del chat Limpieza",
+    "estimatedMinutes": 60,
+    "notes": null,
+    "instructions": null
+  },
+  {
+    "department": "ADE (Admin & Legal)",
+    "sheetCode": "ADE",
+    "name": "Hacer chechk in Oficina",
+    "estimatedMinutes": 10,
+    "notes": null,
+    "instructions": null
+  },
+  {
+    "department": "ADE (Admin & Legal)",
+    "sheetCode": "ADE",
+    "name": "Revision casos y reclamaciones",
+    "estimatedMinutes": 60,
+    "notes": null,
+    "instructions": null
+  },
+  {
+    "department": "ADE (Admin & Legal)",
+    "sheetCode": "ADE",
+    "name": "Reunión cierre casos con CEO",
+    "estimatedMinutes": 60,
+    "notes": null,
+    "instructions": null
+  },
+  {
+    "department": "ADE (Admin & Legal)",
+    "sheetCode": "ADE",
+    "name": "Responder a la reclamación bancaria/Otra",
+    "estimatedMinutes": 60,
+    "notes": null,
+    "instructions": null
+  },
+  {
+    "department": "ADE (Admin & Legal)",
+    "sheetCode": "ADE",
+    "name": "Tareas de gobernanta(organizar limpiezas,tareas de mantenimiento,pedidos lavandería)",
+    "estimatedMinutes": 60,
+    "notes": null,
+    "instructions": null
+  },
+  {
+    "department": "ADE (Admin & Legal)",
+    "sheetCode": "ADE",
+    "name": "Realizar pagos facturas",
+    "estimatedMinutes": 60,
+    "notes": null,
+    "instructions": null
+  },
+  {
+    "department": "ADE (Admin & Legal)",
+    "sheetCode": "ADE",
+    "name": "Movimientos a cuenta",
+    "estimatedMinutes": 120,
+    "notes": null,
+    "instructions": null
+  },
+  {
+    "department": "ADE (Admin & Legal)",
+    "sheetCode": "ADE",
+    "name": "Realizar Pagos a propietarios cierre mes",
+    "estimatedMinutes": 60,
+    "notes": null,
+    "instructions": null
+  },
+  {
+    "department": "ADE (Admin & Legal)",
+    "sheetCode": "ADE",
+    "name": "Revisar contratos y licencias",
+    "estimatedMinutes": 60,
+    "notes": null,
+    "instructions": null
+  },
+  {
+    "department": "ADE (Admin & Legal)",
+    "sheetCode": "ADE",
+    "name": "Emitir facturas:propietarios",
+    "estimatedMinutes": 30,
+    "notes": null,
+    "instructions": null
+  },
+  {
+    "department": "ADE (Admin & Legal)",
+    "sheetCode": "ADE",
+    "name": "Emitir facturas: clientes varios",
+    "estimatedMinutes": 60,
+    "notes": null,
+    "instructions": null
+  },
+  {
+    "department": "ADE (Admin & Legal)",
+    "sheetCode": "ADE",
+    "name": "Airbnb contrastar cobros con comisiones de avantio",
+    "estimatedMinutes": 120,
+    "notes": null,
+    "instructions": null
+  },
+  {
+    "department": "ADE (Admin & Legal)",
+    "sheetCode": "ADE",
+    "name": "Respuesta correos",
+    "estimatedMinutes": 30,
+    "notes": null,
+    "instructions": null
+  },
+  {
+    "department": "ADE (Admin & Legal)",
+    "sheetCode": "ADE",
+    "name": "Revisar facturas y cobros BOOKING,contrastar cobros con comisiones de Avantio",
+    "estimatedMinutes": 60,
+    "notes": null,
+    "instructions": null
+  },
+  {
+    "department": "ADE (Admin & Legal)",
+    "sheetCode": "ADE",
+    "name": "Horas mantenimiento diaria",
+    "estimatedMinutes": 15,
+    "notes": null,
+    "instructions": null
+  },
+  {
+    "department": "ADE (Admin & Legal)",
+    "sheetCode": "ADE",
+    "name": "Horas limpieza diaria",
+    "estimatedMinutes": 15,
+    "notes": null,
+    "instructions": null
+  },
+  {
+    "department": "ADE (Admin & Legal)",
+    "sheetCode": "ADE",
+    "name": "P&G",
+    "estimatedMinutes": 120,
+    "notes": null,
+    "instructions": null
+  },
+  {
+    "department": "ADE (Admin & Legal)",
+    "sheetCode": "ADE",
+    "name": "Sucesos pisos",
+    "estimatedMinutes": 60,
+    "notes": null,
+    "instructions": null
+  },
+  {
+    "department": "ADE (Admin & Legal)",
+    "sheetCode": "ADE",
+    "name": "Emitir facturas inquilinos",
+    "estimatedMinutes": 30,
+    "notes": null,
+    "instructions": null
+  },
+  {
+    "department": "ADE (Admin & Legal)",
+    "sheetCode": "ADE",
+    "name": "Abrir nuevo caso",
+    "estimatedMinutes": 60,
+    "notes": null,
+    "instructions": null
+  },
+  {
+    "department": "ADE (Admin & Legal)",
+    "sheetCode": "ADE",
+    "name": "Despachos de abogados subir las tablas de rentabilidad o otras tablas de EXCEL",
+    "estimatedMinutes": 60,
+    "notes": null,
+    "instructions": null
+  },
+  {
+    "department": "ADE (Admin & Legal)",
+    "sheetCode": "ADE",
+    "name": "Tabla gastos pisos cierre del mes",
+    "estimatedMinutes": 60,
+    "notes": null,
+    "instructions": null
+  },
+  {
+    "department": "ADE (Admin & Legal)",
+    "sheetCode": "ADE",
+    "name": "Modificar las tablas recibos a propietarios tarifas",
+    "estimatedMinutes": 30,
+    "notes": null,
+    "instructions": null
+  },
+  {
+    "department": "ADE (Admin & Legal)",
+    "sheetCode": "ADE",
+    "name": "Facturas recibidas(imprimir,apuntar en nuestras tablas y tabla de Manu,archivar carpeta fisica)",
+    "estimatedMinutes": 30,
+    "notes": null,
+    "instructions": null
+  },
+  {
+    "department": "ADE (Admin & Legal)",
+    "sheetCode": "ADE",
+    "name": "Reuniones con los abogados",
+    "estimatedMinutes": 60,
+    "notes": null,
+    "instructions": null
+  },
+  {
+    "department": "ADE (Admin & Legal)",
+    "sheetCode": "ADE",
+    "name": "Calendario",
+    "estimatedMinutes": 30,
+    "notes": null,
+    "instructions": null
+  },
+  {
+    "department": "ADE (Admin & Legal)",
+    "sheetCode": "ADE",
+    "name": "Enviar Burofax",
+    "estimatedMinutes": 30,
+    "notes": null,
+    "instructions": null
+  },
+  {
+    "department": "ADE (Admin & Legal)",
+    "sheetCode": "ADE",
+    "name": "Nóminas y subir el fichero",
+    "estimatedMinutes": 30,
+    "notes": null,
+    "instructions": null
+  },
+  {
+    "department": "ADE (Admin & Legal)",
+    "sheetCode": "ADE",
+    "name": "Cobros LE renta y servicios,revisar transferencias,crear remesas",
+    "estimatedMinutes": 60,
+    "notes": null,
+    "instructions": null
+  },
+  {
+    "department": "ADE (Admin & Legal)",
+    "sheetCode": "ADE",
+    "name": "Subir todos los datos bancarias de ingresos mensuales LE por piso",
+    "estimatedMinutes": 10,
+    "notes": null,
+    "instructions": null
+  },
+  {
+    "department": "ADE (Admin & Legal)",
+    "sheetCode": "ADE",
+    "name": "Pagos Zurbano71,subir tabla rec a prop.",
+    "estimatedMinutes": 10,
+    "notes": null,
+    "instructions": null
+  },
+  {
+    "department": "ADE (Admin & Legal)",
+    "sheetCode": "ADE",
+    "name": "Modificar la tabla de ingresos",
+    "estimatedMinutes": 10,
+    "notes": null,
+    "instructions": null
+  },
+  {
+    "department": "ADE (Admin & Legal)",
+    "sheetCode": "ADE",
+    "name": "Emitir recibos personal campo,mantenimiento y etc,realizar pagos de los recibos/un recibo y pago-",
+    "estimatedMinutes": 15,
+    "notes": null,
+    "instructions": null
+  },
+  {
+    "department": "ADE (Admin & Legal)",
+    "sheetCode": "ADE",
+    "name": "Apuntar las tareas en la tabla de productividad",
+    "estimatedMinutes": 15,
+    "notes": null,
+    "instructions": null
+  },
+  {
+    "department": "ADE (Admin & Legal)",
+    "sheetCode": "ADE",
+    "name": "Responder a las llamadas que llegan a mi teléfono",
+    "estimatedMinutes": 2,
+    "notes": null,
+    "instructions": null
+  },
+  {
+    "department": "ADE (Admin & Legal)",
+    "sheetCode": "ADE",
+    "name": "Ir al banco (consulta con nuestro sucursal CaixaBank)",
+    "estimatedMinutes": 60,
+    "notes": null,
+    "instructions": null
+  },
+  {
+    "department": "ADE (Admin & Legal)",
+    "sheetCode": "ADE",
+    "name": "Cobros reservas Booking(Avantio rojo)",
+    "estimatedMinutes": 60,
+    "notes": null,
+    "instructions": null
+  },
+  {
+    "department": "ADE (Admin & Legal)",
+    "sheetCode": "ADE",
+    "name": "Preparar una transferencia",
+    "estimatedMinutes": 15,
+    "notes": null,
+    "instructions": null
+  },
+  {
+    "department": "ADE (Admin & Legal)",
+    "sheetCode": "ADE",
+    "name": "Preparar una remesa",
+    "estimatedMinutes": 20,
+    "notes": null,
+    "instructions": null
+  },
+  {
+    "department": "ADE (Admin & Legal)",
+    "sheetCode": "ADE",
+    "name": "Ir al Juzgado como testigo",
+    "estimatedMinutes": 60,
+    "notes": null,
+    "instructions": null
+  },
+  {
+    "department": "ADE (Admin & Legal)",
+    "sheetCode": "ADE",
+    "name": "TRELLO",
+    "estimatedMinutes": 30,
+    "notes": null,
+    "instructions": null
+  },
+  {
+    "department": "ADE (Admin & Legal)",
+    "sheetCode": "ADE",
+    "name": "Cierres Largas Estancias",
+    "estimatedMinutes": 60,
+    "notes": null,
+    "instructions": null
+  },
+  {
+    "department": "MYD (Marketing y Diseño)",
+    "sheetCode": "MYD",
+    "name": "Entrevista Ponente",
+    "estimatedMinutes": 60,
+    "notes": null,
+    "instructions": null
+  },
+  {
+    "department": "HR (Human Resources)",
+    "sheetCode": "RRHH",
+    "name": "Revisión Pinetree",
+    "estimatedMinutes": 15,
+    "notes": null,
+    "instructions": null
+  },
+  {
+    "department": "ATIC (Informatica)",
+    "sheetCode": "ATIC",
+    "name": "EmailATIC",
+    "estimatedMinutes": 10,
+    "notes": null,
+    "instructions": null
+  },
+  {
+    "department": "HR (Human Resources)",
+    "sheetCode": "RRHH",
+    "name": "Nueva Semana Productividad",
+    "estimatedMinutes": 30,
+    "notes": null,
+    "instructions": null
+  },
+  {
+    "department": "HR (Human Resources)",
+    "sheetCode": "RRHH",
+    "name": "Nuevo Mes Vacaciones",
+    "estimatedMinutes": 60,
+    "notes": null,
+    "instructions": null
+  },
+  {
+    "department": "HR (Human Resources)",
+    "sheetCode": "RRHH",
+    "name": "Enviar Nominas",
+    "estimatedMinutes": 15,
+    "notes": null,
+    "instructions": null
+  },
+  {
+    "department": "HR (Human Resources)",
+    "sheetCode": "RRHH",
+    "name": "Meter Candidatos Latam",
+    "estimatedMinutes": 90,
+    "notes": null,
+    "instructions": null
+  },
+  {
+    "department": "HR (Human Resources)",
+    "sheetCode": "RRHH",
+    "name": "Nueva Oferta LATAM",
+    "estimatedMinutes": 15,
+    "notes": null,
+    "instructions": null
+  },
+  {
+    "department": "HR (Human Resources)",
+    "sheetCode": "RRHH",
+    "name": "Entrevista LATAM",
+    "estimatedMinutes": 30,
+    "notes": null,
+    "instructions": null
+  }
+]
