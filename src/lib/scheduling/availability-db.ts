@@ -1,4 +1,3 @@
-import "server-only";
 import { prisma } from "@/lib/db";
 import { toDateOnly } from "@/lib/time";
 import { computeAvailability, type Availability } from "./availability";

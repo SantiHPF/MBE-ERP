@@ -3,6 +3,7 @@ import { PrismaClient } from "@prisma/client";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { hashPassword } from "../src/lib/auth/password";
 import { parseClock } from "../src/lib/time";
+import { refreshRotationLedger } from "../src/lib/scheduling/run";
 
 const prisma = new PrismaClient({
   adapter: new PrismaPg({ connectionString: process.env.DATABASE_URL }),
@@ -277,41 +278,81 @@ async function main() {
     ],
   });
 
-  // Seed some rotation history so fairness has something to work with on the
-  // very first scheduling run rather than falling straight to the tie-break.
-  await prisma.rotationLedger.createMany({
-    data: [
-      {
-        templateId: byName["Warehouse stock count"].id,
-        userId: luis.id,
-        completedCount: 4,
-        lastAssignedAt: new Date(),
+  // ------------------------------------------------------ prior history
+  //
+  // Rotation history is derived from finished tasks, not stored as a bare
+  // counter, so "Luis has done the stock count four times" has to be four
+  // actual tasks. Seeding real rows keeps the ledger consistent with the
+  // thing it summarises.
+
+  const history: {
+    template: string;
+    userId: string;
+    daysAgo: number;
+    actualMinutes: number;
+  }[] = [
+    // Luis has been carrying the stock count.
+    { template: "Warehouse stock count", userId: luis.id, daysAgo: 3, actualMinutes: 95 },
+    { template: "Warehouse stock count", userId: luis.id, daysAgo: 7, actualMinutes: 88 },
+    { template: "Warehouse stock count", userId: luis.id, daysAgo: 10, actualMinutes: 102 },
+    { template: "Warehouse stock count", userId: luis.id, daysAgo: 14, actualMinutes: 90 },
+    { template: "Warehouse stock count", userId: ana.id, daysAgo: 17, actualMinutes: 110 },
+    // Pau has never had it -- the engine should give him a turn first.
+
+    // Same story in Client Services: Diego has been absorbing the inbox.
+    { template: "Support inbox sweep", userId: diego.id, daysAgo: 2, actualMinutes: 50 },
+    { template: "Support inbox sweep", userId: diego.id, daysAgo: 3, actualMinutes: 44 },
+    { template: "Support inbox sweep", userId: diego.id, daysAgo: 4, actualMinutes: 61 },
+    { template: "Support inbox sweep", userId: diego.id, daysAgo: 8, actualMinutes: 39 },
+    { template: "Support inbox sweep", userId: diego.id, daysAgo: 9, actualMinutes: 47 },
+    { template: "Support inbox sweep", userId: diego.id, daysAgo: 11, actualMinutes: 45 },
+    { template: "Support inbox sweep", userId: elena.id, daysAgo: 15, actualMinutes: 52 },
+    { template: "Support inbox sweep", userId: elena.id, daysAgo: 16, actualMinutes: 41 },
+  ];
+
+  const today = new Date();
+  today.setUTCHours(0, 0, 0, 0);
+
+  for (const [index, row] of history.entries()) {
+    const template = byName[row.template];
+    const date = new Date(today);
+    date.setUTCDate(date.getUTCDate() - row.daysAgo);
+
+    const task = await prisma.task.create({
+      data: {
+        externalKey: `seed-history:${index}`,
+        title: template.name,
+        estimatedMinutes: template.estimatedMinutes,
+        dueDate: date,
+        scheduledDate: date,
+        scheduledStart: parseClock("09:00"),
+        scheduledEnd: parseClock("09:00") + template.estimatedMinutes,
+        departmentId: template.departmentId,
+        templateId: template.id,
+        assigneeId: row.userId,
+        origin: "RECURRING",
+        status: "DONE",
       },
-      {
-        templateId: byName["Warehouse stock count"].id,
-        userId: ana.id,
-        completedCount: 1,
+    });
+
+    // A finished task has a time entry -- that is where actual-vs-estimate
+    // comes from later.
+    const startedAt = new Date(date);
+    startedAt.setUTCHours(9, 0, 0, 0);
+    await prisma.timeEntry.create({
+      data: {
+        taskId: task.id,
+        userId: row.userId,
+        startedAt,
+        endedAt: new Date(startedAt.getTime() + row.actualMinutes * 60_000),
       },
-      {
-        templateId: byName["Warehouse stock count"].id,
-        userId: pau.id,
-        completedCount: 0,
-      },
-      {
-        templateId: byName["Support inbox sweep"].id,
-        userId: diego.id,
-        completedCount: 6,
-        lastAssignedAt: new Date(),
-      },
-      {
-        templateId: byName["Support inbox sweep"].id,
-        userId: elena.id,
-        completedCount: 2,
-      },
-    ],
-  });
+    });
+  }
+
+  await refreshRotationLedger();
 
   console.log("Seeded:");
+  console.log(`  ${history.length} finished tasks as rotation history`);
   console.log(`  2 departments, 8 users (password: "password")`);
   console.log(`  ${templates.length} catalogue templates, 7 recurring rules`);
   console.log(`  admin login: santi / password`);

@@ -299,6 +299,12 @@ model RotationLedger {
   template       TaskTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
   userId         String
   user           User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  /// Times this person has been *given* the job. This is what rotation ranks
+  /// on -- fairness is about who gets handed the work, and a task assigned
+  /// but not yet finished still counts as their turn.
+  assignedCount  Int       @default(0)
+  /// Times they actually finished it. Kept for reporting (and for spotting a
+  /// job that keeps getting handed over half-done), not for ranking.
   completedCount Int       @default(0)
   lastAssignedAt DateTime?
 
