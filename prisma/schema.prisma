@@ -1,0 +1,398 @@
+// task-erp data model.
+//
+// Three ideas drive the shape of this schema:
+//
+//   1. Availability is computed, never stored. A person's capacity on a date
+//      comes from WorkingPattern -> DayOverride -> Absence, resolved by
+//      getAvailability(). Nothing caches the result.
+//   2. Fairness is remembered. RotationLedger is what stops the same person
+//      always getting the same recurring job.
+//   3. Nothing disappears silently. Tasks orphaned by an absence keep their
+//      history, and every triage decision is recorded.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ---------------------------------------------------------------- people
+
+enum Role {
+  WORKER
+  MANAGER
+  ADMIN
+}
+
+model Department {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  createdAt DateTime @default(now())
+
+  users          User[]
+  taskTemplates  TaskTemplate[]
+  recurringRules RecurringRule[]
+  tasks          Task[]
+  meetings       Meeting[]
+  sheetSources   SheetSource[]
+  actionItems    ActionItem[]
+}
+
+model User {
+  id           String   @id @default(cuid())
+  username     String   @unique
+  passwordHash String
+  displayName  String
+  role         Role     @default(WORKER)
+  active       Boolean  @default(true)
+  createdAt    DateTime @default(now())
+
+  departmentId String
+  department   Department @relation(fields: [departmentId], references: [id])
+
+  workingPatterns WorkingPattern[]
+  dayOverrides    DayOverride[]
+  absences        Absence[]        @relation("AbsenceSubject")
+  absencesCreated Absence[]        @relation("AbsenceAuthor")
+  tasks           Task[]           @relation("TaskAssignee")
+  timeEntries     TimeEntry[]
+  rotation        RotationLedger[]
+  sessions        Session[]
+  triageActions   TriageAction[]
+  meetingsCreated Meeting[]        @relation("MeetingAuthor")
+  meetingsAttended Meeting[]       @relation("MeetingAttendees")
+  pinnedItems     ActionItem[]     @relation("ActionItemPin")
+
+  @@index([departmentId])
+}
+
+model Session {
+  id        String   @id @default(cuid())
+  token     String   @unique
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+}
+
+// ------------------------------------------------------------ time model
+
+/// One row per weekday per person. Different hours on different days is just
+/// different rows -- Monday 09:00-18:00 and Friday 09:00-14:00 coexist here.
+/// Times are minutes from midnight in SCHEDULE_TIMEZONE, which keeps the
+/// arithmetic free of DST edge cases.
+model WorkingPattern {
+  id           String @id @default(cuid())
+  userId       String
+  user         User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  /// 1 = Monday ... 7 = Sunday (ISO weekday)
+  weekday      Int
+  startMinutes Int
+  endMinutes   Int
+  breakMinutes Int    @default(0)
+
+  @@unique([userId, weekday])
+}
+
+/// A specific date where this person's hours differ from their weekday
+/// pattern. Beats the pattern entirely for that date.
+model DayOverride {
+  id           String   @id @default(cuid())
+  userId       String
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  date         DateTime @db.Date
+  startMinutes Int
+  endMinutes   Int
+  breakMinutes Int      @default(0)
+  note         String?
+
+  @@unique([userId, date])
+}
+
+enum AbsenceScope {
+  FULL_DAY
+  PARTIAL
+}
+
+/// Coarse category only. Deliberately not a free-text medical field --
+/// see the GDPR note in the README.
+enum AbsenceCategory {
+  SICK
+  HOLIDAY
+  PERSONAL
+  OTHER
+}
+
+model Absence {
+  id        String          @id @default(cuid())
+  userId    String
+  user      User            @relation("AbsenceSubject", fields: [userId], references: [id], onDelete: Cascade)
+  startDate DateTime        @db.Date
+  endDate   DateTime        @db.Date
+  scope     AbsenceScope    @default(FULL_DAY)
+  /// Only meaningful when scope = PARTIAL. Minutes from midnight.
+  startMinutes Int?
+  endMinutes   Int?
+  category  AbsenceCategory
+  note      String?
+  createdAt DateTime        @default(now())
+
+  createdById String
+  createdBy   User   @relation("AbsenceAuthor", fields: [createdById], references: [id])
+
+  @@index([userId, startDate, endDate])
+}
+
+// ------------------------------------------------------------------ work
+
+/// The task catalogue. Durations already exist here, so instances inherit
+/// rather than guess.
+model TaskTemplate {
+  id               String   @id @default(cuid())
+  name             String
+  category         String?
+  estimatedMinutes Int
+  active           Boolean  @default(true)
+  createdAt        DateTime @default(now())
+
+  departmentId String
+  department   Department @relation(fields: [departmentId], references: [id])
+
+  recurringRules RecurringRule[]
+  tasks          Task[]
+  rotation       RotationLedger[]
+
+  @@unique([departmentId, name])
+}
+
+/// "This catalogue task happens every Monday and Thursday."
+model RecurringRule {
+  id                    String  @id @default(cuid())
+  templateId            String
+  template              TaskTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
+  departmentId          String
+  department            Department   @relation(fields: [departmentId], references: [id])
+  /// ISO weekdays this fires on, e.g. [1, 4] for Monday and Thursday.
+  weekdays              Int[]
+  instancesPerOccurrence Int    @default(1)
+  /// Optional fixed slot. When set, the task must land in this window and is
+  /// placed before flexible work.
+  fixedStartMinutes     Int?
+  fixedEndMinutes       Int?
+  active                Boolean @default(true)
+
+  @@index([departmentId])
+}
+
+enum TaskOrigin {
+  RECURRING
+  CATALOGUE
+  SHEET
+  MEETING
+  MANUAL
+}
+
+enum TaskStatus {
+  UNASSIGNED
+  ASSIGNED
+  IN_PROGRESS
+  PAUSED
+  ORPHANED
+  DONE
+  CANCELLED
+}
+
+model Task {
+  id               String     @id @default(cuid())
+  title            String
+  description      String?
+  estimatedMinutes Int
+  dueDate          DateTime   @db.Date
+  origin           TaskOrigin
+  status           TaskStatus @default(UNASSIGNED)
+  createdAt        DateTime   @default(now())
+
+  departmentId String
+  department   Department @relation(fields: [departmentId], references: [id])
+
+  templateId String?
+  template   TaskTemplate? @relation(fields: [templateId], references: [id])
+
+  meetingId String?
+  meeting   Meeting? @relation(fields: [meetingId], references: [id])
+
+  assigneeId String?
+  assignee   User?   @relation("TaskAssignee", fields: [assigneeId], references: [id])
+
+  /// Stable identity for generated work, so re-running the materializer or
+  /// re-polling the sheet updates instead of duplicating.
+  externalKey String? @unique
+
+  scheduledDate  DateTime? @db.Date
+  scheduledStart Int?
+  scheduledEnd   Int?
+
+  orphanedAt   DateTime?
+  orphanReason String?
+
+  timeEntries   TimeEntry[]
+  triageActions TriageAction[]
+  actionItem    ActionItem?
+
+  @@index([departmentId, dueDate])
+  @@index([assigneeId, scheduledDate])
+  @@index([status])
+}
+
+model TimeEntry {
+  id        String    @id @default(cuid())
+  taskId    String
+  task      Task      @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User      @relation(fields: [userId], references: [id])
+  startedAt DateTime  @default(now())
+  endedAt   DateTime?
+
+  pauses PauseEvent[]
+
+  @@index([taskId])
+  @@index([userId, startedAt])
+}
+
+enum PauseReason {
+  BREAK
+  WAITING_CLIENT
+  WAITING_INTERNAL
+  MEETING
+  INTERRUPTION
+  OTHER
+}
+
+/// Every pause carries a written reason. That requirement is the whole point:
+/// the system surfaces why work stalled instead of who was idle.
+model PauseEvent {
+  id          String      @id @default(cuid())
+  timeEntryId String
+  timeEntry   TimeEntry   @relation(fields: [timeEntryId], references: [id], onDelete: Cascade)
+  pausedAt    DateTime    @default(now())
+  resumedAt   DateTime?
+  reasonCode  PauseReason
+  reasonText  String
+
+  @@index([timeEntryId])
+}
+
+/// Fairness memory: how often this person has done this template, and when
+/// they last got it. Drives rotation ranking.
+model RotationLedger {
+  id             String    @id @default(cuid())
+  templateId     String
+  template       TaskTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
+  userId         String
+  user           User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  completedCount Int       @default(0)
+  lastAssignedAt DateTime?
+
+  @@unique([templateId, userId])
+}
+
+enum TriageResolution {
+  REASSIGNED
+  PUSHED
+  CANCELLED
+}
+
+/// Why a task moved. Written whenever a manager resolves an orphan.
+model TriageAction {
+  id         String           @id @default(cuid())
+  taskId     String
+  task       Task             @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  resolvedById String
+  resolvedBy   User           @relation(fields: [resolvedById], references: [id])
+  resolution TriageResolution
+  detail     String?
+  createdAt  DateTime         @default(now())
+
+  @@index([taskId])
+}
+
+// -------------------------------------------------------------- meetings
+
+enum MeetingStatus {
+  DRAFT
+  FINALISED
+}
+
+model Meeting {
+  id        String        @id @default(cuid())
+  title     String
+  date      DateTime      @db.Date
+  notes     String        @default("")
+  status    MeetingStatus @default(DRAFT)
+  createdAt DateTime      @default(now())
+  finalisedAt DateTime?
+
+  departmentId String?
+  department   Department? @relation(fields: [departmentId], references: [id])
+
+  createdById String
+  createdBy   User   @relation("MeetingAuthor", fields: [createdById], references: [id])
+
+  attendees   User[]       @relation("MeetingAttendees")
+  actionItems ActionItem[]
+  tasks       Task[]
+
+  @@index([date])
+}
+
+/// Decided in the meeting, not yet real work. Becomes a Task on finalisation
+/// -- so an abandoned draft leaves no phantom tasks behind.
+model ActionItem {
+  id               String   @id @default(cuid())
+  meetingId        String
+  meeting          Meeting  @relation(fields: [meetingId], references: [id], onDelete: Cascade)
+  title            String
+  description      String?
+  /// No catalogue entry to inherit from, so this is always entered by hand.
+  estimatedMinutes Int      @default(60)
+  dueDate          DateTime @db.Date
+
+  departmentId String
+  department   Department @relation(fields: [departmentId], references: [id])
+
+  /// When the meeting names a person, the engine skips ranking and gives it
+  /// to them.
+  pinnedAssigneeId String?
+  pinnedAssignee   User?   @relation("ActionItemPin", fields: [pinnedAssigneeId], references: [id])
+
+  taskId String? @unique
+  task   Task?   @relation(fields: [taskId], references: [id])
+
+  @@index([meetingId])
+}
+
+// ---------------------------------------------------------- sheet source
+
+/// Column mapping lives in the database so the sheet layout can change
+/// without a code change.
+model SheetSource {
+  id           String  @id @default(cuid())
+  name         String
+  spreadsheetId String
+  tabName      String
+  /// Column letters, e.g. { "title": "B", "dueDate": "D", "template": "C" }
+  columnMap    Json
+  /// Column whose value identifies a row across polls. Falls back to the row
+  /// number when null.
+  keyColumn    String?
+  headerRows   Int     @default(1)
+  active       Boolean @default(true)
+  lastPolledAt DateTime?
+
+  departmentId String
+  department   Department @relation(fields: [departmentId], references: [id])
+}
