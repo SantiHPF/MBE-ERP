@@ -1,0 +1,218 @@
+"use server";
+
+import { revalidatePath } from "next/cache";
+import { z } from "zod";
+import { prisma } from "@/lib/db";
+import { requireUserOrThrow } from "@/lib/auth/guards";
+import { slotOverlapsAbsence } from "@/lib/scheduling/availability";
+import { eachDay, parseClock, toDateOnly } from "@/lib/time";
+
+/**
+ * Recording an absence does exactly two things, and deliberately no more:
+ *
+ *   1. Capacity for the covered dates drops, so future scheduling runs skip
+ *      the person automatically.
+ *   2. Work already scheduled inside the missing hours is marked ORPHANED.
+ *
+ * Nothing is reassigned or pushed. A manager decides each one -- that was an
+ * explicit product decision, not an omission.
+ */
+
+const AbsenceInput = z
+  .object({
+    startDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Pick a start date"),
+    endDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Pick an end date"),
+    scope: z.enum(["FULL_DAY", "PARTIAL"]),
+    category: z.enum(["SICK", "HOLIDAY", "PERSONAL", "OTHER"]),
+    startTime: z.string().optional(),
+    endTime: z.string().optional(),
+    note: z.string().trim().max(500).optional(),
+    userId: z.string().optional(),
+  })
+  .refine((v) => v.startDate <= v.endDate, {
+    message: "The end date cannot be before the start date",
+  })
+  .refine(
+    (v) => v.scope === "FULL_DAY" || (v.startTime && v.endTime),
+    { message: "Give the hours you will be away" },
+  );
+
+export type AbsenceState = { error?: string; ok?: boolean; orphaned?: number };
+
+export async function recordAbsence(
+  _prev: AbsenceState,
+  formData: FormData,
+): Promise<AbsenceState> {
+  try {
+    const actor = await requireUserOrThrow();
+
+    const parsed = AbsenceInput.safeParse({
+      startDate: formData.get("startDate"),
+      endDate: formData.get("endDate"),
+      scope: formData.get("scope"),
+      category: formData.get("category"),
+      startTime: formData.get("startTime") || undefined,
+      endTime: formData.get("endTime") || undefined,
+      note: formData.get("note") || undefined,
+      userId: formData.get("userId") || undefined,
+    });
+
+    if (!parsed.success) return { error: parsed.error.issues[0].message };
+    const input = parsed.data;
+
+    // Workers may only record their own; managers may record for their team.
+    const subjectId = input.userId ?? actor.id;
+    if (subjectId !== actor.id) {
+      const subject = await prisma.user.findUnique({ where: { id: subjectId } });
+      if (!subject) return { error: "That person no longer exists" };
+      if (
+        actor.role === "WORKER" ||
+        (actor.role === "MANAGER" && subject.departmentId !== actor.departmentId)
+      ) {
+        return { error: "You cannot record an absence for that person" };
+      }
+    }
+
+    const startDate = toDateOnly(new Date(`${input.startDate}T00:00:00Z`));
+    const endDate = toDateOnly(new Date(`${input.endDate}T00:00:00Z`));
+
+    const startMinutes =
+      input.scope === "PARTIAL" && input.startTime
+        ? parseClock(input.startTime)
+        : null;
+    const endMinutes =
+      input.scope === "PARTIAL" && input.endTime ? parseClock(input.endTime) : null;
+
+    if (
+      startMinutes != null &&
+      endMinutes != null &&
+      endMinutes <= startMinutes
+    ) {
+      return { error: "The end time must be after the start time" };
+    }
+
+    const absence = await prisma.absence.create({
+      data: {
+        userId: subjectId,
+        startDate,
+        endDate,
+        scope: input.scope,
+        startMinutes,
+        endMinutes,
+        category: input.category,
+        note: input.note,
+        createdById: actor.id,
+      },
+    });
+
+    const orphaned = await orphanAffectedTasks(subjectId, {
+      startDate,
+      endDate,
+      scope: input.scope,
+      startMinutes,
+      endMinutes,
+    });
+
+    revalidatePath("/my-calendar");
+    revalidatePath("/my-day");
+    revalidatePath("/team");
+    revalidatePath("/triage");
+
+    return { ok: true, orphaned };
+  } catch (error) {
+    return {
+      error:
+        error instanceof Error ? error.message : "Could not record the absence",
+    };
+  }
+}
+
+/**
+ * Flag the work that the absence just made impossible. Only tasks whose
+ * scheduled slot actually overlaps the missing hours are touched, so an
+ * afternoon absence leaves the morning's work alone. Finished tasks are left
+ * as they are -- they already happened.
+ */
+async function orphanAffectedTasks(
+  userId: string,
+  absence: {
+    startDate: Date;
+    endDate: Date;
+    scope: "FULL_DAY" | "PARTIAL";
+    startMinutes: number | null;
+    endMinutes: number | null;
+  },
+): Promise<number> {
+  const tasks = await prisma.task.findMany({
+    where: {
+      assigneeId: userId,
+      scheduledDate: { gte: absence.startDate, lte: absence.endDate },
+      status: { in: ["ASSIGNED", "IN_PROGRESS", "PAUSED"] },
+    },
+  });
+
+  const reasonFor = (category: string) =>
+    `Assignee away (${category.toLowerCase()})`;
+
+  const affected = tasks.filter((task) => {
+    if (!task.scheduledDate) return false;
+    return slotOverlapsAbsence(
+      { start: task.scheduledStart ?? 0, end: task.scheduledEnd ?? 24 * 60 },
+      absence,
+      task.scheduledDate,
+    );
+  });
+
+  if (affected.length === 0) return 0;
+
+  await prisma.task.updateMany({
+    where: { id: { in: affected.map((t) => t.id) } },
+    data: {
+      status: "ORPHANED",
+      orphanedAt: new Date(),
+      orphanReason: reasonFor(absence.scope === "FULL_DAY" ? "away" : "partly away"),
+    },
+  });
+
+  return affected.length;
+}
+
+export async function cancelAbsence(
+  _prev: AbsenceState,
+  formData: FormData,
+): Promise<AbsenceState> {
+  try {
+    const actor = await requireUserOrThrow();
+    const id = String(formData.get("absenceId") ?? "");
+
+    const absence = await prisma.absence.findUnique({ where: { id } });
+    if (!absence) return { error: "That absence no longer exists" };
+
+    if (absence.userId !== actor.id && actor.role === "WORKER") {
+      return { error: "You cannot remove that absence" };
+    }
+
+    await prisma.absence.delete({ where: { id } });
+
+    // Give back any task that is still orphaned and was theirs, so undoing a
+    // mistaken sick day does not leave the work stranded in triage.
+    const days = eachDay(absence.startDate, absence.endDate);
+    await prisma.task.updateMany({
+      where: {
+        assigneeId: absence.userId,
+        status: "ORPHANED",
+        scheduledDate: { in: days },
+      },
+      data: { status: "ASSIGNED", orphanedAt: null, orphanReason: null },
+    });
+
+    revalidatePath("/my-calendar");
+    revalidatePath("/team");
+    revalidatePath("/triage");
+    return { ok: true };
+  } catch (error) {
+    return {
+      error: error instanceof Error ? error.message : "Could not cancel",
+    };
+  }
+}
