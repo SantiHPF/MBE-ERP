@@ -7,29 +7,23 @@ import { requireUserOrThrow } from "@/lib/auth/guards";
 import { toDateOnly } from "@/lib/time";
 
 /**
- * Planning actions: taking work, giving it back, adding it, moving it and
- * skipping it.
+ * Planning is one gesture: tick a task on a day to take it, untick to let it
+ * go. Everything else falls out of that.
  *
- * Claiming is first-come-first-served, so every claim is a conditional update
- * rather than read-then-write. Two people pressing the button at the same
- * moment must not both end up owning the task.
+ * Claims are conditional updates rather than read-then-write, so two people
+ * ticking the same cell at the same moment cannot both end up owning it.
  */
 
 export type PlanState = { error?: string; ok?: boolean; message?: string };
 
-const TaskId = z.object({ taskId: z.string().min(1) });
-
-const AddTask = z.object({
-  templateId: z.string().min(1, "Pick a task"),
+const Toggle = z.object({
   date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Pick a day"),
-  /** Set once the person has been warned somebody else already has it. */
-  confirmDuplicate: z.boolean().optional(),
+  templateId: z.string().optional(),
+  taskId: z.string().optional(),
+  wanted: z.enum(["true", "false"]),
 });
 
-const MoveTask = z.object({
-  taskId: z.string().min(1),
-  date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Pick a day"),
-});
+const STARTED = ["IN_PROGRESS", "PAUSED", "DONE"];
 
 function revalidate() {
   revalidatePath("/plan");
@@ -38,95 +32,83 @@ function revalidate() {
   revalidatePath("/team");
 }
 
-export async function claimTask(
+export async function toggleTaskDay(
   _prev: PlanState,
   formData: FormData,
 ): Promise<PlanState> {
   try {
     const user = await requireUserOrThrow();
-    const { taskId } = TaskId.parse({ taskId: formData.get("taskId") });
-
-    const task = await prisma.task.findUnique({
-      where: { id: taskId },
-      include: { assignee: { select: { displayName: true } } },
-    });
-    if (!task) return { error: "That task no longer exists" };
-    if (task.departmentId !== user.departmentId) {
-      return { error: "That task belongs to another department" };
-    }
-
-    // Conditional update: only succeeds while the task is genuinely free, so
-    // a simultaneous claim by somebody else loses rather than overwrites.
-    const { count } = await prisma.task.updateMany({
-      where: { id: taskId, assigneeId: null },
-      data: { status: "ASSIGNED", assigneeId: user.id },
-    });
-
-    if (count === 0) {
-      const now = await prisma.task.findUnique({
-        where: { id: taskId },
-        include: { assignee: { select: { displayName: true } } },
-      });
-      const who = now?.assignee?.displayName;
-      return {
-        error: who
-          ? `${who} took this one first. Reload to see the day as it stands.`
-          : "That task is no longer available",
-      };
-    }
-
-    revalidate();
-    return { ok: true, message: `You took ${task.title}.` };
-  } catch (error) {
-    return { error: error instanceof Error ? error.message : "Could not claim" };
-  }
-}
-
-export async function releaseTask(
-  _prev: PlanState,
-  formData: FormData,
-): Promise<PlanState> {
-  try {
-    const user = await requireUserOrThrow();
-    const { taskId } = TaskId.parse({ taskId: formData.get("taskId") });
-
-    const task = await prisma.task.findUnique({ where: { id: taskId } });
-    if (!task) return { error: "That task no longer exists" };
-    if (task.assigneeId !== user.id) return { error: "That is not yours to give back" };
-    if (["IN_PROGRESS", "PAUSED", "DONE"].includes(task.status)) {
-      return { error: "You have already started this — complete it instead" };
-    }
-
-    await prisma.task.update({
-      where: { id: taskId },
-      data: {
-        assigneeId: null,
-        status: "UNASSIGNED",
-        scheduledDate: null,
-        scheduledStart: null,
-        scheduledEnd: null,
-      },
-    });
-
-    revalidate();
-    return { ok: true, message: `${task.title} is back in the pool.` };
-  } catch (error) {
-    return { error: error instanceof Error ? error.message : "Could not release" };
-  }
-}
-
-export async function addTaskToDay(
-  _prev: PlanState,
-  formData: FormData,
-): Promise<PlanState> {
-  try {
-    const user = await requireUserOrThrow();
-    const parsed = AddTask.safeParse({
-      templateId: formData.get("templateId"),
+    const parsed = Toggle.safeParse({
       date: formData.get("date"),
-      confirmDuplicate: formData.get("confirmDuplicate") === "true",
+      templateId: formData.get("templateId") || undefined,
+      taskId: formData.get("taskId") || undefined,
+      wanted: formData.get("wanted"),
     });
     if (!parsed.success) return { error: parsed.error.issues[0].message };
+
+    const wanted = parsed.data.wanted === "true";
+    const date = toDateOnly(new Date(`${parsed.data.date}T00:00:00Z`));
+
+    // ------------------------------------------------------- giving it up
+    if (!wanted) {
+      if (!parsed.data.taskId) return { error: "Nothing to give back" };
+
+      const task = await prisma.task.findUnique({
+        where: { id: parsed.data.taskId },
+      });
+      if (!task) return { error: "That task no longer exists" };
+      if (task.assigneeId !== user.id) return { error: "That is not yours" };
+      if (STARTED.includes(task.status)) {
+        return { error: "You have already started this one" };
+      }
+
+      // Work you added yourself disappears; work the rules or a meeting
+      // created still needs doing, so it goes back to the pool.
+      if (task.origin === "CATALOGUE") {
+        await prisma.task.delete({ where: { id: task.id } });
+      } else {
+        await prisma.task.update({
+          where: { id: task.id },
+          data: {
+            assigneeId: null,
+            status: "UNASSIGNED",
+            scheduledDate: null,
+            scheduledStart: null,
+            scheduledEnd: null,
+          },
+        });
+      }
+
+      revalidate();
+      return { ok: true };
+    }
+
+    // ---------------------------------------------------------- taking it
+    if (parsed.data.taskId) {
+      // An instance already exists -- take it if it is still going spare.
+      const { count } = await prisma.task.updateMany({
+        where: { id: parsed.data.taskId, assigneeId: null },
+        data: { assigneeId: user.id, status: "ASSIGNED" },
+      });
+
+      if (count === 0) {
+        const now = await prisma.task.findUnique({
+          where: { id: parsed.data.taskId },
+          include: { assignee: { select: { displayName: true } } },
+        });
+        if (now?.assigneeId === user.id) return { ok: true };
+        return {
+          error: now?.assignee
+            ? `${now.assignee.displayName} took that one first.`
+            : "That task is no longer available",
+        };
+      }
+
+      revalidate();
+      return { ok: true };
+    }
+
+    if (!parsed.data.templateId) return { error: "Nothing to add" };
 
     const template = await prisma.taskTemplate.findUnique({
       where: { id: parsed.data.templateId },
@@ -136,9 +118,7 @@ export async function addTaskToDay(
       return { error: "That task belongs to another department" };
     }
 
-    const date = toDateOnly(new Date(`${parsed.data.date}T00:00:00Z`));
-
-    // Is this template already on that day?
+    // Somebody may have created the instance since the page loaded.
     const existing = await prisma.task.findFirst({
       where: {
         templateId: template.id,
@@ -149,27 +129,19 @@ export async function addTaskToDay(
     });
 
     if (existing) {
-      if (existing.assigneeId === user.id) {
-        return { error: `You already have ${template.name} that day.` };
-      }
-      // Free: take it rather than making a second copy.
+      if (existing.assigneeId === user.id) return { ok: true };
       if (existing.assigneeId === null) {
-        await prisma.task.updateMany({
+        const { count } = await prisma.task.updateMany({
           where: { id: existing.id, assigneeId: null },
-          data: { status: "ASSIGNED", assigneeId: user.id },
+          data: { assigneeId: user.id, status: "ASSIGNED" },
         });
+        if (count === 0) return { error: "Somebody just took that one." };
         revalidate();
-        return { ok: true, message: `You took ${template.name}.` };
+        return { ok: true };
       }
-      // Somebody has it. Several catalogue tasks say "max 1 integrante por
-      // dia", so warn before adding a second -- but allow it deliberately.
-      if (!parsed.data.confirmDuplicate) {
-        return {
-          error:
-            `${existing.assignee?.displayName} already has ${template.name} ` +
-            `that day. Add another anyway?`,
-        };
-      }
+      return {
+        error: `${existing.assignee?.displayName} already has ${template.name} that day.`,
+      };
     }
 
     await prisma.task.create({
@@ -186,79 +158,59 @@ export async function addTaskToDay(
     });
 
     revalidate();
-    return { ok: true, message: `Added ${template.name}.` };
+    return { ok: true };
   } catch (error) {
-    return { error: error instanceof Error ? error.message : "Could not add it" };
+    return {
+      error: error instanceof Error ? error.message : "Could not save that",
+    };
   }
 }
 
-export async function moveTaskToDay(
+/**
+ * Take (or drop) a task across several days at once -- the whole point of a
+ * row. Partial failures are reported rather than silently swallowed, since
+ * somebody else may hold one of the days.
+ */
+export async function toggleTaskRow(
   _prev: PlanState,
   formData: FormData,
 ): Promise<PlanState> {
-  try {
-    const user = await requireUserOrThrow();
-    const parsed = MoveTask.safeParse({
-      taskId: formData.get("taskId"),
-      date: formData.get("date"),
-    });
-    if (!parsed.success) return { error: parsed.error.issues[0].message };
+  const dates = formData.getAll("dates").map(String);
+  const wanted = formData.get("wanted") === "true";
+  const templateId = formData.get("templateId");
+  const taskIds = new Map(
+    formData
+      .getAll("cell")
+      .map(String)
+      .map((entry) => {
+        const [date, taskId] = entry.split("|");
+        return [date, taskId || undefined] as const;
+      }),
+  );
 
-    const task = await prisma.task.findUnique({ where: { id: parsed.data.taskId } });
-    if (!task) return { error: "That task no longer exists" };
-    if (task.assigneeId !== user.id) return { error: "That is not your task" };
-    if (["IN_PROGRESS", "PAUSED", "DONE"].includes(task.status)) {
-      return { error: "You have already started this one" };
-    }
+  let changed = 0;
+  const problems: string[] = [];
 
-    const date = toDateOnly(new Date(`${parsed.data.date}T00:00:00Z`));
+  for (const date of dates) {
+    const one = new FormData();
+    one.set("date", date);
+    one.set("wanted", wanted ? "true" : "false");
+    if (templateId) one.set("templateId", String(templateId));
+    const taskId = taskIds.get(date);
+    if (taskId) one.set("taskId", taskId);
 
-    await prisma.task.update({
-      where: { id: task.id },
-      data: {
-        dueDate: date,
-        // The slot no longer means anything on a different day; the next
-        // scheduling run places it again.
-        scheduledDate: null,
-        scheduledStart: null,
-        scheduledEnd: null,
-      },
-    });
-
-    revalidate();
-    return { ok: true, message: `Moved ${task.title}.` };
-  } catch (error) {
-    return { error: error instanceof Error ? error.message : "Could not move it" };
+    const result = await toggleTaskDay({}, one);
+    if (result.ok) changed += 1;
+    else if (result.error) problems.push(result.error);
   }
-}
 
-export async function skipTask(
-  _prev: PlanState,
-  formData: FormData,
-): Promise<PlanState> {
-  try {
-    const user = await requireUserOrThrow();
-    const { taskId } = TaskId.parse({ taskId: formData.get("taskId") });
-
-    const task = await prisma.task.findUnique({ where: { id: taskId } });
-    if (!task) return { error: "That task no longer exists" };
-    if (task.departmentId !== user.departmentId) {
-      return { error: "That task belongs to another department" };
-    }
-    if (["IN_PROGRESS", "PAUSED", "DONE"].includes(task.status)) {
-      return { error: "You have already started this one" };
-    }
-
-    // Cancelling this instance only. The recurring rule is untouched, so it
-    // comes back next week.
-    await prisma.task.update({
-      where: { id: taskId },
-      data: { status: "CANCELLED", assigneeId: task.assigneeId },
-    });
-
-    revalidate();
-    return { ok: true, message: `Skipped ${task.title} for that day.` };
-  } catch (error) {
-    return { error: error instanceof Error ? error.message : "Could not skip it" };
+  if (problems.length > 0) {
+    return {
+      ok: changed > 0,
+      error: problems[0],
+      message: changed > 0 ? `${changed} day(s) updated.` : undefined,
+    };
   }
+
+  return { ok: true, message: `${changed} day(s) updated.` };
 }

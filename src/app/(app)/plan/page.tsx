@@ -82,10 +82,10 @@ export default async function PlanPage({
         </div>
       </div>
 
-      <p className="mb-4 max-w-[70ch] text-[13px] text-muted">
-        Take the work you want next week. Whatever nobody takes gets handed out
-        automatically when the week starts, so nothing is forgotten — and a
-        task only goes to one person per day.
+      <p className="mb-4 max-w-[72ch] text-[13px] text-muted">
+        Find a task and tick the days you will do it. Whatever nobody takes
+        gets handed out automatically when the week starts, so nothing is
+        forgotten &mdash; and a task only goes to one person per day.
       </p>
 
       <PlanBoard week={week} />

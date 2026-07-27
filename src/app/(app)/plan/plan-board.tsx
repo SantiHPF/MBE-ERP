@@ -1,24 +1,101 @@
 "use client";
 
-import { useActionState, useState } from "react";
-import type { PlanDay, PlanTask, PlanWeek } from "@/lib/plan/week";
+import { useMemo, useState, useTransition } from "react";
+import type { PlanCell, PlanRow, PlanWeek } from "@/lib/plan/week";
 import { formatDuration } from "@/lib/time";
-import {
-  addTaskToDay,
-  claimTask,
-  moveTaskToDay,
-  releaseTask,
-  skipTask,
-  type PlanState,
-} from "@/lib/plan/actions";
+import { toggleTaskDay, toggleTaskRow, type PlanState } from "@/lib/plan/actions";
 
-const initial: PlanState = {};
+type Filter = "all" | "mine" | "recurring" | "unclaimed";
 
 export function PlanBoard({ week }: { week: PlanWeek }) {
   const [notice, setNotice] = useState<PlanState>({});
+  const [query, setQuery] = useState("");
+  const [filter, setFilter] = useState<Filter>("all");
+  const [pending, startTransition] = useTransition();
+
+  const rows = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    return week.rows.filter((row) => {
+      if (q && !row.name.toLowerCase().includes(q)) return false;
+      if (filter === "mine") return row.mineCount > 0;
+      if (filter === "recurring") return row.recurring;
+      if (filter === "unclaimed")
+        return row.cells.some((c) => c.state === "free");
+      return true;
+    });
+  }, [week.rows, query, filter]);
+
+  function run(form: FormData, action: typeof toggleTaskDay) {
+    startTransition(async () => {
+      const result = await action({}, form);
+      setNotice(result);
+    });
+  }
+
+  function toggleCell(row: PlanRow, cell: PlanCell) {
+    if (cell.state === "off" || cell.state === "locked" || cell.state === "theirs")
+      return;
+    const form = new FormData();
+    form.set("date", cell.date);
+    form.set("wanted", cell.state === "mine" ? "false" : "true");
+    if (row.templateId) form.set("templateId", row.templateId);
+    if (cell.taskId) form.set("taskId", cell.taskId);
+    run(form, toggleTaskDay);
+  }
+
+  function toggleWholeRow(row: PlanRow, wanted: boolean) {
+    const form = new FormData();
+    form.set("wanted", wanted ? "true" : "false");
+    if (row.templateId) form.set("templateId", row.templateId);
+    for (const cell of row.cells) {
+      const changeable = wanted
+        ? cell.state === "empty" || cell.state === "free"
+        : cell.state === "mine";
+      if (!changeable) continue;
+      form.append("dates", cell.date);
+      form.append("cell", `${cell.date}|${cell.taskId ?? ""}`);
+    }
+    if (!form.getAll("dates").length) return;
+    run(form, toggleTaskRow);
+  }
 
   return (
     <>
+      <div className="mb-3 flex flex-wrap items-center gap-2">
+        <input
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          placeholder="Find a task…"
+          className="w-56 rounded border border-line-strong bg-surface px-2.5 py-1.5 text-[13px]"
+        />
+        <div className="flex gap-1">
+          {(
+            [
+              ["all", "All"],
+              ["mine", "Mine"],
+              ["recurring", "Recurring"],
+              ["unclaimed", "Going spare"],
+            ] as const
+          ).map(([id, label]) => (
+            <button
+              key={id}
+              type="button"
+              aria-pressed={filter === id}
+              onClick={() => setFilter(id)}
+              className={
+                filter === id
+                  ? "rounded border border-accent bg-accent-wash px-2.5 py-1 text-[12px] font-medium text-accent"
+                  : "rounded border border-line-strong bg-surface px-2.5 py-1 text-[12px] text-muted hover:bg-surface-2"
+              }
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+        <span className="num text-[12px] text-muted">{rows.length} tasks</span>
+        {pending && <span className="text-[12px] text-muted">saving…</span>}
+      </div>
+
       {(notice.error ?? notice.message) && (
         <p
           role="status"
@@ -32,369 +109,209 @@ export function PlanBoard({ week }: { week: PlanWeek }) {
         </p>
       )}
 
-      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-        {week.days.map((day) => (
-          <DayColumn
-            key={day.date}
-            day={day}
-            week={week}
-            onNotice={setNotice}
-          />
-        ))}
+      <div className="overflow-x-auto rounded border border-line bg-surface shadow-sm">
+        <table className="w-full min-w-[760px] border-collapse">
+          <thead className="sticky top-0 z-10">
+            <tr>
+              <th className="border-b border-line bg-surface-2 px-3 py-2 text-left text-[11px] font-semibold tracking-[0.07em] text-faint uppercase">
+                Task
+              </th>
+              <th className="border-b border-line bg-surface-2 px-2 py-2 text-right text-[11px] font-semibold tracking-[0.07em] text-faint uppercase">
+                Mins
+              </th>
+              {week.days.map((day) => (
+                <th
+                  key={day.date}
+                  className={`w-[68px] border-b border-l border-line px-1 py-2 text-center ${
+                    day.overBy > 0 ? "bg-stall-wash" : "bg-surface-2"
+                  }`}
+                >
+                  <span
+                    className={`block text-[11px] font-semibold tracking-[0.07em] uppercase ${
+                      day.rostered ? "text-ink" : "text-faint"
+                    }`}
+                  >
+                    {day.short}
+                  </span>
+                  <span className="num block text-[10px] text-muted">
+                    {day.date.slice(8)}/{day.date.slice(5, 7)}
+                  </span>
+                  {day.rostered ? (
+                    <span
+                      className={`num block text-[10px] ${
+                        day.overBy > 0
+                          ? "font-semibold text-stall"
+                          : "text-muted"
+                      }`}
+                    >
+                      {formatDuration(day.claimedMinutes)}/
+                      {formatDuration(day.capacityMinutes)}
+                    </span>
+                  ) : (
+                    <span className="block text-[10px] text-faint">off</span>
+                  )}
+                </th>
+              ))}
+              <th className="w-[70px] border-b border-l border-line bg-surface-2 px-1 py-2 text-center text-[11px] font-semibold tracking-[0.07em] text-faint uppercase">
+                All
+              </th>
+            </tr>
+          </thead>
+
+          <tbody>
+            {rows.map((row) => (
+              <tr key={row.key} className="hover:bg-surface-2/60">
+                <td className="border-b border-line px-3 py-1.5">
+                  <span className="text-[13px]">{row.name}</span>
+                  {row.notes && (
+                    <span
+                      title={row.notes}
+                      className="ml-1.5 cursor-help text-[10px] font-bold text-pause"
+                    >
+                      !
+                    </span>
+                  )}
+                  {row.recurring && (
+                    <span className="ml-1.5 text-[9.5px] tracking-wider text-faint uppercase">
+                      recurring
+                    </span>
+                  )}
+                </td>
+                <td className="num border-b border-line px-2 py-1.5 text-right text-[12px] text-muted">
+                  {row.estimatedMinutes}
+                </td>
+
+                {row.cells.map((cell) => (
+                  <td
+                    key={cell.date}
+                    className="border-b border-l border-line p-0 text-center"
+                  >
+                    <Cell
+                      cell={cell}
+                      onClick={() => toggleCell(row, cell)}
+                      label={row.name}
+                    />
+                  </td>
+                ))}
+
+                <td className="border-b border-l border-line p-0 text-center">
+                  <div className="flex justify-center gap-0.5 py-1">
+                    <button
+                      type="button"
+                      title={`Take ${row.name} on every day you work`}
+                      onClick={() => toggleWholeRow(row, true)}
+                      className="rounded border border-line-strong px-1.5 py-0.5 text-[10px] hover:border-accent hover:text-accent"
+                    >
+                      all
+                    </button>
+                    <button
+                      type="button"
+                      title={`Give back every day of ${row.name}`}
+                      onClick={() => toggleWholeRow(row, false)}
+                      className="rounded border border-line-strong px-1.5 py-0.5 text-[10px] hover:border-stall hover:text-stall"
+                    >
+                      none
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      <div className="mt-3 flex flex-wrap gap-4 text-[12px] text-muted">
+        <Key className="border-accent bg-accent text-accent-ink">✓</Key>
+        <span>yours</span>
+        <Key className="border-dashed border-line-strong text-muted">·</Key>
+        <span>free to take</span>
+        <Key className="border-line-strong bg-surface-2 text-faint">–</Key>
+        <span>someone else has it</span>
+        <Key className="border-run bg-run-wash text-run">✓</Key>
+        <span>started or done — can&rsquo;t change</span>
       </div>
     </>
   );
 }
 
-function DayColumn({
-  day,
-  week,
-  onNotice,
+function Cell({
+  cell,
+  onClick,
+  label,
 }: {
-  day: PlanDay;
-  week: PlanWeek;
-  onNotice: (s: PlanState) => void;
+  cell: PlanCell;
+  onClick: () => void;
+  label: string;
 }) {
-  const [adding, setAdding] = useState(false);
-  const pct = day.capacityMinutes
-    ? Math.min(100, (day.claimedMinutes / day.capacityMinutes) * 100)
-    : 0;
+  const base =
+    "mx-auto my-1 flex h-6 w-9 items-center justify-center rounded border text-[12px]";
 
-  return (
-    <section
-      className={`flex flex-col rounded border bg-surface shadow-sm ${
-        day.overBy > 0 ? "border-stall" : "border-line"
-      }`}
-    >
-      <header className="border-b border-line px-3.5 py-2.5">
-        <div className="flex items-baseline justify-between gap-2">
-          <span className="text-[13.5px] font-semibold">{day.label}</span>
-          <span className="num text-[11px] text-muted">
-            {day.date.slice(8)}/{day.date.slice(5, 7)}
-          </span>
-        </div>
+  if (cell.state === "off") {
+    return <span className={`${base} border-transparent text-faint`}>·</span>;
+  }
 
-        {day.rostered ? (
-          <>
-            <div className="mt-1.5 h-1 overflow-hidden rounded bg-line">
-              <div
-                className={`h-full ${day.overBy > 0 ? "bg-stall" : "bg-accent"}`}
-                style={{ width: `${pct}%` }}
-              />
-            </div>
-            <p
-              className={`num mt-1 text-[11px] ${
-                day.overBy > 0 ? "font-semibold text-stall" : "text-muted"
-              }`}
-            >
-              {formatDuration(day.claimedMinutes)} of{" "}
-              {formatDuration(day.capacityMinutes)}
-              {day.overBy > 0 && ` · ${formatDuration(day.overBy)} over`}
-            </p>
-          </>
-        ) : (
-          <p className="mt-1 text-[11px] text-faint">not working</p>
-        )}
-      </header>
-
-      <div className="flex flex-1 flex-col gap-1.5 p-2.5">
-        {day.mine.map((task) => (
-          <MineRow
-            key={task.id}
-            task={task}
-            currentDate={day.date}
-            days={week.days}
-            onNotice={onNotice}
-          />
-        ))}
-
-        {day.available.length > 0 && (
-          <p className="mt-1 text-[10px] font-semibold tracking-[0.08em] text-faint uppercase">
-            Free to take
-          </p>
-        )}
-        {day.available.map((task) => (
-          <AvailableRow key={task.id} task={task} onNotice={onNotice} />
-        ))}
-
-        {day.taken.length > 0 && (
-          <p className="mt-1 text-[10px] font-semibold tracking-[0.08em] text-faint uppercase">
-            Taken
-          </p>
-        )}
-        {day.taken.map((task) => (
-          <div
-            key={task.id}
-            className="flex items-baseline gap-1.5 rounded border border-line px-2 py-1 text-[12px] text-muted opacity-70"
-          >
-            <span className="truncate">{task.title}</span>
-            <span className="flex-1" />
-            <span className="shrink-0 text-[10.5px]">{task.assigneeName}</span>
-          </div>
-        ))}
-
-        <div className="mt-auto pt-1.5">
-          {adding ? (
-            <AddForm
-              date={day.date}
-              catalogue={week.catalogue}
-              onDone={(s) => {
-                onNotice(s);
-                if (s.ok) setAdding(false);
-              }}
-              onCancel={() => setAdding(false)}
-            />
-          ) : (
-            <button
-              type="button"
-              onClick={() => setAdding(true)}
-              className="w-full rounded border border-dashed border-line-strong py-1.5 text-[12px] text-muted hover:border-accent hover:text-accent"
-            >
-              + Add a task
-            </button>
-          )}
-        </div>
-      </div>
-    </section>
-  );
-}
-
-function MineRow({
-  task,
-  currentDate,
-  days,
-  onNotice,
-}: {
-  task: PlanTask;
-  currentDate: string;
-  days: PlanDay[];
-  onNotice: (s: PlanState) => void;
-}) {
-  const [, release] = useActionState(
-    async (p: PlanState, f: FormData) => {
-      const r = await releaseTask(p, f);
-      onNotice(r);
-      return r;
-    },
-    initial,
-  );
-  const [, move] = useActionState(
-    async (p: PlanState, f: FormData) => {
-      const r = await moveTaskToDay(p, f);
-      onNotice(r);
-      return r;
-    },
-    initial,
-  );
-  const [open, setOpen] = useState(false);
-
-  return (
-    <div className="rounded border border-accent bg-accent-wash px-2 py-1.5">
-      <div className="flex items-baseline gap-1.5">
-        <span className="truncate text-[12.5px] font-medium">{task.title}</span>
-        {task.notes && (
-          <span
-            title={task.notes}
-            className="shrink-0 cursor-help text-[9px] font-bold text-pause"
-          >
-            !
-          </span>
-        )}
-        <span className="flex-1" />
-        <span className="num shrink-0 text-[10.5px] text-muted">
-          {formatDuration(task.estimatedMinutes)}
-        </span>
-      </div>
-
-      {task.locked ? (
-        <p className="mt-0.5 text-[10.5px] text-muted">
-          already started — can&rsquo;t move it
-        </p>
-      ) : (
-        <div className="mt-1 flex flex-wrap items-center gap-1">
-          <button
-            type="button"
-            onClick={() => setOpen((v) => !v)}
-            className="rounded border border-line-strong bg-surface px-1.5 py-0.5 text-[10.5px] hover:bg-surface-2"
-          >
-            Move
-          </button>
-          <form action={release}>
-            <input type="hidden" name="taskId" value={task.id} />
-            <button
-              type="submit"
-              className="rounded border border-line-strong bg-surface px-1.5 py-0.5 text-[10.5px] hover:border-stall hover:text-stall"
-            >
-              Give back
-            </button>
-          </form>
-        </div>
-      )}
-
-      {open && (
-        <div className="mt-1 flex flex-wrap gap-1">
-          {days
-            .filter((d) => d.rostered && d.date !== currentDate)
-            .map((d) => (
-              <form key={d.date} action={move}>
-                <input type="hidden" name="taskId" value={task.id} />
-                <input type="hidden" name="date" value={d.date} />
-                <button
-                  type="submit"
-                  className="rounded border border-line px-1.5 py-0.5 text-[10px] hover:border-accent hover:text-accent"
-                >
-                  {d.label.slice(0, 3)}
-                </button>
-              </form>
-            ))}
-        </div>
-      )}
-    </div>
-  );
-}
-
-function AvailableRow({
-  task,
-  onNotice,
-}: {
-  task: PlanTask;
-  onNotice: (s: PlanState) => void;
-}) {
-  const [, claim, claiming] = useActionState(
-    async (p: PlanState, f: FormData) => {
-      const r = await claimTask(p, f);
-      onNotice(r);
-      return r;
-    },
-    initial,
-  );
-  const [, skip] = useActionState(
-    async (p: PlanState, f: FormData) => {
-      const r = await skipTask(p, f);
-      onNotice(r);
-      return r;
-    },
-    initial,
-  );
-
-  return (
-    <div className="rounded border border-dashed border-line-strong px-2 py-1.5">
-      <div className="flex items-baseline gap-1.5">
-        <span className="truncate text-[12.5px]">{task.title}</span>
-        {task.notes && (
-          <span
-            title={task.notes}
-            className="shrink-0 cursor-help text-[9px] font-bold text-pause"
-          >
-            !
-          </span>
-        )}
-        <span className="flex-1" />
-        <span className="num shrink-0 text-[10.5px] text-muted">
-          {formatDuration(task.estimatedMinutes)}
-        </span>
-      </div>
-      <div className="mt-1 flex gap-1">
-        <form action={claim}>
-          <input type="hidden" name="taskId" value={task.id} />
-          <button
-            type="submit"
-            disabled={claiming}
-            className="rounded border border-accent bg-accent px-2 py-0.5 text-[10.5px] font-medium text-accent-ink hover:brightness-110 disabled:opacity-50"
-          >
-            I&rsquo;ll do it
-          </button>
-        </form>
-        <form action={skip}>
-          <input type="hidden" name="taskId" value={task.id} />
-          <button
-            type="submit"
-            className="rounded border border-line px-1.5 py-0.5 text-[10.5px] text-muted hover:border-stall hover:text-stall"
-          >
-            Skip
-          </button>
-        </form>
-      </div>
-    </div>
-  );
-}
-
-function AddForm({
-  date,
-  catalogue,
-  onDone,
-  onCancel,
-}: {
-  date: string;
-  catalogue: PlanWeek["catalogue"];
-  onDone: (s: PlanState) => void;
-  onCancel: () => void;
-}) {
-  const [state, submit, pending] = useActionState(
-    async (p: PlanState, f: FormData) => {
-      const r = await addTaskToDay(p, f);
-      onDone(r);
-      return r;
-    },
-    initial,
-  );
-  const [confirm, setConfirm] = useState(false);
-
-  // The duplicate warning is the only error worth a second chance at.
-  const needsConfirm = state.error?.includes("Add another anyway");
-
-  return (
-    <form action={submit} className="flex flex-col gap-1">
-      <input type="hidden" name="date" value={date} />
-      <input
-        type="hidden"
-        name="confirmDuplicate"
-        value={confirm ? "true" : "false"}
-      />
-
-      <select
-        name="templateId"
-        required
-        defaultValue=""
-        className="w-full rounded border border-line-strong bg-surface-2 px-1.5 py-1 text-[12px]"
+  if (cell.state === "locked") {
+    return (
+      <span
+        title="Already started — plan it from My day"
+        className={`${base} border-run bg-run-wash text-run`}
       >
-        <option value="" disabled>
-          Pick from the catalogue…
-        </option>
-        {catalogue.map((t) => (
-          <option key={t.id} value={t.id}>
-            {t.name} · {formatDuration(t.estimatedMinutes)}
-          </option>
-        ))}
-      </select>
+        ✓
+      </span>
+    );
+  }
 
-      {needsConfirm && (
-        <label className="flex items-start gap-1.5 text-[10.5px] text-pause">
-          <input
-            type="checkbox"
-            checked={confirm}
-            onChange={(e) => setConfirm(e.target.checked)}
-          />
-          Someone already has it that day — add another anyway
-        </label>
-      )}
+  if (cell.state === "theirs") {
+    return (
+      <span
+        title={`${cell.holder} has this one`}
+        className={`${base} border-line-strong bg-surface-2 text-[10px] text-faint`}
+      >
+        {(cell.holder ?? "?").slice(0, 3)}
+      </span>
+    );
+  }
 
-      <div className="flex gap-1">
-        <button
-          type="submit"
-          disabled={pending}
-          className="flex-1 rounded border border-accent bg-accent px-2 py-1 text-[11px] font-medium text-accent-ink disabled:opacity-50"
-        >
-          {pending ? "Adding…" : "Add"}
-        </button>
-        <button
-          type="button"
-          onClick={onCancel}
-          className="rounded border border-line-strong px-2 py-1 text-[11px]"
-        >
-          Cancel
-        </button>
-      </div>
-    </form>
+  const mine = cell.state === "mine";
+
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-pressed={mine}
+      aria-label={`${mine ? "Give back" : "Take"} ${label} on ${cell.date}`}
+      title={
+        mine
+          ? "Yours — click to give it back"
+          : cell.state === "free"
+            ? "Needed this day, nobody has it — click to take it"
+            : "Click to add it to this day"
+      }
+      className={
+        mine
+          ? `${base} border-accent bg-accent font-semibold text-accent-ink`
+          : cell.state === "free"
+            ? `${base} border-pause border-dashed bg-pause-wash text-pause hover:bg-pause hover:text-white`
+            : `${base} border-dashed border-line-strong text-faint hover:border-accent hover:text-accent`
+      }
+    >
+      {mine ? "✓" : cell.state === "free" ? "!" : "+"}
+    </button>
+  );
+}
+
+function Key({
+  className,
+  children,
+}: {
+  className: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <span
+      className={`inline-flex h-5 w-7 items-center justify-center rounded border text-[11px] ${className}`}
+    >
+      {children}
+    </span>
   );
 }
