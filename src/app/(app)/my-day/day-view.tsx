@@ -1,19 +1,76 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import type { DayView } from "@/lib/tasks/day";
+import type { DayTask, DayView } from "@/lib/tasks/day";
 import { formatClock, formatDuration } from "@/lib/time";
 import { PauseDialog } from "./pause-dialog";
 import { MeetingPanel, StartMeetingButton } from "./meeting-panel";
 import { TaskButton } from "./task-button";
-
-const PX_PER_MIN = 1.05;
 
 function stopwatch(totalSeconds: number): string {
   const h = Math.floor(totalSeconds / 3600);
   const m = Math.floor((totalSeconds % 3600) / 60);
   const s = totalSeconds % 60;
   return [h, m, s].map((n) => String(n).padStart(2, "0")).join(":");
+}
+
+
+type DayRow =
+  | { kind: "task"; task: DayTask; start: number }
+  | { kind: "break" | "free"; start: number; end: number };
+
+/**
+ * Tasks in clock order, with the gaps between them called out.
+ *
+ * Breaks come from the holes between working windows; anything else with no
+ * work in it is unbooked time, which is worth seeing when planning the rest of
+ * the day. Gaps under five minutes are noise and get dropped.
+ */
+function buildDayRows(view: DayView, dayStart: number, dayEnd: number): DayRow[] {
+  const MIN_GAP = 5;
+
+  const tasks = [...view.tasks].sort(
+    (a, b) =>
+      (a.scheduledStart ?? dayStart) - (b.scheduledStart ?? dayStart) ||
+      a.title.localeCompare(b.title),
+  );
+
+  const breaks: { start: number; end: number }[] = [];
+  for (let i = 1; i < view.windows.length; i++) {
+    breaks.push({ start: view.windows[i - 1].end, end: view.windows[i].start });
+  }
+  const inBreak = (from: number, to: number) =>
+    breaks.some((b) => from < b.end && to > b.start);
+
+  const rows: DayRow[] = [];
+  let cursor = dayStart;
+
+  const fill = (upTo: number) => {
+    for (const b of breaks) {
+      if (b.start >= cursor && b.end <= upTo) {
+        if (b.start - cursor >= MIN_GAP) {
+          rows.push({ kind: "free", start: cursor, end: b.start });
+        }
+        rows.push({ kind: "break", start: b.start, end: b.end });
+        cursor = b.end;
+      }
+    }
+    if (upTo - cursor >= MIN_GAP && !inBreak(cursor, upTo)) {
+      rows.push({ kind: "free", start: cursor, end: upTo });
+    }
+    cursor = Math.max(cursor, upTo);
+  };
+
+  for (const task of tasks) {
+    const start = task.scheduledStart ?? cursor;
+    if (start > cursor) fill(start);
+    rows.push({ kind: "task", task, start });
+    cursor = Math.max(cursor, task.scheduledEnd ?? start + task.estimatedMinutes);
+  }
+
+  if (dayEnd > cursor) fill(dayEnd);
+
+  return rows;
 }
 
 export function DayViewClient({ view }: { view: DayView }) {
@@ -49,19 +106,6 @@ export function DayViewClient({ view }: { view: DayView }) {
 
   const dayStart = view.windows[0]?.start ?? 540;
   const dayEnd = view.windows[view.windows.length - 1]?.end ?? 1080;
-  const height = (dayEnd - dayStart) * PX_PER_MIN;
-
-  const hourLines: number[] = [];
-  for (let m = Math.ceil(dayStart / 60) * 60; m <= dayEnd; m += 60) {
-    hourLines.push(m);
-  }
-
-  // Gaps between working windows are breaks -- drawn so lunch is visible
-  // rather than implied by a hole in the list.
-  const gaps: { start: number; end: number }[] = [];
-  for (let i = 1; i < view.windows.length; i++) {
-    gaps.push({ start: view.windows[i - 1].end, end: view.windows[i].start });
-  }
 
   const booked = view.tasks.reduce((s, t) => s + t.estimatedMinutes, 0);
   const done = view.tasks
@@ -70,6 +114,12 @@ export function DayViewClient({ view }: { view: DayView }) {
 
   const elapsed = active ? active.elapsedSeconds + tick : 0;
   const over = active ? elapsed > active.estimatedMinutes * 60 : false;
+
+  // The day is a list, not a proportional timeline. Six five-minute tasks in
+  // an afternoon are only pixels apart on a real time axis, which buried the
+  // controls under each other; every row now gets the height it needs and the
+  // clock times carry the ordering instead.
+  const rows = buildDayRows(view, dayStart, dayEnd);
 
   return (
     <>
@@ -93,48 +143,40 @@ export function DayViewClient({ view }: { view: DayView }) {
             </span>
           </header>
 
-          <div
-            className="relative py-3.5 pr-3.5 pl-[62px]"
-            style={{ height: height + 28 }}
-          >
-            {hourLines.map((m) => (
-              <div key={m}>
-                <div
-                  className="pointer-events-none absolute right-3.5 left-[62px] border-t border-line-strong"
-                  style={{ top: (m - dayStart) * PX_PER_MIN }}
-                />
-                <div
-                  className="num absolute left-3.5 w-10 -translate-y-1/2 text-right text-[11px] text-faint"
-                  style={{ top: (m - dayStart) * PX_PER_MIN }}
+          <ul className="flex flex-col">
+            {rows.map((row) =>
+              row.kind === "task" ? (
+                <li key={row.task.id}>
+                  <TaskButton task={row.task} onPause={() => setPausing(row.task.id)} />
+                </li>
+              ) : (
+                <li
+                  key={`${row.kind}-${row.start}`}
+                  className="flex items-center gap-3 border-b border-line px-4 py-2 last:border-0"
                 >
-                  {formatClock(m)}
-                </div>
-              </div>
-            ))}
+                  <span className="num w-[92px] shrink-0 text-[11px] text-faint">
+                    {formatClock(row.start)}–{formatClock(row.end)}
+                  </span>
+                  <span
+                    className={`text-[12px] ${
+                      row.kind === "break" ? "text-faint" : "text-muted"
+                    }`}
+                  >
+                    {row.kind === "break"
+                      ? `Break · ${formatDuration(row.end - row.start)}`
+                      : `${formatDuration(row.end - row.start)} unbooked`}
+                  </span>
+                  <span className="h-px flex-1 border-t border-dashed border-line" />
+                </li>
+              ),
+            )}
 
-            {gaps.map((gap) => (
-              <div
-                key={gap.start}
-                className="absolute right-3.5 left-[62px] flex items-center rounded border border-dashed border-line px-2.5 text-[11px] text-faint"
-                style={{
-                  top: (gap.start - dayStart) * PX_PER_MIN,
-                  height: (gap.end - gap.start) * PX_PER_MIN,
-                }}
-              >
-                Break · {formatClock(gap.start)}–{formatClock(gap.end)}
-              </div>
-            ))}
-
-            {view.tasks.map((task) => (
-              <TaskButton
-                key={task.id}
-                task={task}
-                dayStart={dayStart}
-                pxPerMin={PX_PER_MIN}
-                onPause={() => setPausing(task.id)}
-              />
-            ))}
-          </div>
+            {rows.length === 0 && (
+              <li className="px-4 py-10 text-center text-sm text-muted">
+                Nothing scheduled today.
+              </li>
+            )}
+          </ul>
         </section>
 
         {/* ------------------------------------------------------- the rail */}

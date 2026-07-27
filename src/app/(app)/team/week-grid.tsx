@@ -1,4 +1,4 @@
-import type { TeamWeek, WeekDay } from "@/lib/team/week";
+import type { TeamWeek, WeekBlock, WeekDay } from "@/lib/team/week";
 import { formatClock, formatDuration } from "@/lib/time";
 
 // Every cell is drawn on the same scale so a short day visibly reads as short
@@ -90,7 +90,40 @@ export function WeekGrid({ week }: { week: TeamWeek }) {
   );
 }
 
+/**
+ * A day at week scale. Task blocks are positioned by time but given a floor
+ * height and pushed down when they would overlap -- otherwise a run of
+ * five-minute tasks renders as an unreadable smear of one-pixel slivers.
+ * Exact times live in the tooltip; the cell's job is "how full is this day".
+ */
+function layoutBlocks(blocks: WeekBlock[], cellHeight: number) {
+  const MIN_PX = 5;
+  const GAP_PX = 1;
+
+  let lastBottom = -Infinity;
+  return [...blocks]
+    .sort((a, b) => a.start - b.start)
+    .map((block) => {
+      const idealTop = (pct(block.start) / 100) * cellHeight;
+      const height = Math.max(
+        (heightPct(block.end - block.start) / 100) * cellHeight,
+        MIN_PX,
+      );
+      const top = Math.max(idealTop, lastBottom + GAP_PX);
+      lastBottom = top + height;
+      return { block, top, height };
+    })
+    .map(({ block, top, height }) => ({
+      block,
+      // Keep everything inside the cell even when a day is packed.
+      top: Math.min(top, cellHeight - height),
+      height,
+    }));
+}
+
 function DayCell({ day }: { day: WeekDay }) {
+  const CELL_H = 116;
+
   if (!day.rostered) {
     return (
       <div className="relative flex h-[116px] items-center justify-center bg-surface-2 text-[10.5px] text-faint">
@@ -98,6 +131,8 @@ function DayCell({ day }: { day: WeekDay }) {
       </div>
     );
   }
+
+  const laid = layoutBlocks(day.blocks, CELL_H);
 
   return (
     <div className="relative h-[116px] bg-surface">
@@ -119,21 +154,24 @@ function DayCell({ day }: { day: WeekDay }) {
       )}
 
       {!day.absent &&
-        day.blocks.map((block) => (
+        laid.map(({ block, top, height }) => (
           <div
             key={block.id}
-            title={`${block.title} · ${formatClock(block.start)}–${formatClock(block.end)}`}
-            className={`absolute right-1.5 left-1.5 overflow-hidden rounded-sm border-l-2 px-1 text-[9.5px] leading-tight whitespace-nowrap ${
+            title={`${block.title} · ${formatClock(block.start)}–${formatClock(block.end)} · ${formatDuration(block.estimatedMinutes)}`}
+            className={`absolute right-1.5 left-1.5 overflow-hidden rounded-sm border-l-2 px-1 text-[9px] leading-none whitespace-nowrap ${
               BLOCK_STYLE[block.status] ?? "bg-accent-wash border-l-accent"
             }`}
-            style={{
-              top: `${pct(block.start)}%`,
-              height: `${heightPct(block.end - block.start)}%`,
-            }}
+            style={{ top, height }}
           >
-            {block.title}
+            {height >= 9 ? block.title : ""}
           </div>
         ))}
+
+      {!day.absent && day.blocks.length > 0 && (
+        <span className="num absolute right-1 bottom-0.5 rounded bg-surface/85 px-1 text-[9px] text-muted">
+          {day.blocks.length} · {formatDuration(day.bookedMinutes)}
+        </span>
+      )}
 
       {day.rostered && !day.absent && day.blocks.length === 0 && (
         <span className="absolute inset-x-0 bottom-1 text-center text-[9.5px] text-faint">

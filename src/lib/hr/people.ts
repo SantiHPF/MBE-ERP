@@ -162,6 +162,110 @@ export async function updateWorkingPattern(
   }
 }
 
+const Reassign = z.object({
+  userId: z.string().min(1),
+  departmentId: z.string().min(1, "Pick a department"),
+  role: z.enum(["WORKER", "MANAGER", "HR", "ADMIN"]).optional(),
+});
+
+/**
+ * Move somebody to another department, and change their role while we are
+ * here -- the two usually change together.
+ *
+ * Their scheduled work does not follow them: a task belongs to the department
+ * that needs it done, so anything still outstanding goes back to the old
+ * department's pool rather than travelling to a team that has no idea what it
+ * is. Work already started or finished stays put, since it has tracked time
+ * against it.
+ */
+export async function changeDepartment(
+  _prev: PeopleState,
+  formData: FormData,
+): Promise<PeopleState> {
+  try {
+    const actor = await assertPeopleAdmin();
+    const parsed = Reassign.safeParse({
+      userId: formData.get("userId"),
+      departmentId: formData.get("departmentId"),
+      role: formData.get("role") || undefined,
+    });
+    if (!parsed.success) return { error: parsed.error.issues[0].message };
+
+    const user = await prisma.user.findUnique({
+      where: { id: parsed.data.userId },
+      include: { department: true },
+    });
+    if (!user) return { error: "That person no longer exists" };
+
+    const department = await prisma.department.findUnique({
+      where: { id: parsed.data.departmentId },
+    });
+    if (!department) return { error: "That department no longer exists" };
+
+    const moving = user.departmentId !== department.id;
+
+    if (
+      parsed.data.userId === actor.id &&
+      parsed.data.role &&
+      parsed.data.role !== "HR" &&
+      parsed.data.role !== "ADMIN"
+    ) {
+      return { error: "You would lock yourself out of People — ask another admin" };
+    }
+
+    const released = moving
+      ? await prisma.task.count({
+          where: { assigneeId: user.id, status: { in: ["ASSIGNED", "ORPHANED"] } },
+        })
+      : 0;
+
+    await prisma.$transaction([
+      prisma.user.update({
+        where: { id: user.id },
+        data: {
+          departmentId: department.id,
+          ...(parsed.data.role ? { role: parsed.data.role } : {}),
+        },
+      }),
+      ...(moving
+        ? [
+            prisma.task.updateMany({
+              where: {
+                assigneeId: user.id,
+                status: { in: ["ASSIGNED", "ORPHANED"] },
+              },
+              data: {
+                assigneeId: null,
+                status: "UNASSIGNED",
+                scheduledDate: null,
+                scheduledStart: null,
+                scheduledEnd: null,
+                orphanedAt: null,
+                orphanReason: null,
+              },
+            }),
+          ]
+        : []),
+    ]);
+
+    revalidatePath("/hr/people");
+    revalidatePath("/team");
+    revalidatePath("/plan");
+
+    return {
+      ok: true,
+      message: moving
+        ? `${user.displayName} moved to ${department.name}.` +
+          (released > 0
+            ? ` ${released} unstarted task${released === 1 ? "" : "s"} went back to ${user.department.name}.`
+            : "")
+        : `Updated ${user.displayName}.`,
+    };
+  } catch (error) {
+    return { error: error instanceof Error ? error.message : "Could not move them" };
+  }
+}
+
 export async function setPersonActive(
   _prev: PeopleState,
   formData: FormData,

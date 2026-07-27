@@ -15,56 +15,76 @@ const STATE_STYLE: Record<string, string> = {
   ORPHANED: "border-stall border-l-stall bg-stall-wash",
 };
 
+const STATE_ROW: Record<string, string> = {
+  DONE: "bg-transparent",
+  IN_PROGRESS: "bg-run-wash",
+  PAUSED: "bg-pause-wash",
+  ORPHANED: "bg-stall-wash",
+};
+
+const STATE_EDGE: Record<string, string> = {
+  DONE: "bg-done",
+  IN_PROGRESS: "bg-run",
+  PAUSED: "bg-pause",
+  ORPHANED: "bg-stall",
+};
+
 export function TaskButton({
   task,
-  dayStart,
-  pxPerMin,
   onPause,
 }: {
   task: DayTask;
-  dayStart: number;
-  pxPerMin: number;
   onPause: () => void;
 }) {
-  const top = ((task.scheduledStart ?? dayStart) - dayStart) * pxPerMin;
-  const height = Math.max(task.estimatedMinutes * pxPerMin, 32);
-  const style =
-    STATE_STYLE[task.status] ?? "border-line-strong border-l-line-strong bg-surface-2";
-
   return (
     <div
-      className={`absolute right-3.5 left-[62px] overflow-hidden rounded border border-l-[3px] px-2.5 py-1.5 ${style}`}
-      style={{ top, height }}
+      className={`flex items-center gap-3 border-b border-line px-4 py-2.5 last:border-0 ${
+        STATE_ROW[task.status] ?? ""
+      }`}
     >
-      <div className="flex items-baseline gap-2">
-        <span
-          className={`truncate text-[13.5px] font-medium tracking-tight ${
-            task.status === "DONE" ? "line-through decoration-faint" : ""
-          }`}
-        >
-          {task.title}
-        </span>
-        {task.scheduledStart != null && task.scheduledEnd != null && (
-          <span className="num shrink-0 text-[11px] text-muted">
-            {formatClock(task.scheduledStart)}–{formatClock(task.scheduledEnd)}
+      {/* Clock time carries the ordering now that the list is not to scale. */}
+      <span className="num w-[92px] shrink-0 text-[11.5px] text-muted">
+        {task.scheduledStart != null && task.scheduledEnd != null
+          ? `${formatClock(task.scheduledStart)}–${formatClock(task.scheduledEnd)}`
+          : "unplaced"}
+      </span>
+
+      <span
+        className={`h-8 w-[3px] shrink-0 rounded ${
+          STATE_EDGE[task.status] ?? "bg-line-strong"
+        }`}
+      />
+
+      <div className="min-w-0 flex-1">
+        <div className="flex flex-wrap items-baseline gap-2">
+          <span
+            className={`text-[13.5px] font-medium tracking-tight ${
+              task.status === "DONE" ? "text-muted line-through decoration-faint" : ""
+            }`}
+          >
+            {task.title}
           </span>
-        )}
+          <span className="num text-[11px] text-muted">
+            {formatDuration(task.estimatedMinutes)}
+          </span>
+          {task.notes && (
+            <span
+              title={task.notes}
+              className="cursor-help rounded border border-pause px-1.5 py-px text-[9.5px] font-semibold tracking-wider text-pause uppercase"
+            >
+              note
+            </span>
+          )}
+        </div>
+        <div className="mt-0.5 flex flex-wrap items-center gap-2 text-[11.5px] text-muted">
+          <span className="rounded border border-line bg-surface px-1.5 py-px text-[9.5px] font-semibold tracking-wider text-faint uppercase">
+            {task.origin}
+          </span>
+          <StateLabel task={task} />
+        </div>
       </div>
 
-      <div className="mt-0.5 flex items-center gap-2 text-[11.5px] text-muted">
-        <span className="shrink-0 rounded border border-line bg-surface px-1.5 py-px text-[9.5px] font-semibold tracking-wider text-faint uppercase">
-          {task.origin}
-        </span>
-        {task.notes && (
-          <span
-            title={task.notes}
-            className="shrink-0 cursor-help rounded border border-pause px-1.5 py-px text-[9.5px] font-semibold tracking-wider text-pause uppercase"
-          >
-            note
-          </span>
-        )}
-        <StateLabel task={task} />
-        <span className="flex-1" />
+      <div className="shrink-0">
         <Controls task={task} onPause={onPause} compact />
       </div>
     </div>
@@ -119,7 +139,7 @@ function Controls({
   if (task.status === "DONE") return null;
 
   const size = compact
-    ? "px-2 py-0.5 text-[11px]"
+    ? "px-2.5 py-1 text-[12px]"
     : "flex-1 px-3 py-1.5 text-[13px]";
 
   const error = startState.error ?? doneState.error;

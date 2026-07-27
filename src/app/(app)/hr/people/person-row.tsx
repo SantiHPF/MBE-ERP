@@ -2,6 +2,7 @@
 
 import { useActionState, useState } from "react";
 import {
+  changeDepartment,
   resetPassword,
   setPersonActive,
   updateWorkingPattern,
@@ -18,6 +19,7 @@ type Person = {
   role: string;
   active: boolean;
   department: string;
+  departmentId: string;
   weeklySummary: string;
   patternSummary: {
     weekday: number;
@@ -28,7 +30,13 @@ type Person = {
   }[];
 };
 
-export function PersonRow({ person }: { person: Person }) {
+export function PersonRow({
+  person,
+  departments,
+}: {
+  person: Person;
+  departments: { id: string; name: string }[];
+}) {
   const [open, setOpen] = useState(false);
   const [hoursState, saveHours, savingHours] = useActionState(
     updateWorkingPattern,
@@ -36,9 +44,12 @@ export function PersonRow({ person }: { person: Person }) {
   );
   const [activeState, toggleActive] = useActionState(setPersonActive, initial);
   const [pwState, resetPw, resetting] = useActionState(resetPassword, initial);
+  const [moveState, move, moving] = useActionState(changeDepartment, initial);
 
-  const message = hoursState.message ?? activeState.message ?? pwState.message;
-  const error = hoursState.error ?? activeState.error ?? pwState.error;
+  const message =
+    hoursState.message ?? activeState.message ?? pwState.message ?? moveState.message;
+  const error =
+    hoursState.error ?? activeState.error ?? pwState.error ?? moveState.error;
 
   return (
     <article
@@ -92,6 +103,54 @@ export function PersonRow({ person }: { person: Person }) {
               {error ?? message}
             </p>
           )}
+
+          <form
+            action={move}
+            className="mb-4 flex flex-wrap items-end gap-2 border-b border-line pb-3"
+          >
+            <input type="hidden" name="userId" value={person.id} />
+            <label className="text-[11px]">
+              <span className="mb-1 block font-semibold tracking-[0.07em] text-faint uppercase">
+                Department
+              </span>
+              <select
+                name="departmentId"
+                defaultValue={person.departmentId}
+                className="rounded border border-line-strong bg-surface-2 px-2 py-1.5 text-[13px]"
+              >
+                {departments.map((d) => (
+                  <option key={d.id} value={d.id}>
+                    {d.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="text-[11px]">
+              <span className="mb-1 block font-semibold tracking-[0.07em] text-faint uppercase">
+                Role
+              </span>
+              <select
+                name="role"
+                defaultValue={person.role}
+                className="rounded border border-line-strong bg-surface-2 px-2 py-1.5 text-[13px]"
+              >
+                <option value="WORKER">Worker</option>
+                <option value="MANAGER">Manager</option>
+                <option value="HR">HR</option>
+                <option value="ADMIN">Admin</option>
+              </select>
+            </label>
+            <button
+              type="submit"
+              disabled={moving}
+              className="rounded border border-line-strong bg-surface px-3 py-1.5 text-[13px] font-medium hover:bg-surface-2 disabled:opacity-50"
+            >
+              {moving ? "Moving…" : "Move"}
+            </button>
+            <span className="text-[11px] text-muted">
+              Unstarted work stays with the old department.
+            </span>
+          </form>
 
           <form action={saveHours}>
             <input type="hidden" name="userId" value={person.id} />

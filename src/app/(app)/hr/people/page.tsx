@@ -44,6 +44,7 @@ export default async function HrPeoplePage() {
               return (
                 <PersonRow
                   key={person.id}
+                  departments={departments}
                   person={{
                     id: person.id,
                     username: person.username,
@@ -51,6 +52,7 @@ export default async function HrPeoplePage() {
                     role: person.role,
                     active: person.active,
                     department: person.department.name,
+                    departmentId: person.departmentId,
                     weeklySummary: weekly
                       ? `${formatDuration(weekly)} a week`
                       : "no hours set",
