@@ -201,21 +201,42 @@ model TaskTemplate {
   @@unique([departmentId, name])
 }
 
-/// "This catalogue task happens every Monday and Thursday."
+enum Frequency {
+  WEEKLY
+  MONTHLY
+}
+
+/// "This catalogue task happens every Monday and Thursday", or "the last
+/// Monday of the month". Modelled on the subset of iCalendar recurrence the
+/// company's calendar actually uses -- weekly by weekday, and monthly by
+/// nth-weekday or day-of-month.
 model RecurringRule {
   id                    String  @id @default(cuid())
   templateId            String
   template              TaskTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
   departmentId          String
   department            Department   @relation(fields: [departmentId], references: [id])
-  /// ISO weekdays this fires on, e.g. [1, 4] for Monday and Thursday.
+
+  frequency             Frequency @default(WEEKLY)
+  /// ISO weekdays this fires on, e.g. [1, 4] for Monday and Thursday. For a
+  /// MONTHLY rule this holds the single weekday that monthlyNth counts.
   weekdays              Int[]
+  /// MONTHLY only: which occurrence of that weekday. 1 = first, -1 = last
+  /// (RRULE BYDAY=-1MO). Null when the rule uses monthlyDay instead.
+  monthlyNth            Int?
+  /// MONTHLY only: a fixed day of the month (RRULE BYMONTHDAY=22).
+  monthlyDay            Int?
+
   instancesPerOccurrence Int    @default(1)
   /// Optional fixed slot. When set, the task must land in this window and is
-  /// placed before flexible work.
+  /// placed before flexible work. Only genuine appointments get one -- most
+  /// calendar times are reminders, and pinning them all makes the schedule
+  /// unsolvable.
   fixedStartMinutes     Int?
   fixedEndMinutes       Int?
   active                Boolean @default(true)
+  /// Where this came from, for tracing an odd schedule back to its source.
+  sourceNote            String?
 
   @@index([departmentId])
 }

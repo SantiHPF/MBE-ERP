@@ -140,3 +140,94 @@ describe("diffAgainstExisting", () => {
     expect(alreadyPresent).toBe(1);
   });
 });
+
+describe("monthly rules", () => {
+  const monthly = (over: Partial<RuleInput>): RuleInput =>
+    rule({ frequency: "MONTHLY", ...over });
+
+  // July 2026: Mondays fall on 6, 13, 20, 27. Wednesdays on 1, 8, 15, 22, 29.
+  const JUL_1 = new Date(Date.UTC(2026, 6, 1));
+  const JUL_31 = new Date(Date.UTC(2026, 6, 31));
+
+  it("fires on the last Monday of the month (BYDAY=-1MO)", () => {
+    const planned = planRecurringTasks({
+      rules: [monthly({ weekdays: [1], monthlyNth: -1 })],
+      from: JUL_1,
+      to: JUL_31,
+    });
+
+    expect(planned).toHaveLength(1);
+    expect(planned[0].dueDate.toISOString().slice(0, 10)).toBe("2026-07-27");
+  });
+
+  it("fires on the last Wednesday of the month (BYDAY=-1WE)", () => {
+    const planned = planRecurringTasks({
+      rules: [monthly({ weekdays: [3], monthlyNth: -1 })],
+      from: JUL_1,
+      to: JUL_31,
+    });
+
+    expect(planned[0].dueDate.toISOString().slice(0, 10)).toBe("2026-07-29");
+  });
+
+  it("fires on the first Friday (BYDAY=1FR)", () => {
+    const planned = planRecurringTasks({
+      rules: [monthly({ weekdays: [5], monthlyNth: 1 })],
+      from: JUL_1,
+      to: JUL_31,
+    });
+
+    expect(planned[0].dueDate.toISOString().slice(0, 10)).toBe("2026-07-03");
+  });
+
+  it("fires on a fixed day of the month (BYMONTHDAY=22)", () => {
+    const planned = planRecurringTasks({
+      rules: [monthly({ weekdays: [], monthlyDay: 22 })],
+      from: JUL_1,
+      to: JUL_31,
+    });
+
+    expect(planned).toHaveLength(1);
+    expect(planned[0].dueDate.toISOString().slice(0, 10)).toBe("2026-07-22");
+  });
+
+  it("fires once per month across a longer window", () => {
+    const planned = planRecurringTasks({
+      rules: [monthly({ weekdays: [1], monthlyNth: -1 })],
+      from: JUL_1,
+      to: new Date(Date.UTC(2026, 8, 30)),
+    });
+
+    expect(planned.map((t) => t.dueDate.toISOString().slice(0, 10))).toEqual([
+      "2026-07-27",
+      "2026-08-31",
+      "2026-09-28",
+    ]);
+  });
+
+  it("skips a month too short for the requested day", () => {
+    // February 2026 has 28 days, so a 30th never comes round.
+    const planned = planRecurringTasks({
+      rules: [monthly({ weekdays: [], monthlyDay: 30 })],
+      from: new Date(Date.UTC(2026, 1, 1)),
+      to: new Date(Date.UTC(2026, 1, 28)),
+    });
+
+    expect(planned).toEqual([]);
+  });
+
+  it("keeps monthly and weekly rules independent", () => {
+    const planned = planRecurringTasks({
+      rules: [
+        monthly({ id: "m", weekdays: [1], monthlyNth: -1 }),
+        rule({ id: "w", weekdays: [1] }),
+      ],
+      from: JUL_1,
+      to: JUL_31,
+    });
+
+    // Four Mondays weekly, plus one monthly on the last of them.
+    expect(planned.filter((t) => t.externalKey.startsWith("recurring:w"))).toHaveLength(4);
+    expect(planned.filter((t) => t.externalKey.startsWith("recurring:m"))).toHaveLength(1);
+  });
+});

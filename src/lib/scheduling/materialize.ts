@@ -13,7 +13,10 @@ export type RuleInput = {
   id: string;
   templateId: string;
   departmentId: string;
+  frequency?: "WEEKLY" | "MONTHLY";
   weekdays: number[];
+  monthlyNth?: number | null;
+  monthlyDay?: number | null;
   instancesPerOccurrence: number;
   fixedStartMinutes: number | null;
   fixedEndMinutes: number | null;
@@ -24,6 +27,41 @@ export type RuleInput = {
     active: boolean;
   };
 };
+
+/**
+ * Does a monthly rule fire on this date?
+ *
+ * Two shapes, both taken from the company calendar's RRULEs:
+ *   BYDAY=-1MO   -> the last Monday of the month (monthlyNth = -1)
+ *   BYMONTHDAY=22 -> the 22nd, whatever weekday that is
+ *
+ * A month that is too short for the requested day simply does not fire, which
+ * is better than silently sliding into the next month.
+ */
+export function monthlyRuleFires(rule: RuleInput, date: Date): boolean {
+  if (rule.monthlyDay != null) {
+    return date.getUTCDate() === rule.monthlyDay;
+  }
+
+  const weekday = rule.weekdays[0];
+  if (weekday == null || isoWeekday(date) !== weekday) return false;
+  if (rule.monthlyNth == null) return false;
+
+  const year = date.getUTCFullYear();
+  const month = date.getUTCMonth();
+  const daysInMonth = new Date(Date.UTC(year, month + 1, 0)).getUTCDate();
+
+  // Collect every date in the month falling on that weekday.
+  const matching: number[] = [];
+  for (let day = 1; day <= daysInMonth; day++) {
+    if (isoWeekday(new Date(Date.UTC(year, month, day))) === weekday) {
+      matching.push(day);
+    }
+  }
+
+  const index = rule.monthlyNth > 0 ? rule.monthlyNth - 1 : matching.length + rule.monthlyNth;
+  return matching[index] === date.getUTCDate();
+}
 
 export type PlannedTask = {
   externalKey: string;
@@ -61,7 +99,12 @@ export function planRecurringTasks(input: {
 
     for (const rule of input.rules) {
       if (!rule.active || !rule.template.active) continue;
-      if (!rule.weekdays.includes(weekday)) continue;
+
+      const fires =
+        rule.frequency === "MONTHLY"
+          ? monthlyRuleFires(rule, date)
+          : rule.weekdays.includes(weekday);
+      if (!fires) continue;
 
       const count = Math.max(1, rule.instancesPerOccurrence);
       for (let instance = 1; instance <= count; instance++) {

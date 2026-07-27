@@ -1,0 +1,303 @@
+{
+  "department": "HR (Human Resources)",
+  "rules": [
+    {
+      "task": "Ofertas (1 Portal)",
+      "estimatedMinutes": 30,
+      "sourceNote": "ACTUALIZAR OFERTAS · Semanal · jueves, martes · 11:00",
+      "frequency": "WEEKLY",
+      "weekdays": [
+        2,
+        4
+      ]
+    },
+    {
+      "task": "Tabla Vacaciones",
+      "estimatedMinutes": 60,
+      "sourceNote": "ACTUALIZAR TABLA DE VACACIONES · Mensual · miércoles · 17:00",
+      "frequency": "MONTHLY",
+      "weekdays": [
+        3
+      ],
+      "monthlyNth": -1
+    },
+    {
+      "task": "Vacaciones",
+      "estimatedMinutes": 5,
+      "sourceNote": "ACTUALIZAR TABLA DE VACACIONES · Mensual · miércoles · 17:00",
+      "frequency": "MONTHLY",
+      "weekdays": [
+        3
+      ],
+      "monthlyNth": -1
+    },
+    {
+      "task": "Whatsapp",
+      "estimatedMinutes": 30,
+      "sourceNote": "Informar canal Oficina (Wapp) Incorporaciones de la semana: S = R - E · Semanal · jueves · 12:30",
+      "frequency": "WEEKLY",
+      "weekdays": [
+        4
+      ]
+    },
+    {
+      "task": "Reunión Semanal y Prep",
+      "estimatedMinutes": 30,
+      "sourceNote": "REUNIÓN SEMANAL DE RRHH · Semanal · lunes · 10:00",
+      "frequency": "WEEKLY",
+      "weekdays": [
+        1
+      ],
+      "fixedStartMinutes": 600,
+      "fixedEndMinutes": 630
+    },
+    {
+      "task": "Comprobar asistencia",
+      "estimatedMinutes": 5,
+      "sourceNote": "Comprobar Asistencia · Diaria · 09:00",
+      "frequency": "WEEKLY",
+      "weekdays": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ]
+    },
+    {
+      "task": "Proceso",
+      "estimatedMinutes": 90,
+      "sourceNote": "PROCESO DE INCORPORACIÓN · Semanal · miércoles · 09:00",
+      "frequency": "WEEKLY",
+      "weekdays": [
+        3
+      ],
+      "fixedStartMinutes": 540,
+      "fixedEndMinutes": 630
+    },
+    {
+      "task": "Entrevista",
+      "estimatedMinutes": 10,
+      "sourceNote": "Entrevista 1a Semana Incorp. · Semanal · jueves · 13:30",
+      "frequency": "WEEKLY",
+      "weekdays": [
+        4
+      ],
+      "fixedStartMinutes": 810,
+      "fixedEndMinutes": 820
+    },
+    {
+      "task": "Onboarding",
+      "estimatedMinutes": 60,
+      "sourceNote": "Onboarding · Semanal · jueves · 10:00",
+      "frequency": "WEEKLY",
+      "weekdays": [
+        4
+      ],
+      "fixedStartMinutes": 600,
+      "fixedEndMinutes": 660
+    },
+    {
+      "task": "Upgrade descripción",
+      "estimatedMinutes": 15,
+      "sourceNote": "UPGRADE DESCRIPCIONES · Semanal · jueves · 11:45",
+      "frequency": "WEEKLY",
+      "weekdays": [
+        4
+      ]
+    },
+    {
+      "task": "Upgrade procedimiento",
+      "estimatedMinutes": 60,
+      "sourceNote": "UPGRADE PROCEDIMIENTOS · Semanal · jueves · 12:00",
+      "frequency": "WEEKLY",
+      "weekdays": [
+        4
+      ]
+    },
+    {
+      "task": "Preparacion proceso",
+      "estimatedMinutes": 30,
+      "sourceNote": "PREPARAR EL PROCESO DE INCORPORACIÓN · Semanal · martes · 18:00",
+      "frequency": "WEEKLY",
+      "weekdays": [
+        2
+      ],
+      "fixedStartMinutes": 1080,
+      "fixedEndMinutes": 1110
+    },
+    {
+      "task": "Revisión Minq",
+      "estimatedMinutes": 5,
+      "sourceNote": "METER INCORPORADOS AL MINQ · Semanal · miércoles · 11:45",
+      "frequency": "WEEKLY",
+      "weekdays": [
+        3
+      ]
+    },
+    {
+      "task": "Examen sorpresa",
+      "estimatedMinutes": 10,
+      "sourceNote": "EXAMEN SORPRESA · Semanal · lunes, miércoles, viernes · 13:30",
+      "frequency": "WEEKLY",
+      "weekdays": [
+        1,
+        3,
+        5
+      ]
+    },
+    {
+      "task": "Cambio fecha",
+      "estimatedMinutes": 5,
+      "sourceNote": "CAMBIAR FECHA EN PLANTILLAS Y EN LINK · Semanal · lunes · 12:30",
+      "frequency": "WEEKLY",
+      "weekdays": [
+        1
+      ]
+    },
+    {
+      "task": "Llamadas candidatos",
+      "estimatedMinutes": 7,
+      "sourceNote": "BUSQUEDA EN PORTALES · Semanal · viernes, lunes, jueves, martes, miércoles · 16:00",
+      "frequency": "WEEKLY",
+      "weekdays": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ]
+    },
+    {
+      "task": "Email",
+      "estimatedMinutes": 30,
+      "sourceNote": "Responder Correos · Diaria · 09:15",
+      "frequency": "WEEKLY",
+      "weekdays": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ]
+    },
+    {
+      "task": "Sucesos",
+      "estimatedMinutes": 5,
+      "sourceNote": "SUCESOS RRHH · Semanal · viernes, lunes, jueves, martes, miércoles · 09:00",
+      "frequency": "WEEKLY",
+      "weekdays": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ]
+    },
+    {
+      "task": "Revisión Portales",
+      "estimatedMinutes": 120,
+      "sourceNote": "BUSQUEDA EN PORTALES · Semanal · viernes, lunes, jueves, martes, miércoles · 16:00",
+      "frequency": "WEEKLY",
+      "weekdays": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ]
+    },
+    {
+      "task": "Reunion Calendar",
+      "estimatedMinutes": 60,
+      "sourceNote": "REUNIÓN SEMANAL DE RRHH · Semanal · lunes · 10:00",
+      "frequency": "WEEKLY",
+      "weekdays": [
+        1
+      ],
+      "fixedStartMinutes": 600,
+      "fixedEndMinutes": 660
+    },
+    {
+      "task": "Debriefing Proceso",
+      "estimatedMinutes": 30,
+      "sourceNote": "DEBRIEFING PROCESO · Semanal · miércoles · 10:45",
+      "frequency": "WEEKLY",
+      "weekdays": [
+        3
+      ],
+      "fixedStartMinutes": 645,
+      "fixedEndMinutes": 675
+    },
+    {
+      "task": "Supervisar PRODUCTIVIDAD pinetree hacia abajo",
+      "estimatedMinutes": 10,
+      "sourceNote": "Meter Media de Examenes a Productividad · Semanal · viernes · 12:00",
+      "frequency": "WEEKLY",
+      "weekdays": [
+        5
+      ]
+    },
+    {
+      "task": "Revisión Pinetree",
+      "estimatedMinutes": 15,
+      "sourceNote": "Meter Media de Examenes a Productividad · Semanal · viernes · 12:00",
+      "frequency": "WEEKLY",
+      "weekdays": [
+        5
+      ]
+    },
+    {
+      "task": "Nueva Semana Productividad",
+      "estimatedMinutes": 30,
+      "sourceNote": "REUNIÓN SEMANAL DE RRHH · Semanal · lunes · 10:00",
+      "frequency": "WEEKLY",
+      "weekdays": [
+        1
+      ]
+    },
+    {
+      "task": "Nuevo Mes Vacaciones",
+      "estimatedMinutes": 60,
+      "sourceNote": "ACTUALIZAR TABLA DE VACACIONES · Mensual · miércoles · 17:00",
+      "frequency": "MONTHLY",
+      "weekdays": [
+        3
+      ],
+      "monthlyNth": -1
+    },
+    {
+      "task": "Enviar Nominas",
+      "estimatedMinutes": 15,
+      "sourceNote": "Enviar Nominas · Mensual · lunes · 12:00",
+      "frequency": "MONTHLY",
+      "weekdays": [
+        1
+      ],
+      "monthlyNth": -1
+    },
+    {
+      "task": "Meter Candidatos Latam",
+      "estimatedMinutes": 90,
+      "sourceNote": "BUSQUEDA EN PORTALES · Semanal · viernes, lunes, jueves, martes, miércoles · 16:00",
+      "frequency": "WEEKLY",
+      "weekdays": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ]
+    },
+    {
+      "task": "Nueva Oferta LATAM",
+      "estimatedMinutes": 15,
+      "sourceNote": "ACTUALIZAR OFERTAS · Semanal · jueves, martes · 11:00",
+      "frequency": "WEEKLY",
+      "weekdays": [
+        2,
+        4
+      ]
+    }
+  ]
+}
