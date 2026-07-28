@@ -75,7 +75,7 @@ export function PersonRow({
           type="button"
           onClick={() => setOpen((v) => !v)}
           aria-expanded={open}
-          className="rounded border border-line-strong px-2 py-0.5 text-[11px] hover:bg-surface-2"
+          className="btn btn-sm"
         >
           {open ? "Close" : "Edit"}
         </button>
@@ -110,7 +110,7 @@ export function PersonRow({
           >
             <input type="hidden" name="userId" value={person.id} />
             <label className="text-[11px]">
-              <span className="mb-1 block font-semibold tracking-[0.07em] text-faint uppercase">
+              <span className="field-label">
                 Department
               </span>
               <select
@@ -126,7 +126,7 @@ export function PersonRow({
               </select>
             </label>
             <label className="text-[11px]">
-              <span className="mb-1 block font-semibold tracking-[0.07em] text-faint uppercase">
+              <span className="field-label">
                 Role
               </span>
               <select
@@ -143,7 +143,7 @@ export function PersonRow({
             <button
               type="submit"
               disabled={moving}
-              className="rounded border border-line-strong bg-surface px-3 py-1.5 text-[13px] font-medium hover:bg-surface-2 disabled:opacity-50"
+              className="btn"
             >
               {moving ? "Moving…" : "Move"}
             </button>
@@ -168,7 +168,7 @@ export function PersonRow({
             <form action={resetPw} className="flex items-end gap-1.5">
               <input type="hidden" name="userId" value={person.id} />
               <label className="text-[11px]">
-                <span className="mb-1 block font-semibold tracking-[0.07em] text-faint uppercase">
+                <span className="field-label">
                   New password
                 </span>
                 <input

@@ -184,8 +184,8 @@ export function CatalogueForm({
                 priority === id
                   ? id === "MUST"
                     ? "rounded border border-stall bg-stall px-2.5 py-1 text-xs font-medium text-white"
-                    : "rounded border border-accent bg-accent px-2.5 py-1 text-xs font-medium text-accent-ink"
-                  : "rounded border border-line-strong bg-surface px-2.5 py-1 text-xs text-muted hover:border-accent"
+                    : "rounded-md border border-accent bg-accent px-2.5 py-1.5 text-[12.5px] font-medium text-accent-ink"
+                  : "rounded-md border border-line-strong bg-surface px-2.5 py-1.5 text-[12.5px] text-muted transition-colors hover:border-accent hover:text-ink"
               }
             >
               {text}
@@ -223,8 +223,8 @@ export function CatalogueForm({
               onClick={() => setFreq(id)}
               className={
                 freq === id
-                  ? "rounded border border-accent bg-accent px-2.5 py-1 text-xs font-medium text-accent-ink"
-                  : "rounded border border-line-strong bg-surface px-2.5 py-1 text-xs text-muted hover:border-accent"
+                  ? "rounded-md border border-accent bg-accent px-2.5 py-1.5 text-[12.5px] font-medium text-accent-ink"
+                  : "rounded-md border border-line-strong bg-surface px-2.5 py-1.5 text-[12.5px] text-muted transition-colors hover:border-accent hover:text-ink"
               }
             >
               {text}
@@ -257,8 +257,8 @@ export function CatalogueForm({
                     }
                     className={
                       on
-                        ? "rounded border border-accent bg-accent px-2.5 py-1 text-xs font-medium text-accent-ink"
-                        : "rounded border border-line-strong bg-surface px-2.5 py-1 text-xs text-muted hover:border-accent"
+                        ? "rounded-md border border-accent bg-accent px-2.5 py-1.5 text-[12.5px] font-medium text-accent-ink"
+                        : "rounded-md border border-line-strong bg-surface px-2.5 py-1.5 text-[12.5px] text-muted transition-colors hover:border-accent hover:text-ink"
                     }
                   >
                     {text}
@@ -410,14 +410,14 @@ export function CatalogueForm({
         <button
           type="submit"
           disabled={pending || (freq === "WEEKLY" && days.length === 0)}
-          className="rounded border border-accent bg-accent px-3 py-1.5 text-[13px] font-medium text-accent-ink hover:brightness-110 disabled:opacity-50"
+          className="btn btn-primary"
         >
           {pending ? "Saving…" : entry ? "Save changes" : "Add to catalogue"}
         </button>
         <button
           type="button"
           onClick={onCancel}
-          className="rounded border border-line-strong bg-surface px-3 py-1.5 text-[13px] hover:bg-surface-2"
+          className="btn"
         >
           Cancel
         </button>

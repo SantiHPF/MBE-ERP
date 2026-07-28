@@ -26,18 +26,18 @@ export default async function TriagePage() {
 
   return (
     <div>
-      <h1 className="text-xl font-semibold tracking-tight">Triage</h1>
-      <p className="mt-0.5 mb-5 text-[13px] text-muted">
+      <h1 className="page-title">Triage</h1>
+      <p className="page-sub mb-5">
         Work that needs a decision. Nothing here has been moved automatically.
       </p>
 
       <section className="mb-8">
-        <h2 className="mb-2.5 text-[11px] font-semibold tracking-[0.09em] text-faint uppercase">
+        <h2 className="eyebrow mb-2.5 block">
           Orphaned by an absence · {queue.length}
         </h2>
 
         {queue.length === 0 ? (
-          <p className="rounded border border-dashed border-line p-8 text-center text-sm text-muted">
+          <p className="empty">
             Nothing orphaned. When somebody is marked away, the work they were
             due to do appears here.
           </p>
@@ -51,12 +51,12 @@ export default async function TriagePage() {
       </section>
 
       <section className="mb-8">
-        <h2 className="mb-2.5 text-[11px] font-semibold tracking-[0.09em] text-faint uppercase">
+        <h2 className="eyebrow mb-2.5 block">
           Stalled right now · {paused.length}
         </h2>
 
         {paused.length === 0 ? (
-          <p className="rounded border border-dashed border-line p-6 text-center text-sm text-muted">
+          <p className="empty">
             Nothing is paused.
           </p>
         ) : (
@@ -100,7 +100,7 @@ export default async function TriagePage() {
 
       {unassigned > 0 && (
         <section>
-          <h2 className="mb-2.5 text-[11px] font-semibold tracking-[0.09em] text-faint uppercase">
+          <h2 className="eyebrow mb-2.5 block">
             Nobody had room · {unassigned}
           </h2>
           <p className="rounded border border-line bg-surface px-3.5 py-2.5 text-[13px] text-muted">

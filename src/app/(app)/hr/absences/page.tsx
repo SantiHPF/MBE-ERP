@@ -32,20 +32,20 @@ export default async function HrAbsencesPage() {
 
   return (
     <div>
-      <h1 className="text-xl font-semibold tracking-tight">Absence requests</h1>
-      <p className="mt-0.5 mb-5 max-w-[65ch] text-[13px] text-muted">
+      <h1 className="page-title">Absence requests</h1>
+      <p className="page-sub mb-5 max-w-[65ch]">
         Sick days already apply to the schedule when they are reported — nobody
         is counted as at work while they are off. Your decision records them.
         Holiday and personal leave do nothing until you approve them.
       </p>
 
       <section className="mb-8">
-        <h2 className="mb-2.5 text-[11px] font-semibold tracking-[0.09em] text-faint uppercase">
+        <h2 className="eyebrow mb-2.5 block">
           Waiting for you · {pending.length}
         </h2>
 
         {pending.length === 0 ? (
-          <p className="rounded border border-dashed border-line p-8 text-center text-sm text-muted">
+          <p className="empty">
             Nothing waiting.
           </p>
         ) : (
@@ -112,16 +112,16 @@ export default async function HrAbsencesPage() {
       </section>
 
       <section>
-        <h2 className="mb-2.5 text-[11px] font-semibold tracking-[0.09em] text-faint uppercase">
+        <h2 className="eyebrow mb-2.5 block">
           Decided
         </h2>
 
         {decided.length === 0 ? (
-          <p className="rounded border border-dashed border-line p-6 text-center text-sm text-muted">
+          <p className="empty">
             Nothing decided yet.
           </p>
         ) : (
-          <div className="overflow-x-auto rounded border border-line bg-surface">
+          <div className="card overflow-x-auto">
             <table className="w-full min-w-[680px] border-collapse text-[13px]">
               <thead>
                 <tr className="border-b border-line text-left text-[11px] font-semibold tracking-[0.07em] text-faint uppercase">

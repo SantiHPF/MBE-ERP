@@ -41,7 +41,7 @@ export default async function TeamPage({
     <div>
       <div className="mb-4 flex flex-wrap items-end justify-between gap-4">
         <div>
-          <h1 className="text-xl font-semibold tracking-tight text-balance">
+          <h1 className="page-title">
             {week.departmentName} — week of{" "}
             {monday.toLocaleDateString("en-GB", {
               day: "numeric",
@@ -49,7 +49,7 @@ export default async function TeamPage({
               timeZone: "UTC",
             })}
           </h1>
-          <p className="num mt-0.5 text-[13px] text-muted">
+          <p className="page-sub num">
             {formatDuration(totalBooked)} booked of{" "}
             {formatDuration(totalAvailable)} available
           </p>
@@ -64,8 +64,8 @@ export default async function TeamPage({
                   href={`/team?week=${week.weekStart}&dept=${d.id}`}
                   className={
                     d.id === departmentId
-                      ? "rounded bg-accent-wash px-2.5 py-1 font-medium text-accent"
-                      : "rounded px-2.5 py-1 text-muted hover:bg-surface-2"
+                      ? "rounded-md bg-accent-wash px-2.5 py-1.5 text-[12.5px] font-semibold text-accent"
+                      : "rounded-md px-2.5 py-1.5 text-[12.5px] text-muted transition-colors hover:bg-surface-2 hover:text-ink"
                   }
                 >
                   {d.name}
@@ -75,19 +75,19 @@ export default async function TeamPage({
           )}
           <Link
             href={href(prev)}
-            className="rounded border border-line-strong bg-surface px-2.5 py-1 hover:bg-surface-2"
+            className="btn btn-sm"
           >
             ← Previous
           </Link>
           <Link
             href={href(thisWeek)}
-            className="rounded border border-line-strong bg-surface px-2.5 py-1 hover:bg-surface-2"
+            className="btn btn-sm"
           >
             This week
           </Link>
           <Link
             href={href(next)}
-            className="rounded border border-line-strong bg-surface px-2.5 py-1 hover:bg-surface-2"
+            className="btn btn-sm"
           >
             Next →
           </Link>
@@ -95,7 +95,7 @@ export default async function TeamPage({
       </div>
 
       {week.orphanCount > 0 && (
-        <div className="mb-4 flex items-center gap-3 rounded border border-stall bg-stall-wash px-3.5 py-2.5 text-[13px]">
+        <div className="notice notice-bad mb-4 flex items-center gap-3 !text-ink">
           <span>
             <b className="text-stall">
               {week.orphanCount} {week.orphanCount === 1 ? "task needs" : "tasks need"}{" "}

@@ -27,7 +27,7 @@ export default async function PlanPage({
     <div>
       <div className="mb-4 flex flex-wrap items-end justify-between gap-4">
         <div>
-          <h1 className="text-xl font-semibold tracking-tight">
+          <h1 className="page-title">
             Plan week of{" "}
             {monday.toLocaleDateString("en-GB", {
               day: "numeric",
@@ -70,13 +70,13 @@ export default async function PlanPage({
         <div className="flex gap-1.5 text-[13px]">
           <Link
             href={`/plan?week=${dateKey(addDays(monday, -7))}`}
-            className="rounded border border-line-strong bg-surface px-2.5 py-1 hover:bg-surface-2"
+            className="btn btn-sm"
           >
             ← Previous
           </Link>
           <Link
             href={`/plan?week=${dateKey(mondayOf(new Date()))}`}
-            className="rounded border border-line-strong bg-surface px-2.5 py-1 hover:bg-surface-2"
+            className="btn btn-sm"
           >
             This week
           </Link>
@@ -88,7 +88,7 @@ export default async function PlanPage({
           </Link>
           <Link
             href={`/plan?week=${dateKey(addDays(monday, 7))}`}
-            className="rounded border border-line-strong bg-surface px-2.5 py-1 hover:bg-surface-2"
+            className="btn btn-sm"
           >
             Forward →
           </Link>

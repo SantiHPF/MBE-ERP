@@ -12,14 +12,14 @@ export function NewMeetingForm() {
   return (
     <form action={submit} className="flex flex-wrap items-end gap-1.5">
       <label className="text-xs">
-        <span className="mb-1 block font-semibold tracking-[0.07em] text-faint uppercase">
+        <span className="field-label">
           New meeting
         </span>
         <input
           name="title"
           defaultValue="Weekly planning"
           required
-          className="rounded border border-line-strong bg-surface px-2.5 py-1.5 text-[13px]"
+          className="field"
         />
       </label>
       <input
@@ -32,7 +32,7 @@ export function NewMeetingForm() {
       <button
         type="submit"
         disabled={pending}
-        className="rounded border border-accent bg-accent px-3 py-1.5 text-[13px] font-medium text-accent-ink hover:brightness-110 disabled:opacity-50"
+        className="btn btn-primary"
       >
         {pending ? "Starting…" : "Start"}
       </button>

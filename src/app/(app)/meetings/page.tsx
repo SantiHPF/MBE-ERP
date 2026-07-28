@@ -23,8 +23,8 @@ export default async function MeetingsPage() {
     <div>
       <div className="mb-5 flex flex-wrap items-end justify-between gap-4">
         <div>
-          <h1 className="text-xl font-semibold tracking-tight">Meetings</h1>
-          <p className="mt-0.5 text-[13px] text-muted">
+          <h1 className="page-title">Meetings</h1>
+          <p className="page-sub">
             Run the weekly meeting here and the report writes itself.
           </p>
         </div>
@@ -32,7 +32,7 @@ export default async function MeetingsPage() {
       </div>
 
       {meetings.length === 0 ? (
-        <p className="rounded border border-dashed border-line p-10 text-center text-sm text-muted">
+        <p className="empty">
           No meetings yet.
         </p>
       ) : (

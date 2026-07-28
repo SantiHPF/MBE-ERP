@@ -96,7 +96,7 @@ export function DayViewClient({ view }: { view: DayView }) {
 
   if (!view.rostered) {
     return (
-      <p className="rounded border border-dashed border-line p-10 text-center text-sm text-muted">
+      <p className="empty">
         You are not scheduled to work today.
       </p>
     );
@@ -170,12 +170,10 @@ export function DayViewClient({ view }: { view: DayView }) {
 
       <div className="grid items-start gap-5 lg:grid-cols-[minmax(0,1fr)_316px]">
         {/* ------------------------------------------------------ the rota */}
-        <section className="rounded border border-line bg-surface shadow-sm">
-          <header className="flex items-center justify-between border-b border-line px-4 py-2.5">
-            <span className="text-[10.5px] font-semibold tracking-[0.1em] text-faint uppercase">
-              Today
-            </span>
-            <span className="num text-xs text-muted">
+        <section className="card">
+          <header className="card-head">
+            <span className="eyebrow">Today</span>
+            <span className="num text-[12px] text-muted">
               {reordering
                 ? "saving order…"
                 : `${view.tasks.length} ${view.tasks.length === 1 ? "task" : "tasks"}`}
@@ -219,9 +217,11 @@ export function DayViewClient({ view }: { view: DayView }) {
                   key={`${row.kind}-${row.start}`}
                   className="flex items-center gap-3 border-b border-line px-4 py-2 last:border-0"
                 >
-                  <span className="num w-[92px] shrink-0 text-[11px] text-faint">
-                    {formatClock(row.start)}–{formatClock(row.end)}
+                  <span className="w-4 shrink-0" />
+                  <span className="num w-[88px] shrink-0 text-[12px] text-faint">
+                    {formatClock(row.start)}
                   </span>
+                  <span className="h-4 w-[3px] shrink-0" />
                   <span
                     className={`text-[12px] ${
                       row.kind === "break" ? "text-faint" : "text-muted"
@@ -229,7 +229,7 @@ export function DayViewClient({ view }: { view: DayView }) {
                   >
                     {row.kind === "break"
                       ? `Break · ${formatDuration(row.end - row.start)}`
-                      : `${formatDuration(row.end - row.start)} unbooked`}
+                      : `${formatDuration(row.end - row.start)} free`}
                   </span>
                   <span className="h-px flex-1 border-t border-dashed border-line" />
                 </li>
@@ -237,8 +237,12 @@ export function DayViewClient({ view }: { view: DayView }) {
             )}
 
             {rows.length === 0 && (
-              <li className="px-4 py-10 text-center text-sm text-muted">
-                Nothing scheduled today.
+              <li className="px-4 py-12 text-center">
+                <p className="text-[14px] font-medium">Nothing scheduled today</p>
+                <p className="mt-1 text-[13px] text-muted">
+                  Pick something up from Plan week, or wait for the next
+                  scheduling run.
+                </p>
               </li>
             )}
           </ul>
@@ -247,22 +251,32 @@ export function DayViewClient({ view }: { view: DayView }) {
         {/* ------------------------------------------------------- the rail */}
         <aside className="flex flex-col gap-3.5 lg:sticky lg:top-5">
           {active ? (
-            <section className="rounded border border-line bg-surface p-4 shadow-sm">
-              <p className="text-[10.5px] font-semibold tracking-[0.1em] text-faint uppercase">
+            <section
+              className={`card card-body border-l-[3px] ${
+                active.status === "IN_PROGRESS"
+                  ? "border-l-run"
+                  : "border-l-pause"
+              }`}
+            >
+              <p
+                className={`eyebrow ${
+                  active.status === "IN_PROGRESS" ? "text-run" : "text-pause"
+                }`}
+              >
                 {active.status === "IN_PROGRESS" ? "Running now" : "Paused"}
               </p>
-              <p className="mt-1.5 text-sm font-semibold text-balance">
+              <p className="mt-1.5 text-[15px] font-semibold text-balance">
                 {active.title}
               </p>
 
               <p
-                className={`num mt-2.5 text-[34px] leading-tight font-medium tracking-tight ${
+                className={`num mt-3 text-[38px] leading-none font-medium tracking-[-0.03em] ${
                   over ? "text-pause" : ""
                 }`}
               >
                 {stopwatch(elapsed)}
               </p>
-              <p className="num mt-0.5 text-[11.5px] text-muted">
+              <p className="num mt-1.5 text-[12px] text-muted">
                 {over
                   ? `over the ${formatDuration(active.estimatedMinutes)} estimate`
                   : `${formatDuration(
@@ -273,9 +287,9 @@ export function DayViewClient({ view }: { view: DayView }) {
                     )} left of ${formatDuration(active.estimatedMinutes)}`}
               </p>
 
-              <div className="my-3 h-1 overflow-hidden rounded bg-line">
+              <div className="my-3.5 h-1.5 overflow-hidden rounded-full bg-line">
                 <div
-                  className={`h-full ${over ? "bg-pause" : "bg-run"}`}
+                  className={`h-full rounded-full transition-[width] duration-500 ${over ? "bg-pause" : "bg-run"}`}
                   style={{
                     width: `${Math.min(
                       100,
@@ -286,10 +300,8 @@ export function DayViewClient({ view }: { view: DayView }) {
               </div>
 
               {active.status === "PAUSED" && active.pauseText && (
-                <p className="mb-3 rounded border border-pause bg-pause-wash px-3 py-2 text-xs">
-                  <span className="mb-0.5 block text-[10px] font-semibold tracking-wider text-pause uppercase">
-                    Paused
-                  </span>
+                <p className="notice notice-warn mb-3">
+                  <span className="eyebrow mb-0.5 block text-pause">Paused</span>
                   {active.pauseText}
                 </p>
               )}
@@ -297,12 +309,12 @@ export function DayViewClient({ view }: { view: DayView }) {
               {/* Catalogue warnings belong in front of you while you work,
                   not in a spreadsheet nobody reopens. */}
               {active.notes && (
-                <p className="mb-3 rounded border border-line bg-surface-2 px-3 py-2 text-xs leading-relaxed">
+                <p className="mb-3 rounded-md border border-line bg-surface-2 px-3 py-2 text-[12.5px] leading-relaxed">
                   {active.notes}
                 </p>
               )}
               {active.instructions && (
-                <p className="mb-3 text-[11px] text-muted">
+                <p className="mb-3 text-[12px] text-muted">
                   How to: {active.instructions}
                 </p>
               )}
@@ -313,8 +325,11 @@ export function DayViewClient({ view }: { view: DayView }) {
               />
             </section>
           ) : (
-            <section className="rounded border border-line bg-surface p-4 text-center text-sm text-muted shadow-sm">
-              Nothing running. Start a task from the list.
+            <section className="card card-body text-center">
+              <p className="text-[13px] font-medium">Nothing running</p>
+              <p className="mt-0.5 text-[12.5px] text-muted">
+                Start a task from the list.
+              </p>
             </section>
           )}
 
@@ -324,11 +339,11 @@ export function DayViewClient({ view }: { view: DayView }) {
             </div>
           )}
 
-          <section className="rounded border border-line bg-surface shadow-sm">
-            <header className="border-b border-line px-4 py-2.5 text-[10.5px] font-semibold tracking-[0.1em] text-faint uppercase">
-              Day at a glance
+          <section className="card">
+            <header className="card-head">
+              <span className="eyebrow">Day at a glance</span>
             </header>
-            <dl className="px-4 py-1">
+            <dl className="px-4 py-1.5">
               <Stat label="Booked">
                 {formatDuration(booked)} of {formatDuration(view.availableMinutes)}
               </Stat>
@@ -370,8 +385,8 @@ function Stat({
   children: React.ReactNode;
 }) {
   return (
-    <div className="flex items-baseline justify-between gap-3 border-b border-line py-2 last:border-0">
-      <dt className="text-xs text-muted">{label}</dt>
+    <div className="flex items-baseline justify-between gap-3 border-b border-line py-2.5 last:border-0">
+      <dt className="text-[12.5px] text-muted">{label}</dt>
       <dd className="num text-[13px] font-semibold">{children}</dd>
     </div>
   );

@@ -1,4 +1,9 @@
-import { requireUser, hasRole, canManagePeople, canDecideAbsences } from "@/lib/auth/guards";
+import {
+  requireUser,
+  hasRole,
+  canManagePeople,
+  canDecideAbsences,
+} from "@/lib/auth/guards";
 import { prisma } from "@/lib/db";
 import { logout } from "@/app/login/actions";
 import { NavLink } from "./nav-link";
@@ -17,13 +22,21 @@ export default async function AppLayout({
     ? await prisma.absence.count({ where: { status: "PENDING" } })
     : 0;
 
+  const initials = user.displayName
+    .split(" ")
+    .slice(0, 2)
+    .map((part) => part[0])
+    .join("");
+
   return (
     <div className="min-h-screen">
-      <header className="border-b border-[var(--color-line)] bg-[var(--color-surface)]">
-        <div className="mx-auto flex max-w-6xl items-center gap-6 px-6 py-3">
-          <span className="font-semibold tracking-tight">task-erp</span>
+      <header className="sticky top-0 z-40 border-b border-line bg-surface/95 backdrop-blur">
+        <div className="mx-auto flex max-w-[1180px] items-center gap-6 px-6">
+          <span className="py-3.5 text-[15px] font-semibold tracking-tight">
+            task<span className="text-accent">·</span>erp
+          </span>
 
-          <nav className="flex flex-1 flex-wrap gap-1 text-sm">
+          <nav className="flex flex-1 flex-wrap gap-0.5 py-3.5" aria-label="Main">
             <NavLink href="/my-day">My day</NavLink>
             <NavLink href="/plan">Plan week</NavLink>
             <NavLink href="/my-calendar">My calendar</NavLink>
@@ -35,7 +48,7 @@ export default async function AppLayout({
               <NavLink href="/hr/absences">
                 Requests
                 {waiting > 0 && (
-                  <span className="num ml-1.5 rounded-full bg-pause px-1.5 py-px text-[10px] font-semibold text-white">
+                  <span className="num ml-1.5 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-pause px-1 text-[10px] font-semibold text-white">
                     {waiting}
                   </span>
                 )}
@@ -44,15 +57,23 @@ export default async function AppLayout({
             {canManagePeople(user) && <NavLink href="/hr/people">People</NavLink>}
           </nav>
 
-          <div className="flex items-center gap-3 text-sm">
-            <span className="text-[var(--color-muted)]">
-              {user.displayName} · {user.departmentName}
+          <div className="flex items-center gap-2.5 py-3.5">
+            <div className="hidden text-right leading-tight sm:block">
+              <span className="block text-[13px] font-medium">
+                {user.displayName}
+              </span>
+              <span className="block text-[11px] text-faint">
+                {user.departmentName.replace(/\s*\(.*\)$/, "")}
+              </span>
+            </div>
+            <span
+              aria-hidden
+              className="flex h-8 w-8 items-center justify-center rounded-full bg-accent-wash text-[12px] font-semibold text-accent"
+            >
+              {initials}
             </span>
             <form action={logout}>
-              <button
-                type="submit"
-                className="rounded-md border border-[var(--color-line)] px-2 py-1 text-xs hover:bg-[var(--color-canvas)]"
-              >
+              <button type="submit" className="btn btn-sm">
                 Sign out
               </button>
             </form>
@@ -60,7 +81,7 @@ export default async function AppLayout({
         </div>
       </header>
 
-      <main className="mx-auto max-w-6xl px-6 py-8">{children}</main>
+      <main className="mx-auto max-w-[1180px] px-6 py-7">{children}</main>
     </div>
   );
 }

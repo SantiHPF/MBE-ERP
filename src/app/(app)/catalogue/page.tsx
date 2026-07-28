@@ -36,10 +36,10 @@ export default async function CataloguePage({
     <div>
       <div className="mb-4 flex flex-wrap items-end justify-between gap-4">
         <div>
-          <h1 className="text-xl font-semibold tracking-tight">
+          <h1 className="page-title">
             {department.name} — task catalogue
           </h1>
-          <p className="num mt-0.5 text-[13px] text-muted">
+          <p className="page-sub num">
             {active.length} active ·{" "}
             {active.filter((t) => t.recurringRules.length > 0).length} on a
             schedule
@@ -54,8 +54,8 @@ export default async function CataloguePage({
                 href={`/catalogue?dept=${d.id}`}
                 className={
                   d.id === departmentId
-                    ? "rounded bg-accent-wash px-2.5 py-1 font-medium text-accent"
-                    : "rounded px-2.5 py-1 text-muted hover:bg-surface-2"
+                    ? "rounded-md bg-accent-wash px-2.5 py-1.5 text-[12.5px] font-semibold text-accent"
+                    : "rounded-md px-2.5 py-1.5 text-[12.5px] text-muted transition-colors hover:bg-surface-2 hover:text-ink"
                 }
               >
                 {d.name.replace(/\s*\(.*\)$/, "")}

@@ -20,11 +20,11 @@ export default async function MyDayPage() {
   return (
     <div>
       <div className="mb-4">
-        <h1 className="text-xl font-semibold tracking-tight text-balance">
+        <h1 className="page-title">
           {heading}
         </h1>
         {view.rostered && view.availableMinutes > 0 && (
-          <p className="num mt-0.5 text-[13px] text-muted">
+          <p className="page-sub num">
             {formatClock(view.windows[0].start)}–
             {formatClock(view.windows[view.windows.length - 1].end)} ·{" "}
             {formatDuration(view.availableMinutes)} after breaks

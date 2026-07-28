@@ -45,9 +45,9 @@ export function LiveMeeting({
   return (
     <div className="grid items-start gap-5 lg:grid-cols-[minmax(0,1fr)_360px]">
       {/* ------------------------------------------------------------ notes */}
-      <section className="rounded border border-line bg-surface shadow-sm">
+      <section className="card">
         <header className="flex items-center justify-between border-b border-line px-4 py-2.5">
-          <span className="text-[10.5px] font-semibold tracking-[0.1em] text-faint uppercase">
+          <span className="eyebrow">
             Notes
           </span>
           {notesState.ok && <span className="text-[11px] text-run">Saved</span>}
@@ -62,7 +62,7 @@ export function LiveMeeting({
             name="notes"
             defaultValue={notes}
             placeholder={"What was discussed…\n\nMarkdown is fine — it renders in the report."}
-            className="min-h-[380px] w-full resize-y rounded border border-line-strong bg-surface-2 px-3 py-2.5 text-[13.5px] leading-relaxed"
+            className="field min-h-[380px] resize-y leading-relaxed"
           />
           <button
             type="submit"
@@ -76,9 +76,9 @@ export function LiveMeeting({
 
       {/* ----------------------------------------------------- action items */}
       <aside className="flex flex-col gap-3.5">
-        <section className="rounded border border-line bg-surface shadow-sm">
+        <section className="card">
           <header className="flex items-center justify-between border-b border-line px-4 py-2.5">
-            <span className="text-[10.5px] font-semibold tracking-[0.1em] text-faint uppercase">
+            <span className="eyebrow">
               Action items
             </span>
             <span className="num text-[11px] text-muted">
@@ -130,7 +130,7 @@ export function LiveMeeting({
 
             <div className="grid grid-cols-2 gap-2">
               <label className="text-[11px]">
-                <span className="mb-1 block font-semibold tracking-[0.07em] text-faint uppercase">
+                <span className="field-label">
                   How long
                 </span>
                 <input
@@ -140,11 +140,11 @@ export function LiveMeeting({
                   min={1}
                   max={720}
                   step={1}
-                  className="num w-full rounded border border-line-strong bg-surface-2 px-2 py-1.5 text-[13px]"
+                  className="field num"
                 />
               </label>
               <label className="text-[11px]">
-                <span className="mb-1 block font-semibold tracking-[0.07em] text-faint uppercase">
+                <span className="field-label">
                   Due
                 </span>
                 <input
@@ -152,19 +152,19 @@ export function LiveMeeting({
                   name="dueDate"
                   defaultValue={today}
                   required
-                  className="num w-full rounded border border-line-strong bg-surface-2 px-2 py-1.5 text-[13px]"
+                  className="field num"
                 />
               </label>
             </div>
 
             <label className="text-[11px]">
-              <span className="mb-1 block font-semibold tracking-[0.07em] text-faint uppercase">
+              <span className="field-label">
                 Anyone in particular?
               </span>
               <select
                 name="pinnedAssigneeId"
                 defaultValue=""
-                className="w-full rounded border border-line-strong bg-surface-2 px-2 py-1.5 text-[13px]"
+                className="field"
               >
                 <option value="">
                   No — let the system pick who is free and due a turn
@@ -186,14 +186,14 @@ export function LiveMeeting({
             <button
               type="submit"
               disabled={adding}
-              className="rounded border border-line-strong bg-surface px-3 py-1.5 text-[13px] font-medium hover:bg-surface-2 disabled:opacity-50"
+              className="btn"
             >
               {adding ? "Adding…" : "Add action item"}
             </button>
           </form>
         </section>
 
-        <section className="rounded border border-line bg-surface p-4 shadow-sm">
+        <section className="card card-body">
           <p className="mb-2.5 text-xs text-muted">
             Nothing exists as real work yet. Finalising turns each action item
             into a task and the next scheduling run places it — pinned ones go

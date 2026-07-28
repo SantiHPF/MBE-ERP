@@ -82,7 +82,7 @@ export function AbsenceRow({ absence }: { absence: AbsenceRecord }) {
               <button
                 type="button"
                 onClick={() => setEditing(true)}
-                className="rounded border border-line-strong px-2 py-0.5 text-[11px] hover:bg-surface-2"
+                className="btn btn-sm"
               >
                 Change
               </button>
@@ -164,7 +164,7 @@ export function AbsenceRow({ absence }: { absence: AbsenceRecord }) {
 
         <div className="flex flex-wrap items-end gap-2">
           <label className="text-[11px]">
-            <span className="mb-1 block font-semibold tracking-[0.07em] text-faint uppercase">
+            <span className="field-label">
               From
             </span>
             <input
@@ -176,7 +176,7 @@ export function AbsenceRow({ absence }: { absence: AbsenceRecord }) {
             />
           </label>
           <label className="text-[11px]">
-            <span className="mb-1 block font-semibold tracking-[0.07em] text-faint uppercase">
+            <span className="field-label">
               To
             </span>
             <input
@@ -210,7 +210,7 @@ export function AbsenceRow({ absence }: { absence: AbsenceRecord }) {
         {scope === "PARTIAL" && (
           <div className="flex flex-wrap items-end gap-2">
             <label className="text-[11px]">
-              <span className="mb-1 block font-semibold tracking-[0.07em] text-faint uppercase">
+              <span className="field-label">
                 Away from
               </span>
               <input
@@ -221,7 +221,7 @@ export function AbsenceRow({ absence }: { absence: AbsenceRecord }) {
               />
             </label>
             <label className="text-[11px]">
-              <span className="mb-1 block font-semibold tracking-[0.07em] text-faint uppercase">
+              <span className="field-label">
                 Back at
               </span>
               <input
@@ -258,14 +258,14 @@ export function AbsenceRow({ absence }: { absence: AbsenceRecord }) {
           <button
             type="submit"
             disabled={saving}
-            className="rounded border border-accent bg-accent px-3 py-1.5 text-[13px] font-medium text-accent-ink hover:brightness-110 disabled:opacity-50"
+            className="btn btn-primary"
           >
             {saving ? "Saving…" : "Save changes"}
           </button>
           <button
             type="button"
             onClick={() => setEditing(false)}
-            className="rounded border border-line-strong px-3 py-1.5 text-[13px] hover:bg-surface-2"
+            className="btn"
           >
             Cancel
           </button>

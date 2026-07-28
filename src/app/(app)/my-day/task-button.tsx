@@ -13,22 +13,14 @@ import { startMeetingForTask } from "@/lib/meetings/live";
 
 const initial: ActionState = {};
 
-const STATE_STYLE: Record<string, string> = {
-  DONE: "border-line border-l-done bg-transparent text-muted",
-  IN_PROGRESS: "border-run border-l-run bg-run-wash",
-  PAUSED: "border-pause border-l-pause bg-pause-wash",
-  ORPHANED: "border-stall border-l-stall bg-stall-wash",
-};
-
-const STATE_ROW: Record<string, string> = {
-  DONE: "bg-transparent",
+const ROW_TINT: Record<string, string> = {
   IN_PROGRESS: "bg-run-wash",
   PAUSED: "bg-pause-wash",
   ORPHANED: "bg-stall-wash",
 };
 
-const STATE_EDGE: Record<string, string> = {
-  DONE: "bg-done",
+const EDGE: Record<string, string> = {
+  DONE: "bg-done/40",
   IN_PROGRESS: "bg-run",
   PAUSED: "bg-pause",
   ORPHANED: "bg-stall",
@@ -46,77 +38,80 @@ export function TaskButton({
   onMove?: (direction: "up" | "down") => void;
 }) {
   const movable = onMove && task.status !== "DONE";
+  const done = task.status === "DONE";
+
   return (
     <div
-      className={`flex items-center gap-2.5 border-b border-line px-4 py-2.5 last:border-0 ${
+      className={`group flex items-center gap-3 border-b border-line px-4 py-3 transition-colors last:border-0 hover:bg-surface-2/70 ${
         movable ? "cursor-grab active:cursor-grabbing" : ""
-      } ${STATE_ROW[task.status] ?? ""}`}
+      } ${ROW_TINT[task.status] ?? ""}`}
     >
-      {/* Drag handle, with buttons so it works without a mouse too. */}
-      {movable ? (
-        <span
-          className="flex shrink-0 flex-col leading-none text-faint"
-          aria-hidden={false}
-        >
-          <button
-            type="button"
-            onClick={() => onMove("up")}
-            aria-label={`Move ${task.title} earlier`}
-            className="px-1 text-[9px] hover:text-accent"
-          >
-            ▲
-          </button>
-          <button
-            type="button"
-            onClick={() => onMove("down")}
-            aria-label={`Move ${task.title} later`}
-            className="px-1 text-[9px] hover:text-accent"
-          >
-            ▼
-          </button>
-        </span>
-      ) : (
-        <span className="w-[17px] shrink-0" />
-      )}
+      {/* Reorder handle. Hidden until hover so the row stays quiet, but the
+          buttons are always focusable for keyboard use. */}
+      <div className="w-4 shrink-0">
+        {movable && (
+          <div className="flex flex-col leading-none text-faint opacity-0 transition-opacity group-focus-within:opacity-100 group-hover:opacity-100">
+            <button
+              type="button"
+              onClick={() => onMove("up")}
+              aria-label={`Move ${task.title} earlier`}
+              className="hover:text-accent"
+            >
+              <svg width="11" height="7" viewBox="0 0 11 7" aria-hidden>
+                <path d="M1 6l4.5-4L10 6" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+            </button>
+            <button
+              type="button"
+              onClick={() => onMove("down")}
+              aria-label={`Move ${task.title} later`}
+              className="hover:text-accent"
+            >
+              <svg width="11" height="7" viewBox="0 0 11 7" aria-hidden>
+                <path d="M1 1l4.5 4L10 1" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+            </button>
+          </div>
+        )}
+      </div>
 
       {/* Clock time carries the ordering now that the list is not to scale. */}
-      <span className="num w-[92px] shrink-0 text-[11.5px] text-muted">
+      <span
+        className={`num w-[88px] shrink-0 text-[12px] tracking-tight ${
+          done ? "text-faint" : "text-muted"
+        }`}
+      >
         {task.scheduledStart != null && task.scheduledEnd != null
           ? `${formatClock(task.scheduledStart)}–${formatClock(task.scheduledEnd)}`
           : "unplaced"}
       </span>
 
       <span
-        className={`h-8 w-[3px] shrink-0 rounded ${
-          STATE_EDGE[task.status] ?? "bg-line-strong"
+        className={`h-9 w-[3px] shrink-0 rounded-full ${
+          EDGE[task.status] ?? "bg-line-strong"
         }`}
       />
 
       <div className="min-w-0 flex-1">
-        <div className="flex flex-wrap items-baseline gap-2">
+        <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
           <span
-            className={`text-[13.5px] font-medium tracking-tight ${
-              task.status === "DONE" ? "text-muted line-through decoration-faint" : ""
+            className={`text-[14px] font-medium tracking-[-0.006em] ${
+              done ? "text-muted line-through decoration-faint" : ""
             }`}
           >
             {task.title}
           </span>
-          <span className="num text-[11px] text-muted">
+          <span className="num text-[12px] text-faint">
             {formatDuration(task.estimatedMinutes)}
           </span>
           {task.notes && (
-            <span
-              title={task.notes}
-              className="cursor-help rounded border border-pause px-1.5 py-px text-[9.5px] font-semibold tracking-wider text-pause uppercase"
-            >
+            <span title={task.notes} className="badge badge-warn cursor-help">
               note
             </span>
           )}
         </div>
-        <div className="mt-0.5 flex flex-wrap items-center gap-2 text-[11.5px] text-muted">
-          <span className="rounded border border-line bg-surface px-1.5 py-px text-[9.5px] font-semibold tracking-wider text-faint uppercase">
-            {task.origin}
-          </span>
+        <div className="mt-1 flex flex-wrap items-center gap-2 text-[12px] text-muted">
+          <span className="badge">{task.origin}</span>
           <StateLabel task={task} />
         </div>
       </div>
@@ -131,7 +126,7 @@ export function TaskButton({
 function StateLabel({ task }: { task: DayTask }) {
   if (task.status === "IN_PROGRESS") {
     return (
-      <span className="flex shrink-0 items-center gap-1.5 text-[11px] font-semibold text-run">
+      <span className="flex shrink-0 items-center gap-1.5 text-[12px] font-semibold text-run">
         <span className="throb h-1.5 w-1.5 rounded-full bg-current" />
         Running
       </span>
@@ -139,23 +134,19 @@ function StateLabel({ task }: { task: DayTask }) {
   }
   if (task.status === "PAUSED") {
     return (
-      <span className="truncate text-[11px] font-semibold text-pause">
+      <span className="truncate text-[12px] font-medium text-pause">
         Paused · {task.pauseText}
       </span>
     );
   }
   if (task.status === "DONE") {
     return (
-      <span className="num shrink-0 text-[11px] text-done">
+      <span className="num shrink-0 text-[12px] text-done">
         Done in {formatDuration(Math.round(task.elapsedSeconds / 60))}
       </span>
     );
   }
-  return (
-    <span className="num shrink-0 text-[11px]">
-      {formatDuration(task.estimatedMinutes)}
-    </span>
-  );
+  return null;
 }
 
 function Controls({
@@ -185,26 +176,21 @@ function Controls({
 
   if (task.status === "DONE") return null;
 
-  const size = compact
-    ? "px-2.5 py-1 text-[12px]"
-    : "flex-1 px-3 py-1.5 text-[13px]";
-
-  const error = startState.blockedBy ? undefined : (startState.error ?? doneState.error);
+  const size = compact ? "btn-sm" : "flex-1";
+  const error = startState.blockedBy
+    ? undefined
+    : (startState.error ?? doneState.error);
 
   return (
     <div className={compact ? "flex shrink-0 gap-1.5" : "flex gap-1.5"}>
       {error && !compact && (
-        <p role="alert" className="mb-2 w-full text-xs text-stall">
+        <p role="alert" className="mb-2 w-full text-[12px] text-stall">
           {error}
         </p>
       )}
 
       {task.status === "IN_PROGRESS" ? (
-        <button
-          type="button"
-          onClick={onPause}
-          className={`rounded border border-line-strong bg-surface font-medium hover:bg-surface-2 ${size}`}
-        >
+        <button type="button" onClick={onPause} className={`btn ${size}`}>
           Pause
         </button>
       ) : (
@@ -221,11 +207,7 @@ function Controls({
           }}
         >
           <input type="hidden" name="taskId" value={task.id} />
-          <button
-            type="submit"
-            disabled={starting}
-            className={`rounded border border-line-strong bg-surface font-medium hover:bg-surface-2 disabled:opacity-50 ${size}`}
-          >
+          <button type="submit" disabled={starting} className={`btn ${size}`}>
             {task.status === "PAUSED"
               ? "Resume"
               : task.isMeeting
@@ -241,7 +223,7 @@ function Controls({
           <button
             type="submit"
             disabled={completing}
-            className={`rounded border border-accent bg-accent font-medium text-accent-ink hover:brightness-110 disabled:opacity-50 ${size}`}
+            className={`btn btn-primary ${size}`}
           >
             Complete
           </button>

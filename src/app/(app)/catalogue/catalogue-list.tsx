@@ -72,7 +72,7 @@ export function CatalogueList({
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           placeholder="Find a task…"
-          className="w-56 rounded border border-line-strong bg-surface px-2.5 py-1.5 text-[13px]"
+          className="field w-56"
         />
         <label className="flex items-center gap-1.5 text-[12px] text-muted">
           <input
@@ -90,7 +90,7 @@ export function CatalogueList({
             setCreating((v) => !v);
             setEditing(null);
           }}
-          className="rounded border border-accent bg-accent px-2.5 py-1 text-[12px] font-medium text-accent-ink hover:brightness-110"
+          className="btn btn-primary btn-sm"
         >
           {creating ? "Close" : "+ New task"}
         </button>
@@ -99,11 +99,7 @@ export function CatalogueList({
       {(notice.error ?? notice.message) && (
         <p
           role="status"
-          className={`mb-3 rounded border px-3 py-2 text-[13px] ${
-            notice.error
-              ? "border-stall bg-stall-wash text-stall"
-              : "border-run bg-run-wash text-run"
-          }`}
+          className={`notice mb-3 ${notice.error ? "notice-bad" : "notice-ok"}`}
         >
           {notice.error ?? notice.message}
         </p>
@@ -183,7 +179,7 @@ export function CatalogueList({
                   setEditing(editing === entry.id ? null : entry.id);
                   setCreating(false);
                 }}
-                className="rounded border border-line-strong px-2 py-0.5 text-[11px] hover:bg-surface-2"
+                className="btn btn-sm"
               >
                 {editing === entry.id ? "Close" : "Edit"}
               </button>
@@ -206,7 +202,7 @@ export function CatalogueList({
         ))}
 
         {rows.length === 0 && (
-          <p className="rounded border border-dashed border-line p-10 text-center text-sm text-muted">
+          <p className="empty">
             Nothing matches.
           </p>
         )}

@@ -38,12 +38,12 @@ export function StartMeetingButton() {
         required
         autoFocus
         placeholder="What is it about?"
-        className="w-56 rounded border border-line-strong bg-surface px-2.5 py-1.5 text-[13px]"
+        className="field w-56"
       />
       <button
         type="submit"
         disabled={pending}
-        className="rounded border border-accent bg-accent px-3 py-1.5 text-[13px] font-medium text-accent-ink disabled:opacity-50"
+        className="btn btn-primary"
       >
         {pending ? "Starting…" : "Start"}
       </button>
@@ -121,7 +121,7 @@ export function MeetingPanel({
         <div>
           <label
             htmlFor="live-notes"
-            className="mb-1.5 block text-[11px] font-semibold tracking-[0.07em] text-faint uppercase"
+            className="field-label"
           >
             Notes
           </label>
@@ -130,7 +130,7 @@ export function MeetingPanel({
             value={notes}
             onChange={(e) => setNotes(e.target.value)}
             placeholder="What is being said…"
-            className="min-h-[220px] w-full resize-y rounded border border-line-strong bg-surface-2 px-3 py-2.5 text-[13.5px] leading-relaxed"
+            className="field min-h-[220px] resize-y leading-relaxed"
           />
         </div>
 

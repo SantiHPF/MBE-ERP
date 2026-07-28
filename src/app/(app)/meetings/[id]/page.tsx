@@ -45,13 +45,13 @@ export default async function MeetingPage({
 
   const header = (
     <div className="mb-5">
-      <p className="text-[10.5px] font-semibold tracking-[0.1em] text-faint uppercase">
+      <p className="eyebrow">
         {meeting.status === "DRAFT" ? "In progress" : "Meeting report"}
       </p>
       <h1 className="mt-1 text-xl font-semibold tracking-tight text-balance">
         {meeting.title}
       </h1>
-      <p className="num mt-0.5 text-[13px] text-muted">
+      <p className="page-sub num">
         {dateKey(meeting.date)} · {meeting.attendees.length} attending ·{" "}
         {formatDuration(
           meeting.actionItems.reduce((s, i) => s + i.estimatedMinutes, 0),
@@ -74,7 +74,7 @@ export default async function MeetingPage({
     return (
       <>
         {header}
-        <p className="rounded border border-dashed border-line p-8 text-center text-sm text-muted">
+        <p className="empty">
           This meeting is still being run. The report appears here once it is
           finalised.
         </p>

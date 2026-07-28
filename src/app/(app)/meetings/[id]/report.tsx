@@ -56,7 +56,7 @@ export function MeetingReport({ meeting }: { meeting: ReportMeeting }) {
 
       {meeting.notes.trim() && (
         <section className="rounded border border-line bg-surface p-5 shadow-sm">
-          <h2 className="mb-2.5 text-[11px] font-semibold tracking-[0.09em] text-faint uppercase">
+          <h2 className="eyebrow mb-2.5 block">
             Notes
           </h2>
           <div className="max-w-[65ch] text-[13.5px] leading-relaxed whitespace-pre-wrap">
@@ -65,9 +65,9 @@ export function MeetingReport({ meeting }: { meeting: ReportMeeting }) {
         </section>
       )}
 
-      <section className="rounded border border-line bg-surface shadow-sm">
+      <section className="card">
         <header className="flex items-center justify-between border-b border-line px-5 py-3">
-          <h2 className="text-[11px] font-semibold tracking-[0.09em] text-faint uppercase">
+          <h2 className="eyebrow">
             What was agreed
           </h2>
           <span className="num text-[11px] text-muted">

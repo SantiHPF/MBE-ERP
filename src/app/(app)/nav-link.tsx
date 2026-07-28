@@ -16,13 +16,19 @@ export function NavLink({
   return (
     <Link
       href={href}
-      className={
+      aria-current={active ? "page" : undefined}
+      className={`relative rounded-md px-3 py-1.5 text-[13px] transition-colors ${
         active
-          ? "rounded-md bg-[var(--color-canvas)] px-3 py-1.5 font-medium text-[var(--color-accent)]"
-          : "rounded-md px-3 py-1.5 text-[var(--color-muted)] hover:bg-[var(--color-canvas)]"
-      }
+          ? "font-semibold text-ink"
+          : "text-muted hover:bg-surface-2 hover:text-ink"
+      }`}
     >
       {children}
+      {/* An underline marks the current page without the pill fighting the
+          buttons elsewhere on the row for attention. */}
+      {active && (
+        <span className="absolute inset-x-3 -bottom-[11px] h-0.5 rounded-full bg-accent" />
+      )}
     </Link>
   );
 }

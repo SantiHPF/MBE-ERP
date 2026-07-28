@@ -59,7 +59,7 @@ export function PauseDialog({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-5"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-ink/45 p-5 backdrop-blur-[2px]"
       onClick={(e) => {
         if (e.target === e.currentTarget) onClose();
       }}
@@ -68,15 +68,15 @@ export function PauseDialog({
         role="dialog"
         aria-modal="true"
         aria-labelledby="pause-title"
-        className="w-full max-w-[430px] rounded-lg border border-line bg-surface p-5 shadow-2xl"
+        className="w-full max-w-[430px] rounded-[10px] border border-line bg-surface p-5 shadow-[var(--shadow-raised)]"
       >
-        <p className="text-[10.5px] font-semibold tracking-[0.1em] text-faint uppercase">
+        <p className="eyebrow">
           Pausing
         </p>
-        <h2 id="pause-title" className="mt-1 text-base font-semibold tracking-tight">
+        <h2 id="pause-title" className="mt-1 text-[16px] font-semibold tracking-[-0.012em]">
           {title}
         </h2>
-        <p className="mt-1 mb-4 text-xs text-muted">
+        <p className="mt-1 mb-4 text-[12.5px] text-muted">
           The reason is what tells your manager whether the hold-up is yours to
           fix. It is required — nothing pauses silently.
         </p>
@@ -98,8 +98,8 @@ export function PauseDialog({
                   onClick={() => setReason(r.id)}
                   className={
                     reason === r.id
-                      ? "rounded-full border border-accent bg-accent px-3 py-1 text-xs font-medium text-accent-ink"
-                      : "rounded-full border border-line-strong bg-surface px-3 py-1 text-xs text-muted hover:border-accent hover:text-ink"
+                      ? "rounded-full border border-accent bg-accent px-3 py-1.5 text-[12.5px] font-medium text-accent-ink"
+                      : "rounded-full border border-line-strong bg-surface px-3 py-1.5 text-[12.5px] text-muted transition-colors hover:border-accent hover:text-ink"
                   }
                 >
                   {r.label}
@@ -110,7 +110,7 @@ export function PauseDialog({
 
           <label
             htmlFor="reasonText"
-            className="mb-1.5 block text-[11px] font-semibold tracking-[0.07em] text-faint uppercase"
+            className="field-label"
           >
             In your words
           </label>
@@ -121,7 +121,7 @@ export function PauseDialog({
             value={text}
             onChange={(e) => setText(e.target.value)}
             placeholder="e.g. Pallet scanner is out of battery, charging it now"
-            className="min-h-[74px] w-full resize-y rounded border border-line-strong bg-surface-2 px-2.5 py-2 text-[13.5px]"
+            className="field min-h-[74px] resize-y"
           />
 
           <p

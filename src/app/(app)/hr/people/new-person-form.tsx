@@ -19,26 +19,26 @@ export function NewPersonForm({
 
   return (
     <aside className="flex flex-col gap-3.5">
-      <section className="rounded border border-line bg-surface p-4 shadow-sm">
+      <section className="card card-body">
         <h2 className="mb-3 text-[11px] font-semibold tracking-[0.09em] text-faint uppercase">
           Add someone
         </h2>
 
         <form action={submit} className="flex flex-col gap-2.5">
           <label className="text-[11px]">
-            <span className="mb-1 block font-semibold tracking-[0.07em] text-faint uppercase">
+            <span className="field-label">
               Full name
             </span>
             <input
               name="displayName"
               required
-              className="w-full rounded border border-line-strong bg-surface-2 px-2.5 py-1.5 text-[13px]"
+              className="field"
             />
           </label>
 
           <div className="grid grid-cols-2 gap-2">
             <label className="text-[11px]">
-              <span className="mb-1 block font-semibold tracking-[0.07em] text-faint uppercase">
+              <span className="field-label">
                 Username
               </span>
               <input
@@ -48,27 +48,27 @@ export function NewPersonForm({
               />
             </label>
             <label className="text-[11px]">
-              <span className="mb-1 block font-semibold tracking-[0.07em] text-faint uppercase">
+              <span className="field-label">
                 First password
               </span>
               <input
                 name="password"
                 required
                 minLength={8}
-                className="w-full rounded border border-line-strong bg-surface-2 px-2.5 py-1.5 text-[13px]"
+                className="field"
               />
             </label>
           </div>
 
           <div className="grid grid-cols-2 gap-2">
             <label className="text-[11px]">
-              <span className="mb-1 block font-semibold tracking-[0.07em] text-faint uppercase">
+              <span className="field-label">
                 Department
               </span>
               <select
                 name="departmentId"
                 required
-                className="w-full rounded border border-line-strong bg-surface-2 px-2 py-1.5 text-[13px]"
+                className="field"
               >
                 {departments.map((d) => (
                   <option key={d.id} value={d.id}>
@@ -78,13 +78,13 @@ export function NewPersonForm({
               </select>
             </label>
             <label className="text-[11px]">
-              <span className="mb-1 block font-semibold tracking-[0.07em] text-faint uppercase">
+              <span className="field-label">
                 Role
               </span>
               <select
                 name="role"
                 defaultValue="WORKER"
-                className="w-full rounded border border-line-strong bg-surface-2 px-2 py-1.5 text-[13px]"
+                className="field"
               >
                 <option value="WORKER">Worker</option>
                 <option value="MANAGER">Manager</option>
@@ -113,15 +113,15 @@ export function NewPersonForm({
           <button
             type="submit"
             disabled={pending}
-            className="rounded border border-accent bg-accent px-3 py-2 text-[13px] font-medium text-accent-ink hover:brightness-110 disabled:opacity-50"
+            className="btn btn-primary w-full"
           >
             {pending ? "Creating…" : "Create account"}
           </button>
         </form>
       </section>
 
-      <section className="rounded border border-line bg-surface p-4 shadow-sm">
-        <h2 className="mb-2.5 text-[11px] font-semibold tracking-[0.09em] text-faint uppercase">
+      <section className="card card-body">
+        <h2 className="eyebrow mb-2.5 block">
           Add a department
         </h2>
         <form action={addDept} className="flex gap-1.5">
@@ -134,7 +134,7 @@ export function NewPersonForm({
           <button
             type="submit"
             disabled={addingDept}
-            className="rounded border border-line-strong bg-surface px-3 py-1.5 text-[13px] font-medium hover:bg-surface-2 disabled:opacity-50"
+            className="btn"
           >
             Add
           </button>

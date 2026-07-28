@@ -75,7 +75,7 @@ export function PlanBoard({ week }: { week: PlanWeek }) {
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           placeholder="Find a task…"
-          className="w-56 rounded border border-line-strong bg-surface px-2.5 py-1.5 text-[13px]"
+          className="field w-56"
         />
         <div className="flex gap-1">
           {(
@@ -106,7 +106,7 @@ export function PlanBoard({ week }: { week: PlanWeek }) {
         <button
           type="button"
           onClick={() => setAdding((v) => !v)}
-          className="rounded border border-accent bg-accent px-2.5 py-1 text-[12px] font-medium text-accent-ink hover:brightness-110"
+          className="btn btn-primary btn-sm"
         >
           {adding ? "Close" : "+ New task"}
         </button>
@@ -126,17 +126,13 @@ export function PlanBoard({ week }: { week: PlanWeek }) {
       {(notice.error ?? notice.message) && (
         <p
           role="status"
-          className={`mb-3 rounded border px-3 py-2 text-[13px] ${
-            notice.error
-              ? "border-stall bg-stall-wash text-stall"
-              : "border-run bg-run-wash text-run"
-          }`}
+          className={`notice mb-3 ${notice.error ? "notice-bad" : "notice-ok"}`}
         >
           {notice.error ?? notice.message}
         </p>
       )}
 
-      <div className="overflow-x-auto rounded border border-line bg-surface shadow-sm">
+      <div className="card overflow-x-auto">
         <table className="w-full min-w-[760px] border-collapse">
           <thead className="sticky top-0 z-10">
             <tr>
@@ -290,7 +286,7 @@ function NewTaskForm({
       className="mb-3 flex flex-wrap items-end gap-2 rounded border border-accent bg-accent-wash p-3"
     >
       <label className="flex-1 text-[11px] min-w-52">
-        <span className="mb-1 block font-semibold tracking-[0.07em] text-faint uppercase">
+        <span className="field-label">
           What needs doing
         </span>
         <input
@@ -303,7 +299,7 @@ function NewTaskForm({
       </label>
 
       <label className="text-[11px]">
-        <span className="mb-1 block font-semibold tracking-[0.07em] text-faint uppercase">
+        <span className="field-label">
           Minutes
         </span>
         <input
@@ -319,7 +315,7 @@ function NewTaskForm({
       </label>
 
       <label className="text-[11px]">
-        <span className="mb-1 block font-semibold tracking-[0.07em] text-faint uppercase">
+        <span className="field-label">
           Day
         </span>
         <select
@@ -339,7 +335,7 @@ function NewTaskForm({
       <button
         type="submit"
         disabled={pending}
-        className="rounded border border-accent bg-accent px-3 py-1.5 text-[13px] font-medium text-accent-ink hover:brightness-110 disabled:opacity-50"
+        className="btn btn-primary"
       >
         {pending ? "Adding…" : "Add to my week"}
       </button>

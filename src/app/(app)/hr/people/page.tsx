@@ -22,14 +22,14 @@ export default async function HrPeoplePage() {
 
   return (
     <div>
-      <h1 className="text-xl font-semibold tracking-tight">People</h1>
-      <p className="mt-0.5 mb-5 text-[13px] text-muted">
+      <h1 className="page-title">People</h1>
+      <p className="page-sub mb-5">
         Accounts and working hours. Only HR can change these.
       </p>
 
       <div className="grid items-start gap-5 lg:grid-cols-[minmax(0,1fr)_380px]">
         <section>
-          <h2 className="mb-2.5 text-[11px] font-semibold tracking-[0.09em] text-faint uppercase">
+          <h2 className="eyebrow mb-2.5 block">
             Everyone · {people.filter((p) => p.active).length} active
           </h2>
 

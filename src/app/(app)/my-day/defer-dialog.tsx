@@ -54,7 +54,7 @@ export function DeferDialog({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-5"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-ink/45 p-5 backdrop-blur-[2px]"
       onClick={(e) => {
         if (e.target === e.currentTarget) onClose();
       }}
@@ -63,15 +63,15 @@ export function DeferDialog({
         role="dialog"
         aria-modal="true"
         aria-labelledby="defer-title"
-        className="w-full max-w-[440px] rounded-lg border border-line bg-surface p-5 shadow-2xl"
+        className="w-full max-w-[440px] rounded-[10px] border border-line bg-surface p-5 shadow-[var(--shadow-raised)]"
       >
-        <p className="text-[10.5px] font-semibold tracking-[0.1em] text-faint uppercase">
+        <p className="eyebrow">
           Out of order
         </p>
-        <h2 id="defer-title" className="mt-1 text-base font-semibold tracking-tight">
+        <h2 id="defer-title" className="mt-1 text-[16px] font-semibold tracking-[-0.012em]">
           {blocked.title} still needs doing
         </h2>
-        <p className="mt-1 mb-4 text-xs text-muted">
+        <p className="mt-1 mb-4 text-[12.5px] text-muted">
           {blocked.start != null && `It was set for ${formatClock(blocked.start)}. `}
           You can move past it, but say what happened and when you will do it.
         </p>
@@ -82,7 +82,7 @@ export function DeferDialog({
 
           <label
             htmlFor="defer-reason"
-            className="mb-1.5 block text-[11px] font-semibold tracking-[0.07em] text-faint uppercase"
+            className="field-label"
           >
             Why couldn&rsquo;t you do it?
           </label>
@@ -93,7 +93,7 @@ export function DeferDialog({
             value={reason}
             onChange={(e) => setReason(e.target.value)}
             placeholder="e.g. the portal was down all morning"
-            className="min-h-[70px] w-full resize-y rounded border border-line-strong bg-surface-2 px-2.5 py-2 text-[13.5px]"
+            className="field min-h-[70px] resize-y"
           />
 
           <p className="mt-3.5 mb-1.5 text-[11px] font-semibold tracking-[0.07em] text-faint uppercase">
@@ -106,8 +106,8 @@ export function DeferDialog({
               onClick={() => setWhen(today)}
               className={
                 when === today
-                  ? "rounded border border-accent bg-accent px-2.5 py-1 text-xs font-medium text-accent-ink"
-                  : "rounded border border-line-strong px-2.5 py-1 text-xs text-muted hover:border-accent"
+                  ? "rounded-md border border-accent bg-accent px-2.5 py-1.5 text-[12.5px] font-medium text-accent-ink"
+                  : "rounded-md border border-line-strong px-2.5 py-1.5 text-[12.5px] text-muted transition-colors hover:border-accent hover:text-ink"
               }
             >
               Later today
@@ -118,8 +118,8 @@ export function DeferDialog({
               onClick={() => setWhen(tomorrowKey)}
               className={
                 when === tomorrowKey
-                  ? "rounded border border-accent bg-accent px-2.5 py-1 text-xs font-medium text-accent-ink"
-                  : "rounded border border-line-strong px-2.5 py-1 text-xs text-muted hover:border-accent"
+                  ? "rounded-md border border-accent bg-accent px-2.5 py-1.5 text-[12.5px] font-medium text-accent-ink"
+                  : "rounded-md border border-line-strong px-2.5 py-1.5 text-[12.5px] text-muted transition-colors hover:border-accent hover:text-ink"
               }
             >
               Tomorrow

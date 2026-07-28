@@ -65,7 +65,7 @@ export function DecisionButtons({ absenceId }: { absenceId: string }) {
           <button
             type="button"
             onClick={() => setShowReject(false)}
-            className="rounded border border-line-strong bg-surface px-3 py-1.5 text-[13px] hover:bg-surface-2"
+            className="btn"
           >
             Back
           </button>
@@ -81,7 +81,7 @@ export function DecisionButtons({ absenceId }: { absenceId: string }) {
         <button
           type="submit"
           disabled={busy}
-          className="rounded border border-accent bg-accent px-3 py-1.5 text-[13px] font-medium text-accent-ink hover:brightness-110 disabled:opacity-50"
+          className="btn btn-primary"
         >
           {approving ? "Approving…" : "Approve"}
         </button>

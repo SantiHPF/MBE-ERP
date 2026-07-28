@@ -30,7 +30,7 @@ export function WeekGrid({ week }: { week: TeamWeek }) {
 
   return (
     <>
-      <div className="overflow-x-auto rounded border border-line bg-surface shadow-sm">
+      <div className="card overflow-x-auto">
         <table className="w-full min-w-[820px] border-collapse">
           <thead>
             <tr>
