@@ -94,6 +94,31 @@ export function NewPersonForm({
             </label>
           </div>
 
+          <div className="grid grid-cols-2 gap-2">
+            <label className="text-[11px]">
+              <span className="field-label">Starts</span>
+              <input
+                type="date"
+                name="startDate"
+                defaultValue={new Date().toISOString().slice(0, 10)}
+                required
+                className="field num"
+              />
+            </label>
+            <label className="text-[11px]">
+              <span className="field-label">Leaves</span>
+              <input
+                type="date"
+                name="endDate"
+                className="field num"
+              />
+            </label>
+          </div>
+          <p className="-mt-1 text-[11.5px] text-muted">
+            Leave the end date blank for an indefinite contract. Their induction
+            interviews are booked from the start date.
+          </p>
+
           <div className="mt-1">
             <p className="mb-1.5 text-[11px] font-semibold tracking-[0.07em] text-faint uppercase">
               Working hours

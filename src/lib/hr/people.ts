@@ -5,7 +5,8 @@ import { z } from "zod";
 import { prisma } from "@/lib/db";
 import { canManagePeople, requireUserOrThrow } from "@/lib/auth/guards";
 import { hashPassword } from "@/lib/auth/password";
-import { parseClock } from "@/lib/time";
+import { parseClock, toDateOnly } from "@/lib/time";
+import { syncOnboarding } from "@/lib/people/onboarding-db";
 
 /**
  * Account administration, which only HR (and ADMIN) can do. A department
@@ -28,6 +29,13 @@ const NewPerson = z.object({
   departmentId: z.string().min(1, "Pick a department"),
   role: z.enum(["WORKER", "MANAGER", "HR", "ADMIN"]),
   password: z.string().min(8, "At least 8 characters"),
+  startDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "When do they start?"),
+  // Blank means indefinite, which is most people.
+  endDate: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/)
+    .optional()
+    .or(z.literal("")),
 });
 
 async function assertPeopleAdmin() {
@@ -95,6 +103,8 @@ export async function createPerson(
       departmentId: formData.get("departmentId"),
       role: formData.get("role"),
       password: formData.get("password"),
+      startDate: formData.get("startDate"),
+      endDate: formData.get("endDate") || undefined,
     });
     if (!parsed.success) return { error: parsed.error.issues[0].message };
 
@@ -110,6 +120,10 @@ export async function createPerson(
         departmentId: parsed.data.departmentId,
         role: parsed.data.role,
         passwordHash: await hashPassword(parsed.data.password),
+        startDate: toDateOnly(new Date(`${parsed.data.startDate}T00:00:00Z`)),
+        endDate: parsed.data.endDate
+          ? toDateOnly(new Date(`${parsed.data.endDate}T00:00:00Z`))
+          : null,
       },
     });
 
@@ -118,10 +132,18 @@ export async function createPerson(
       await prisma.workingPattern.createMany({ data: patterns });
     }
 
+    // Their induction interviews exist from the moment the account does.
+    const induction = await syncOnboarding(user.id);
+
     revalidatePath("/hr/people");
+    revalidatePath("/triage");
     return {
       ok: true,
-      message: `${user.displayName} can now sign in as ${user.username}.`,
+      message:
+        `${user.displayName} can now sign in as ${user.username}.` +
+        (induction.created > 0
+          ? ` ${induction.created} induction interviews booked.`
+          : ""),
     };
   } catch (error) {
     return {
@@ -167,6 +189,84 @@ const Reassign = z.object({
   departmentId: z.string().min(1, "Pick a department"),
   role: z.enum(["WORKER", "MANAGER", "HR", "ADMIN"]).optional(),
 });
+
+const Dates = z
+  .object({
+    userId: z.string().min(1),
+    startDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "When did they start?"),
+    endDate: z
+      .string()
+      .regex(/^\d{4}-\d{2}-\d{2}$/)
+      .optional()
+      .or(z.literal("")),
+  })
+  .refine((v) => !v.endDate || v.startDate <= v.endDate, {
+    message: "They cannot leave before they start",
+  });
+
+/**
+ * Change when somebody joined or leaves.
+ *
+ * The induction interviews are recomputed from the new dates, so moving a
+ * start date moves them with it and setting a leaving date stops the
+ * two-monthly review there. Interviews nobody has picked up yet are taken
+ * back; anything already assigned stays put for a human to deal with.
+ */
+export async function setEmploymentDates(
+  _prev: PeopleState,
+  formData: FormData,
+): Promise<PeopleState> {
+  try {
+    await assertPeopleAdmin();
+    const parsed = Dates.safeParse({
+      userId: formData.get("userId"),
+      startDate: formData.get("startDate"),
+      endDate: formData.get("endDate") || undefined,
+    });
+    if (!parsed.success) return { error: parsed.error.issues[0].message };
+
+    const endDate = parsed.data.endDate
+      ? toDateOnly(new Date(`${parsed.data.endDate}T00:00:00Z`))
+      : null;
+
+    const user = await prisma.user.update({
+      where: { id: parsed.data.userId },
+      data: {
+        startDate: toDateOnly(new Date(`${parsed.data.startDate}T00:00:00Z`)),
+        endDate,
+      },
+    });
+
+    // Nothing should sit on their calendar after they have gone.
+    let dropped = 0;
+    if (endDate) {
+      const { count } = await prisma.task.deleteMany({
+        where: {
+          assigneeId: user.id,
+          dueDate: { gt: endDate },
+          status: { in: ["UNASSIGNED", "ASSIGNED"] },
+        },
+      });
+      dropped = count;
+    }
+
+    const induction = await syncOnboarding(user.id);
+
+    revalidatePath("/hr/people");
+    revalidatePath("/team");
+    revalidatePath("/triage");
+
+    return {
+      ok: true,
+      message:
+        `Updated ${user.displayName}.` +
+        (induction.created > 0 ? ` ${induction.created} interviews booked.` : "") +
+        (dropped > 0 ? ` ${dropped} tasks after their last day removed.` : ""),
+    };
+  } catch (error) {
+    return { error: error instanceof Error ? error.message : "Could not save" };
+  }
+}
 
 /**
  * Move somebody to another department, and change their role while we are

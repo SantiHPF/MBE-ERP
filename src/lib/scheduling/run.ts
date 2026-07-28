@@ -3,6 +3,7 @@ import { addDays, dateKey, eachDay, toDateOnly } from "@/lib/time";
 import { getAvailabilityForRange } from "./availability-db";
 import { diffAgainstExisting, planRecurringTasks } from "./materialize";
 import { assignDay, type CandidateInput, type TaskInput } from "./assign";
+import { syncOnboarding } from "@/lib/people/onboarding-db";
 
 /**
  * The scheduling run: materialize what the rules say should exist, then place
@@ -20,6 +21,8 @@ export type RunSummary = {
   alreadyPresent: number;
   /** Generated work removed because no rule produces it any more. */
   removedStale: number;
+  /** Induction interviews created for joiners. */
+  onboardingCreated: number;
   assigned: number;
   unassigned: number;
   skippedInFlight: number;
@@ -47,6 +50,10 @@ export async function runSchedule(options?: {
     include: { template: true },
   });
 
+  // Joiners' induction interviews are kept in existence here too, so an
+  // indefinite contract never runs out of two-monthly reviews.
+  const onboarding = await syncOnboarding();
+
   const planned = planRecurringTasks({ rules, from, to });
 
   /**
@@ -66,7 +73,14 @@ export async function runSchedule(options?: {
     select: { id: true, externalKey: true },
   });
   const staleIds = stale
-    .filter((t) => t.externalKey && !liveKeys.has(t.externalKey))
+    .filter(
+      (t) =>
+        t.externalKey &&
+        // Onboarding work is generated per person, not per rule, and is
+        // looked after by syncOnboarding.
+        t.externalKey.startsWith("recurring:") &&
+        !liveKeys.has(t.externalKey),
+    )
     .map((t) => t.id);
   if (staleIds.length > 0) {
     await prisma.task.deleteMany({ where: { id: { in: staleIds } } });
@@ -178,7 +192,8 @@ export async function runSchedule(options?: {
     to,
     created: toCreate.length,
     alreadyPresent,
-    removedStale: staleIds.length,
+    removedStale: staleIds.length + onboarding.removed,
+    onboardingCreated: onboarding.created,
     assigned: 0,
     unassigned: 0,
     skippedInFlight: 0,

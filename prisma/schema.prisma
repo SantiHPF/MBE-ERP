@@ -53,6 +53,13 @@ model User {
   active       Boolean  @default(true)
   createdAt    DateTime @default(now())
 
+  /// When they joined. Drives the onboarding interviews, and nothing is ever
+  /// scheduled for them before it.
+  startDate    DateTime? @db.Date
+  /// When they leave. Null means indefinite -- most people. Nothing is
+  /// scheduled past it, and the recurring review interviews stop there.
+  endDate      DateTime? @db.Date
+
   departmentId String
   department   Department @relation(fields: [departmentId], references: [id])
 

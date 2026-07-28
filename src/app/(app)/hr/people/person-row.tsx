@@ -3,6 +3,7 @@
 import { useActionState, useState } from "react";
 import {
   changeDepartment,
+  setEmploymentDates,
   resetPassword,
   setPersonActive,
   updateWorkingPattern,
@@ -21,6 +22,8 @@ type Person = {
   department: string;
   departmentId: string;
   weeklySummary: string;
+  startDate: string | null;
+  endDate: string | null;
   patternSummary: {
     weekday: number;
     label: string;
@@ -45,11 +48,23 @@ export function PersonRow({
   const [activeState, toggleActive] = useActionState(setPersonActive, initial);
   const [pwState, resetPw, resetting] = useActionState(resetPassword, initial);
   const [moveState, move, moving] = useActionState(changeDepartment, initial);
+  const [datesState, saveDates, savingDates] = useActionState(
+    setEmploymentDates,
+    initial,
+  );
 
   const message =
-    hoursState.message ?? activeState.message ?? pwState.message ?? moveState.message;
+    hoursState.message ??
+    activeState.message ??
+    pwState.message ??
+    moveState.message ??
+    datesState.message;
   const error =
-    hoursState.error ?? activeState.error ?? pwState.error ?? moveState.error;
+    hoursState.error ??
+    activeState.error ??
+    pwState.error ??
+    moveState.error ??
+    datesState.error;
 
   return (
     <article
@@ -70,6 +85,10 @@ export function PersonRow({
           </span>
         )}
         <span className="flex-1" />
+        <span className="num text-xs text-muted">
+          {person.startDate ? `from ${person.startDate}` : "no start date"}
+          {person.endDate && ` → ${person.endDate}`}
+        </span>
         <span className="num text-xs text-muted">{person.weeklySummary}</span>
         <button
           type="button"
@@ -149,6 +168,38 @@ export function PersonRow({
             </button>
             <span className="text-[11px] text-muted">
               Unstarted work stays with the old department.
+            </span>
+          </form>
+
+          <form
+            action={saveDates}
+            className="mb-4 flex flex-wrap items-end gap-2 border-b border-line pb-3"
+          >
+            <input type="hidden" name="userId" value={person.id} />
+            <label className="text-[11px]">
+              <span className="field-label">Started</span>
+              <input
+                type="date"
+                name="startDate"
+                defaultValue={person.startDate ?? ""}
+                required
+                className="field num"
+              />
+            </label>
+            <label className="text-[11px]">
+              <span className="field-label">Leaves</span>
+              <input
+                type="date"
+                name="endDate"
+                defaultValue={person.endDate ?? ""}
+                className="field num"
+              />
+            </label>
+            <button type="submit" disabled={savingDates} className="btn">
+              {savingDates ? "Saving…" : "Save dates"}
+            </button>
+            <span className="text-[11.5px] text-muted">
+              Blank end date means indefinite. Induction interviews follow these.
             </span>
           </form>
 

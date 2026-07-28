@@ -53,6 +53,12 @@ export default async function HrPeoplePage() {
                     active: person.active,
                     department: person.department.name,
                     departmentId: person.departmentId,
+                    startDate: person.startDate
+                      ? person.startDate.toISOString().slice(0, 10)
+                      : null,
+                    endDate: person.endDate
+                      ? person.endDate.toISOString().slice(0, 10)
+                      : null,
                     weeklySummary: weekly
                       ? `${formatDuration(weekly)} a week`
                       : "no hours set",
