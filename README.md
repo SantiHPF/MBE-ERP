@@ -101,7 +101,7 @@ not at `/Library/PostgreSQL/17/bin`.
 
 | Route | Who | What |
 | --- | --- | --- |
-| `/my-day` | everyone | Today in order, timer, pause-with-reason, meeting mode, drag to reorder |
+| `/my-day` | everyone | Today in order, timer, pause-with-reason, meeting mode, drag to reorder, file a P1N |
 | `/plan` | everyone | Next week as task × day; take work, set quantities |
 | `/my-calendar` | everyone | Your week, and absence requests |
 | `/me` | everyone | Tenure, hours, estimate accuracy, P1N count, language |

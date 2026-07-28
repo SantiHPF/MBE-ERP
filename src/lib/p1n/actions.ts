@@ -60,6 +60,7 @@ export async function fileP1n(
 
     revalidatePath("/p1n");
     revalidatePath("/me");
+    revalidatePath("/my-day");
     return { ok: true };
   } catch (error) {
     return { error: error instanceof Error ? error.message : "Could not send it" };

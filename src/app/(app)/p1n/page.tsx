@@ -1,7 +1,7 @@
 import { requireUser, hasRole } from "@/lib/auth/guards";
 import { prisma } from "@/lib/db";
 import { getT } from "@/lib/i18n/server";
-import { toDateOnly } from "@/lib/time";
+import { recentTasksForP1n } from "@/lib/p1n/recent-tasks";
 import { P1nList } from "./p1n-list";
 
 export const dynamic = "force-dynamic";
@@ -21,16 +21,7 @@ export default async function P1nPage() {
       orderBy: { createdAt: "desc" },
       take: 100,
     }),
-    // Only recent work of your own is worth offering to attach.
-    prisma.task.findMany({
-      where: {
-        assigneeId: user.id,
-        dueDate: { gte: toDateOnly(new Date(Date.now() - 30 * 86_400_000)) },
-      },
-      select: { id: true, title: true, dueDate: true },
-      orderBy: { dueDate: "desc" },
-      take: 60,
-    }),
+    recentTasksForP1n(user.id),
   ]);
 
   return (
@@ -45,10 +36,7 @@ export default async function P1nPage() {
       <P1nList
         canApply={hasRole(user, "MANAGER")}
         currentUserId={user.id}
-        tasks={myTasks.map((task) => ({
-          id: task.id,
-          label: `${task.dueDate.toISOString().slice(0, 10)} · ${task.title}`,
-        }))}
+        tasks={myTasks}
         entries={entries.map((e) => ({
           id: e.id,
           mistake: e.mistake,
