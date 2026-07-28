@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { prisma } from "@/lib/db";
 import { requireUserOrThrow, hasRole } from "@/lib/auth/guards";
-import { parseClock } from "@/lib/time";
+import { parseClock, toDateOnly } from "@/lib/time";
 
 /**
  * Editing the task catalogue and its schedule.
@@ -149,15 +149,36 @@ export async function saveCatalogueEntry(
         })
       : await prisma.taskTemplate.create({ data });
 
-    // One schedule per task: replace rather than accumulate.
-    await prisma.recurringRule.deleteMany({ where: { templateId: template.id } });
+    /**
+     * The rule is updated in place, never replaced.
+     *
+     * Generated tasks are keyed on the rule's id, so deleting and recreating
+     * it gives every future task a new key -- the old ones survive and the
+     * week ends up with two of everything. Keeping the id means editing a
+     * schedule re-places existing work instead of duplicating it.
+     */
+    const existingRule = await prisma.recurringRule.findFirst({
+      where: { templateId: template.id },
+    });
 
-    if (recurrence.frequency !== "NONE") {
+    if (recurrence.frequency === "NONE") {
+      if (existingRule) {
+        // Its future work has no rule behind it any more, so take back
+        // anything nobody has started.
+        await prisma.task.deleteMany({
+          where: {
+            templateId: template.id,
+            origin: "RECURRING",
+            status: { in: ["UNASSIGNED", "ASSIGNED"] },
+            dueDate: { gte: toDateOnly(new Date()) },
+          },
+        });
+        await prisma.recurringRule.delete({ where: { id: existingRule.id } });
+      }
+    } else {
       const fixedStart = input.fixedStart ? parseClock(input.fixedStart) : null;
 
-      await prisma.recurringRule.create({
-        data: {
-          templateId: template.id,
+      const ruleData = {
           departmentId: input.departmentId,
           frequency: recurrence.frequency,
           weekdays:
@@ -181,8 +202,29 @@ export async function saveCatalogueEntry(
           fixedEndMinutes:
             fixedStart != null ? fixedStart + input.estimatedMinutes : null,
           sourceNote: "Set in the app",
-        },
-      });
+          active: true,
+      };
+
+      if (existingRule) {
+        await prisma.recurringRule.update({
+          where: { id: existingRule.id },
+          data: ruleData,
+        });
+        // The days it fires on may have changed, so drop future work nobody
+        // has picked up; the next run regenerates what the rule now says.
+        await prisma.task.deleteMany({
+          where: {
+            templateId: template.id,
+            origin: "RECURRING",
+            status: "UNASSIGNED",
+            dueDate: { gte: toDateOnly(new Date()) },
+          },
+        });
+      } else {
+        await prisma.recurringRule.create({
+          data: { ...ruleData, templateId: template.id },
+        });
+      }
     }
 
     revalidatePath("/catalogue");

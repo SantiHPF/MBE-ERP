@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useTransition } from "react";
 import type { DayTask, DayView } from "@/lib/tasks/day";
-import type { BlockingTask } from "@/lib/tasks/actions";
+import { reorderDay, type BlockingTask } from "@/lib/tasks/actions";
 import { formatClock, formatDuration } from "@/lib/time";
 import { PauseDialog } from "./pause-dialog";
 import { DeferDialog } from "./defer-dialog";
@@ -79,6 +79,9 @@ export function DayViewClient({ view }: { view: DayView }) {
   const active = view.tasks.find((t) => t.id === view.activeTaskId);
   const [pausing, setPausing] = useState<string | null>(null);
   const [blocked, setBlocked] = useState<BlockingTask | null>(null);
+  const [dragging, setDragging] = useState<string | null>(null);
+  const [order, setOrder] = useState<string[] | null>(null);
+  const [reordering, startReorder] = useTransition();
 
   // The stopwatch ticks locally; the server holds the truth. On any action the
   // page revalidates and the count re-syncs, so drift never accumulates.
@@ -124,6 +127,37 @@ export function DayViewClient({ view }: { view: DayView }) {
   // clock times carry the ordering instead.
   const rows = buildDayRows(view, dayStart, dayEnd);
 
+  // Tasks in the order shown: the server's, unless a drag is in flight.
+  const taskRows = rows.filter((r) => r.kind === "task");
+  const shown = order
+    ? order
+        .map((id) => taskRows.find((r) => r.kind === "task" && r.task.id === id))
+        .filter((r): r is Extract<DayRow, { kind: "task" }> => r !== undefined)
+    : null;
+
+  /** Move a task to another position and save the whole day's order. */
+  function moveTo(fromId: string, toId: string) {
+    if (fromId === toId) return;
+    const ids = (shown ?? taskRows).map((r) =>
+      r.kind === "task" ? r.task.id : "",
+    );
+    const from = ids.indexOf(fromId);
+    const to = ids.indexOf(toId);
+    if (from < 0 || to < 0) return;
+
+    const next = [...ids];
+    next.splice(to, 0, next.splice(from, 1)[0]);
+    setOrder(next);
+
+    const form = new FormData();
+    form.set("date", view.date);
+    for (const id of next) form.append("taskIds", id);
+    startReorder(async () => {
+      await reorderDay({}, form);
+      setOrder(null);
+    });
+  }
+
   return (
     <>
       {view.liveMeeting && (
@@ -142,18 +176,42 @@ export function DayViewClient({ view }: { view: DayView }) {
               Today
             </span>
             <span className="num text-xs text-muted">
-              {view.tasks.length} {view.tasks.length === 1 ? "task" : "tasks"}
+              {reordering
+                ? "saving order…"
+                : `${view.tasks.length} ${view.tasks.length === 1 ? "task" : "tasks"}`}
             </span>
           </header>
 
           <ul className="flex flex-col">
-            {rows.map((row) =>
+            {(shown ?? rows).map((row) =>
               row.kind === "task" ? (
-                <li key={row.task.id}>
+                <li
+                  key={row.task.id}
+                  draggable={!["DONE"].includes(row.task.status)}
+                  onDragStart={() => setDragging(row.task.id)}
+                  onDragEnd={() => setDragging(null)}
+                  onDragOver={(e) => e.preventDefault()}
+                  onDrop={(e) => {
+                    e.preventDefault();
+                    if (dragging) moveTo(dragging, row.task.id);
+                    setDragging(null);
+                  }}
+                  className={
+                    dragging === row.task.id ? "opacity-40" : undefined
+                  }
+                >
                   <TaskButton
                     task={row.task}
                     onPause={() => setPausing(row.task.id)}
                     onBlocked={setBlocked}
+                    onMove={(dir: "up" | "down") => {
+                      const ids = (shown ?? taskRows).map((r) =>
+                        r.kind === "task" ? r.task.id : "",
+                      );
+                      const i = ids.indexOf(row.task.id);
+                      const j = dir === "up" ? i - 1 : i + 1;
+                      if (j >= 0 && j < ids.length) moveTo(ids[i], ids[j]);
+                    }}
                   />
                 </li>
               ) : (

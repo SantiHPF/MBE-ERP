@@ -38,17 +38,47 @@ export function TaskButton({
   task,
   onPause,
   onBlocked,
+  onMove,
 }: {
   task: DayTask;
   onPause: () => void;
   onBlocked: (blocked: BlockingTask) => void;
+  onMove?: (direction: "up" | "down") => void;
 }) {
+  const movable = onMove && task.status !== "DONE";
   return (
     <div
-      className={`flex items-center gap-3 border-b border-line px-4 py-2.5 last:border-0 ${
-        STATE_ROW[task.status] ?? ""
-      }`}
+      className={`flex items-center gap-2.5 border-b border-line px-4 py-2.5 last:border-0 ${
+        movable ? "cursor-grab active:cursor-grabbing" : ""
+      } ${STATE_ROW[task.status] ?? ""}`}
     >
+      {/* Drag handle, with buttons so it works without a mouse too. */}
+      {movable ? (
+        <span
+          className="flex shrink-0 flex-col leading-none text-faint"
+          aria-hidden={false}
+        >
+          <button
+            type="button"
+            onClick={() => onMove("up")}
+            aria-label={`Move ${task.title} earlier`}
+            className="px-1 text-[9px] hover:text-accent"
+          >
+            ▲
+          </button>
+          <button
+            type="button"
+            onClick={() => onMove("down")}
+            aria-label={`Move ${task.title} later`}
+            className="px-1 text-[9px] hover:text-accent"
+          >
+            ▼
+          </button>
+        </span>
+      ) : (
+        <span className="w-[17px] shrink-0" />
+      )}
+
       {/* Clock time carries the ordering now that the list is not to scale. */}
       <span className="num w-[92px] shrink-0 text-[11.5px] text-muted">
         {task.scheduledStart != null && task.scheduledEnd != null

@@ -18,6 +18,8 @@ export type RunSummary = {
   to: Date;
   created: number;
   alreadyPresent: number;
+  /** Generated work removed because no rule produces it any more. */
+  removedStale: number;
   assigned: number;
   unassigned: number;
   skippedInFlight: number;
@@ -46,6 +48,29 @@ export async function runSchedule(options?: {
   });
 
   const planned = planRecurringTasks({ rules, from, to });
+
+  /**
+   * Sweep up generated work whose rule no longer says it should happen --
+   * the rule was retired, deleted, or moved to different days. Only tasks
+   * nobody has picked up are removed; anything assigned or started belongs
+   * to a person now and is left for them or their manager to deal with.
+   */
+  const liveKeys = new Set(planned.map((p) => p.externalKey));
+  const stale = await prisma.task.findMany({
+    where: {
+      origin: "RECURRING",
+      status: "UNASSIGNED",
+      dueDate: { gte: from, lte: to },
+      ...(options?.departmentId ? { departmentId: options.departmentId } : {}),
+    },
+    select: { id: true, externalKey: true },
+  });
+  const staleIds = stale
+    .filter((t) => t.externalKey && !liveKeys.has(t.externalKey))
+    .map((t) => t.id);
+  if (staleIds.length > 0) {
+    await prisma.task.deleteMany({ where: { id: { in: staleIds } } });
+  }
 
   const existing = await prisma.task.findMany({
     where: { externalKey: { in: planned.map((p) => p.externalKey) } },
@@ -153,6 +178,7 @@ export async function runSchedule(options?: {
     to,
     created: toCreate.length,
     alreadyPresent,
+    removedStale: staleIds.length,
     assigned: 0,
     unassigned: 0,
     skippedInFlight: 0,

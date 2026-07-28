@@ -7,6 +7,10 @@ import { requireUserOrThrow } from "@/lib/auth/guards";
 import type { TaskStatus } from "@prisma/client";
 import { dateKey, toDateOnly } from "@/lib/time";
 import { placeOnDay } from "@/lib/plan/place";
+import { computeAvailability, findSlot } from "@/lib/scheduling/availability";
+
+/** Work with tracked time attached: it keeps its slot. */
+const STARTED = ["IN_PROGRESS", "PAUSED", "DONE"];
 
 /**
  * The timer. One task runs at a time per person -- starting something else
@@ -339,4 +343,137 @@ export async function deferTask(
   } catch (error) {
     return { error: error instanceof Error ? error.message : "Could not move it" };
   }
+}
+
+
+const Reorder = z.object({
+  date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  taskIds: z.array(z.string().min(1)).min(1),
+});
+
+/**
+ * Rearrange today by hand.
+ *
+ * The engine's order is a proposal, not a verdict -- people know which job is
+ * worth doing first. Given the new order, the day is repacked from the top:
+ * each task takes the next slot that fits it in the person's free windows.
+ *
+ * Work already started, paused or finished keeps its slot and is scheduled
+ * around, since it has tracked time attached. A task that no longer fits ends
+ * up without a slot rather than blocking the reorder.
+ */
+export async function reorderDay(
+  _prev: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  try {
+    const user = await requireUserOrThrow();
+    const parsed = Reorder.safeParse({
+      date: formData.get("date"),
+      taskIds: formData.getAll("taskIds").map(String),
+    });
+    if (!parsed.success) return { error: "Could not read the new order" };
+
+    const day = toDateOnly(new Date(`${parsed.data.date}T00:00:00Z`));
+
+    const tasks = await prisma.task.findMany({
+      where: {
+        assigneeId: user.id,
+        scheduledDate: day,
+        status: { notIn: ["CANCELLED"] },
+      },
+    });
+
+    const byId = new Map(tasks.map((t) => [t.id, t]));
+    // Only reorder what was actually sent, and only this person's tasks.
+    const ordered = parsed.data.taskIds
+      .map((id) => byId.get(id))
+      .filter((t): t is (typeof tasks)[number] => t !== undefined);
+
+    const [patterns, overrides, absences] = await Promise.all([
+      prisma.workingPattern.findMany({ where: { userId: user.id } }),
+      prisma.dayOverride.findMany({ where: { userId: user.id, date: day } }),
+      prisma.absence.findMany({
+        where: { userId: user.id, startDate: { lte: day }, endDate: { gte: day } },
+      }),
+    ]);
+
+    const availability = computeAvailability({
+      date: day,
+      patterns,
+      overrides,
+      absences,
+    });
+
+    // Started work keeps its place; everything else is laid out afresh.
+    const frozen = ordered.filter((t) => STARTED.includes(t.status));
+    let free = availability.windows;
+    for (const t of frozen) {
+      if (t.scheduledStart == null || t.scheduledEnd == null) continue;
+      free = subtractWindow(free, t.scheduledStart, t.scheduledEnd);
+    }
+
+    const updates: { id: string; start: number | null; end: number | null }[] = [];
+
+    /**
+     * Pack strictly forwards: each task starts at or after the previous one
+     * ends. Plain first-fit would keep the sequence but not the clock -- a
+     * task too big for the next gap would jump to the afternoon while the
+     * ones after it filled the morning, so the list would no longer read in
+     * time order, which is the whole point of dragging it.
+     */
+    let cursor = 0;
+
+    for (const task of ordered) {
+      if (STARTED.includes(task.status)) {
+        if (task.scheduledEnd != null) cursor = Math.max(cursor, task.scheduledEnd);
+        continue;
+      }
+      const slot = findSlot(free, task.estimatedMinutes, cursor);
+      if (slot) {
+        free = subtractWindow(free, slot.start, slot.end);
+        cursor = slot.end;
+      }
+      updates.push({
+        id: task.id,
+        start: slot?.start ?? null,
+        end: slot?.end ?? null,
+      });
+    }
+
+    await prisma.$transaction(
+      updates.map((u) =>
+        prisma.task.update({
+          where: { id: u.id },
+          data: { scheduledStart: u.start, scheduledEnd: u.end },
+        }),
+      ),
+    );
+
+    revalidatePath("/my-day");
+    revalidatePath("/my-calendar");
+    return { ok: true };
+  } catch (error) {
+    return {
+      error: error instanceof Error ? error.message : "Could not reorder the day",
+    };
+  }
+}
+
+/** Remove [from, to) from a set of windows. */
+function subtractWindow(
+  windows: { start: number; end: number }[],
+  from: number,
+  to: number,
+): { start: number; end: number }[] {
+  const out: { start: number; end: number }[] = [];
+  for (const w of windows) {
+    if (to <= w.start || from >= w.end) {
+      out.push(w);
+      continue;
+    }
+    if (from > w.start) out.push({ start: w.start, end: from });
+    if (to < w.end) out.push({ start: to, end: w.end });
+  }
+  return out;
 }

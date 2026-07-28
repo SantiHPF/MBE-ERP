@@ -22,8 +22,21 @@ export async function placeOnDay(
 ): Promise<{ placed: boolean }> {
   const day = toDateOnly(date);
 
-  const task = await prisma.task.findUnique({ where: { id: taskId } });
+  const task = await prisma.task.findUnique({
+    where: { id: taskId },
+    include: {
+      template: {
+        select: { recurringRules: { select: { fixedStartMinutes: true } } },
+      },
+    },
+  });
   if (!task) return { placed: false };
+
+  // A task whose rule pins it to an hour keeps that hour here too. Without
+  // this, claiming "Sucesos at 09:00" from the plan board dropped it wherever
+  // there happened to be room, which is not what the catalogue says.
+  const pinnedStart =
+    task.template?.recurringRules[0]?.fixedStartMinutes ?? null;
 
   const [patterns, overrides, absences, sameDay] = await Promise.all([
     prisma.workingPattern.findMany({ where: { userId } }),
@@ -64,7 +77,14 @@ export async function placeOnDay(
     free = next;
   }
 
-  const slot = findSlot(free, task.estimatedMinutes, notBefore);
+  const earliest = Math.max(notBefore, pinnedStart ?? 0);
+  let slot = findSlot(free, task.estimatedMinutes, earliest);
+
+  // If its hour has already gone, fall back to anywhere that still fits
+  // rather than refusing to place it at all.
+  if (!slot && pinnedStart != null) {
+    slot = findSlot(free, task.estimatedMinutes, notBefore);
+  }
 
   await prisma.task.update({
     where: { id: taskId },

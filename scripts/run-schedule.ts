@@ -23,6 +23,7 @@ async function main() {
   );
   console.log(`  tasks created      ${summary.created}`);
   console.log(`  already existed    ${summary.alreadyPresent}`);
+  console.log(`  stale, removed     ${summary.removedStale}`);
   console.log(`  assigned           ${summary.assigned}`);
   console.log(`  left unassigned    ${summary.unassigned}`);
   console.log(`  in flight, skipped ${summary.skippedInFlight}`);
