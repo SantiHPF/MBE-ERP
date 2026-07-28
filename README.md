@@ -1,4 +1,4 @@
-# task-erp
+# MBE ERP
 
 Internal ERP that turns recurring work, a task catalogue, a job spreadsheet and
 the weekly meeting into a scheduled day for each person — and tracks the time
@@ -52,7 +52,8 @@ npm run schedule          # materialize and assign the next two weeks
 npm run dev               # http://localhost:3000
 ```
 
-Sign in as `santi` / `task-erp-2026`.
+Sign in as `santi` / `mbe-erp-2026` (that is what a fresh seed creates; an
+existing database keeps whatever password it already had).
 
 The seed creates the founding accounts without employment dates, so no
 induction interviews are generated for them. Set the dates in **HR → People**;

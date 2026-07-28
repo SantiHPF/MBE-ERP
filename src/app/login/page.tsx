@@ -8,7 +8,7 @@ export default async function LoginPage() {
   return (
     <main className="flex min-h-screen items-center justify-center p-6">
       <div className="w-full max-w-sm">
-        <h1 className="mb-1 text-2xl font-semibold tracking-tight">task-erp</h1>
+        <h1 className="mb-1 text-2xl font-semibold tracking-tight">MBE ERP</h1>
         <p className="mb-6 text-sm text-[var(--color-muted)]">
           Sign in to see your day.
         </p>

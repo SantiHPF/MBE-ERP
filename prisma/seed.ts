@@ -21,7 +21,7 @@ const prisma = new PrismaClient({
 });
 
 /** Change this on first sign-in. */
-const INITIAL_PASSWORD = "task-erp-2026";
+const INITIAL_PASSWORD = "mbe-erp-2026";
 
 const DEPARTMENTS = [
   "HR (Human Resources)",

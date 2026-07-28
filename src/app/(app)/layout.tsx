@@ -37,7 +37,7 @@ export default async function AppLayout({
       <header className="sticky top-0 z-40 border-b border-line bg-surface/95 backdrop-blur">
         <div className="mx-auto flex max-w-[1180px] items-center gap-6 px-6">
           <span className="py-3.5 text-[15px] font-semibold tracking-tight">
-            task<span className="text-accent">·</span>erp
+            MBE <span className="text-accent">ERP</span>
           </span>
 
           <nav className="flex flex-1 flex-wrap gap-0.5 py-3.5" aria-label="Main">

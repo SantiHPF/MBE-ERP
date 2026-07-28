@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "task-erp",
+  title: "MBE ERP",
   description: "Automatic task assignment and time tracking",
 };
 
