@@ -9,6 +9,7 @@ import {
   toggleTaskRow,
   type PlanState,
 } from "@/lib/plan/actions";
+import { setTaskQuantity } from "@/lib/tasks/quantity";
 import { useT } from "@/lib/i18n/client";
 
 type Filter = "all" | "mine" | "recurring" | "unclaimed";
@@ -49,6 +50,18 @@ export function PlanBoard({ week }: { week: PlanWeek }) {
     if (row.templateId) form.set("templateId", row.templateId);
     if (cell.taskId) form.set("taskId", cell.taskId);
     run(form, toggleTaskDay);
+  }
+
+  /** How many of a per-go task are planned that day. */
+  function setQuantity(cell: PlanCell, quantity: number) {
+    if (!cell.taskId || quantity < 1) return;
+    const form = new FormData();
+    form.set("taskId", cell.taskId);
+    form.set("quantity", String(quantity));
+    startTransition(async () => {
+      const result = await setTaskQuantity({}, form);
+      setNotice(result);
+    });
   }
 
   function toggleWholeRow(row: PlanRow, wanted: boolean) {
@@ -220,7 +233,10 @@ export function PlanBoard({ week }: { week: PlanWeek }) {
                   >
                     <Cell
                       cell={cell}
+                      repeatable={row.repeatable}
+                      unitMinutes={row.unitMinutes}
                       onClick={() => toggleCell(row, cell)}
+                      onQuantity={(n) => setQuantity(cell, n)}
                       label={row.name}
                     />
                   </td>
@@ -359,11 +375,17 @@ function NewTaskForm({
 function Cell({
   cell,
   onClick,
+  onQuantity,
   label,
+  repeatable,
+  unitMinutes,
 }: {
   cell: PlanCell;
   onClick: () => void;
+  onQuantity: (quantity: number) => void;
   label: string;
+  repeatable: boolean;
+  unitMinutes: number;
 }) {
   const { t } = useT();
   const base =
@@ -396,6 +418,35 @@ function Cell({
   }
 
   const mine = cell.state === "mine";
+
+  if (mine && repeatable) {
+    return (
+      <span className="mx-auto my-1 flex h-6 w-[52px] items-center gap-0.5 rounded border border-accent bg-accent-wash px-0.5">
+        <button
+          type="button"
+          onClick={onClick}
+          aria-label={`${t("plan.noDays")} · ${label} · ${cell.date}`}
+          title={t("plan.yours")}
+          className="text-[11px] font-semibold text-accent"
+        >
+          ✓
+        </button>
+        <input
+          type="number"
+          min={1}
+          max={200}
+          defaultValue={cell.quantity}
+          title={`${cell.quantity} × ${unitMinutes}m`}
+          aria-label={`${t("myDay.howMany")} · ${label}`}
+          onChange={(e) => {
+            const n = Number(e.target.value);
+            if (n >= 1) onQuantity(n);
+          }}
+          className="num w-full min-w-0 border-0 bg-transparent p-0 text-center text-[11px] font-semibold text-accent outline-none"
+        />
+      </span>
+    );
+  }
 
   return (
     <button

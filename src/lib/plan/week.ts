@@ -28,6 +28,8 @@ export type PlanCell = {
   state: CellState;
   taskId: string | null;
   holder: string | null;
+  /** How many are planned, for tasks whose estimate is per go. */
+  quantity: number;
 };
 
 export type PlanRow = {
@@ -39,6 +41,10 @@ export type PlanRow = {
   notes: string | null;
   /** True when a recurring rule already puts this in the week. */
   recurring: boolean;
+  /** The estimate is for one go, so a day can hold several. */
+  repeatable: boolean;
+  /** Minutes for one go. */
+  unitMinutes: number;
   cells: PlanCell[];
   mineCount: number;
 };
@@ -116,7 +122,7 @@ export async function getPlanWeek(
       },
       include: {
         assignee: { select: { id: true, displayName: true } },
-        template: { select: { notes: true, category: true } },
+        template: { select: { notes: true, category: true, repeatable: true } },
       },
     }),
     prisma.taskTemplate.findMany({
@@ -203,6 +209,7 @@ export async function getPlanWeek(
         state: day.absent ? "off" : "empty",
         taskId: null,
         holder: null,
+        quantity: 1,
       };
     }
     if (task.assigneeId === userId) {
@@ -211,16 +218,24 @@ export async function getPlanWeek(
         state: STARTED.includes(task.status) ? "locked" : "mine",
         taskId: task.id,
         holder: null,
+        quantity: task.quantity,
       };
     }
     if (task.assigneeId === null) {
-      return { date: day.date, state: "free", taskId: task.id, holder: null };
+      return {
+        date: day.date,
+        state: "free",
+        taskId: task.id,
+        holder: null,
+        quantity: task.quantity,
+      };
     }
     return {
       date: day.date,
       state: "theirs",
       taskId: task.id,
       holder: task.assignee?.displayName ?? "someone",
+      quantity: task.quantity,
     };
   };
 
@@ -236,6 +251,8 @@ export async function getPlanWeek(
       estimatedMinutes: template.estimatedMinutes,
       notes: template.notes,
       recurring: recurringTemplates.has(template.id),
+      repeatable: template.repeatable,
+      unitMinutes: template.estimatedMinutes,
       cells,
       mineCount: cells.filter((c) => c.state === "mine" || c.state === "locked")
         .length,
@@ -256,6 +273,8 @@ export async function getPlanWeek(
       estimatedMinutes: task.estimatedMinutes,
       notes: null,
       recurring: false,
+      repeatable: false,
+      unitMinutes: task.estimatedMinutes,
       cells,
       mineCount: cells.filter((c) => c.state === "mine" || c.state === "locked")
         .length,
