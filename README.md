@@ -197,6 +197,11 @@ A standard Next.js app plus a Postgres database.
 round builds fine and fails only at render** — check which side a component is
 on before adding either.
 
+The login page has no account to read a preference from, so `getLoginT()`
+defaults it to Spanish and switches to English only when the browser asks for
+English ahead of Spanish. Its strings are passed into the form as props —
+there is no i18n provider before sign-in.
+
 Only the interface is translated. Task names, catalogue warnings, meeting notes
 and pause reasons stay exactly as typed. The English dictionary is the type, so
 a missing Spanish key is a compile error rather than a blank label.

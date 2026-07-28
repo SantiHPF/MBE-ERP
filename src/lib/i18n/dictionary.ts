@@ -430,6 +430,16 @@ const en = {
     countProcess: "process",
     processHeads: "{0} of them point at the process, not the person.",
   },
+  login: {
+    tagline: "Sign in to see your day.",
+    username: "Username",
+    password: "Password",
+    signIn: "Sign in",
+    signingIn: "Signing in…",
+    wrongDetails: "Wrong username or password",
+    enterUsername: "Enter your username",
+    enterPassword: "Enter your password",
+  },
   profile: {
     yourTimeHere: "Your time here",
     since: "since {0}",
@@ -881,6 +891,16 @@ const es: Dictionary = {
     countAttention: "atención",
     countProcess: "proceso",
     processHeads: "{0} apuntan al proceso, no a la persona.",
+  },
+  login: {
+    tagline: "Entra para ver tu día.",
+    username: "Usuario",
+    password: "Contraseña",
+    signIn: "Entrar",
+    signingIn: "Entrando…",
+    wrongDetails: "Usuario o contraseña incorrectos",
+    enterUsername: "Escribe tu usuario",
+    enterPassword: "Escribe tu contraseña",
   },
   profile: {
     yourTimeHere: "Tu tiempo aquí",

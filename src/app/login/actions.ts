@@ -5,10 +5,12 @@ import { z } from "zod";
 import { prisma } from "@/lib/db";
 import { verifyPassword } from "@/lib/auth/password";
 import { createSession, destroySession } from "@/lib/auth/session";
+import { getLoginT } from "@/lib/i18n/server";
 
+// Keys, not sentences: the wording is resolved once the locale is known.
 const LoginInput = z.object({
-  username: z.string().trim().min(1, "Enter your username"),
-  password: z.string().min(1, "Enter your password"),
+  username: z.string().trim().min(1, "login.enterUsername"),
+  password: z.string().min(1, "login.enterPassword"),
 });
 
 export type LoginState = { error?: string };
@@ -17,13 +19,15 @@ export async function login(
   _prev: LoginState,
   formData: FormData,
 ): Promise<LoginState> {
+  const { t } = await getLoginT();
+
   const parsed = LoginInput.safeParse({
     username: formData.get("username"),
     password: formData.get("password"),
   });
 
   if (!parsed.success) {
-    return { error: parsed.error.issues[0].message };
+    return { error: t(parsed.error.issues[0].message) };
   }
 
   const user = await prisma.user.findUnique({
@@ -32,7 +36,7 @@ export async function login(
 
   // Same message whether the username is unknown or the password is wrong --
   // no point telling an attacker which usernames exist.
-  const invalid = { error: "Wrong username or password" };
+  const invalid = { error: t("login.wrongDetails") };
   if (!user || !user.active) return invalid;
 
   const ok = await verifyPassword(user.passwordHash, parsed.data.password);

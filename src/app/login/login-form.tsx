@@ -5,7 +5,16 @@ import { login, type LoginState } from "./actions";
 
 const initial: LoginState = {};
 
-export function LoginForm() {
+export function LoginForm({
+  strings,
+}: {
+  strings: {
+    username: string;
+    password: string;
+    signIn: string;
+    signingIn: string;
+  };
+}) {
   const [state, formAction, pending] = useActionState(login, initial);
 
   return (
@@ -14,7 +23,7 @@ export function LoginForm() {
       className="rounded-lg border border-[var(--color-line)] bg-[var(--color-surface)] p-5 shadow-sm"
     >
       <label className="mb-4 block">
-        <span className="mb-1 block text-sm font-medium">Username</span>
+        <span className="mb-1 block text-sm font-medium">{strings.username}</span>
         <input
           name="username"
           autoComplete="username"
@@ -24,7 +33,7 @@ export function LoginForm() {
       </label>
 
       <label className="mb-4 block">
-        <span className="mb-1 block text-sm font-medium">Password</span>
+        <span className="mb-1 block text-sm font-medium">{strings.password}</span>
         <input
           name="password"
           type="password"
@@ -47,7 +56,7 @@ export function LoginForm() {
         disabled={pending}
         className="w-full rounded-md bg-[var(--color-accent)] px-3 py-2 text-sm font-medium text-white disabled:opacity-60"
       >
-        {pending ? "Signing in…" : "Sign in"}
+        {pending ? strings.signingIn : strings.signIn}
       </button>
     </form>
   );
