@@ -135,6 +135,22 @@ export function CatalogueList({
               <span className="num text-xs text-muted">
                 {formatDuration(entry.estimatedMinutes)}
               </span>
+              {entry.priority === "MUST" && (
+                <span
+                  title="Always assigned, even when the day is full"
+                  className="rounded border border-stall px-1.5 py-px text-[9.5px] font-semibold tracking-wider text-stall uppercase"
+                >
+                  must
+                </span>
+              )}
+              {entry.priority === "SPARE_TIME" && (
+                <span
+                  title="Only scheduled when somebody has hours to spare"
+                  className="rounded border border-line-strong px-1.5 py-px text-[9.5px] font-semibold tracking-wider text-faint uppercase"
+                >
+                  spare time
+                </span>
+              )}
               {entry.isMeeting && (
                 <span className="rounded border border-accent px-1.5 py-px text-[9.5px] font-semibold tracking-wider text-accent uppercase">
                   meeting

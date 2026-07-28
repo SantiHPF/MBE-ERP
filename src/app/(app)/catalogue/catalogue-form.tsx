@@ -18,6 +18,7 @@ export type CatalogueEntry = {
   notes: string | null;
   instructions: string | null;
   isMeeting: boolean;
+  priority: "MUST" | "NORMAL" | "SPARE_TIME";
   active: boolean;
   rule: {
     frequency: "WEEKLY" | "MONTHLY";
@@ -80,6 +81,9 @@ export function CatalogueForm({
   );
   const [atTime, setAtTime] = useState(
     entry?.rule?.fixedStartMinutes != null,
+  );
+  const [priority, setPriority] = useState<"MUST" | "NORMAL" | "SPARE_TIME">(
+    entry?.priority ?? "NORMAL",
   );
 
   const label = "mb-1 block text-[11px] font-semibold tracking-[0.07em] text-faint uppercase";
@@ -156,6 +160,47 @@ export function CatalogueForm({
         />
         This is a meeting — starting it opens the notes pane
       </label>
+
+      {/* --------------------------------------------------- how hard it pushes */}
+      <fieldset className="rounded border border-line bg-surface-2 p-3">
+        <legend className="px-1 text-[11px] font-semibold tracking-[0.07em] text-faint uppercase">
+          How important is it?
+        </legend>
+        <div className="flex flex-wrap gap-1.5">
+          {(
+            [
+              ["MUST", "Must be done", "First claim on the day. Assigned even when everyone is full — the day then shows as over."],
+              ["NORMAL", "Normal", "Scheduled when there is room."],
+              ["SPARE_TIME", "Only if there's time", "Backlog work. Fills a quiet day once everything else is placed."],
+            ] as const
+          ).map(([id, text, why]) => (
+            <button
+              key={id}
+              type="button"
+              title={why}
+              aria-pressed={priority === id}
+              onClick={() => setPriority(id)}
+              className={
+                priority === id
+                  ? id === "MUST"
+                    ? "rounded border border-stall bg-stall px-2.5 py-1 text-xs font-medium text-white"
+                    : "rounded border border-accent bg-accent px-2.5 py-1 text-xs font-medium text-accent-ink"
+                  : "rounded border border-line-strong bg-surface px-2.5 py-1 text-xs text-muted hover:border-accent"
+              }
+            >
+              {text}
+            </button>
+          ))}
+        </div>
+        <input type="hidden" name="priority" value={priority} />
+        <p className="mt-1.5 text-[11.5px] text-muted">
+          {priority === "MUST"
+            ? "It will be assigned to somebody every time it comes round, even if that puts them over their hours."
+            : priority === "SPARE_TIME"
+              ? "It only appears when someone still has free hours after everything else."
+              : "Scheduled when there is room, dropped to the manager's queue when there is not."}
+        </p>
+      </fieldset>
 
       {/* --------------------------------------------------------- when */}
       <fieldset className="rounded border border-line bg-surface-2 p-3">

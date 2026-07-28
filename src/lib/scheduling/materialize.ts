@@ -25,6 +25,7 @@ export type RuleInput = {
     name: string;
     estimatedMinutes: number;
     active: boolean;
+    priority?: "MUST" | "NORMAL" | "SPARE_TIME";
   };
 };
 
@@ -67,6 +68,7 @@ export type PlannedTask = {
   externalKey: string;
   title: string;
   estimatedMinutes: number;
+  priority: "MUST" | "NORMAL" | "SPARE_TIME";
   dueDate: Date;
   departmentId: string;
   templateId: string;
@@ -115,6 +117,7 @@ export function planRecurringTasks(input: {
               ? `${rule.template.name} (${instance} of ${count})`
               : rule.template.name,
           estimatedMinutes: rule.template.estimatedMinutes,
+          priority: rule.template.priority ?? "NORMAL",
           dueDate: date,
           departmentId: rule.departmentId,
           templateId: rule.templateId,

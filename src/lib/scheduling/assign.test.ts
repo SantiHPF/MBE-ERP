@@ -229,7 +229,8 @@ describe("placement in the day", () => {
     // 09:00-13:00 then 14:00-17:00, never spanning 13:00-14:00.
     expect(result.assignments).toHaveLength(2);
     for (const a of result.assignments) {
-      expect(a.start >= at(14) || a.end <= at(13)).toBe(true);
+      expect(a.start).not.toBeNull();
+      expect(a.start! >= at(14) || a.end! <= at(13)).toBe(true);
     }
   });
 
@@ -407,5 +408,197 @@ describe("determinism", () => {
     const shuffled = { ...base, candidates: [...base.candidates].reverse() };
 
     expect(assignDay(shuffled).assignments).toEqual(assignDay(base).assignments);
+  });
+});
+
+describe("priority", () => {
+  it("places must-do work before normal work", () => {
+    const result = assignDay({
+      date: MON,
+      // Only room for one: 8h day, two 5h tasks.
+      tasks: [
+        task("normal", { estimatedMinutes: 300, templateId: "tpl-a" }),
+        task("must", {
+          estimatedMinutes: 300,
+          templateId: "tpl-b",
+          priority: "MUST",
+        }),
+      ],
+      candidates: [candidate("only")],
+    });
+
+    const placed = result.assignments.map((a) => a.taskId);
+    expect(placed).toContain("must");
+    expect(placed).not.toContain("normal");
+  });
+
+  it("leaves spare-time work until everything else has been placed", () => {
+    const result = assignDay({
+      date: MON,
+      tasks: [
+        task("filler", {
+          estimatedMinutes: 300,
+          templateId: "tpl-a",
+          priority: "SPARE_TIME",
+        }),
+        task("normal", { estimatedMinutes: 300, templateId: "tpl-b" }),
+      ],
+      candidates: [candidate("only")],
+    });
+
+    expect(result.assignments.map((a) => a.taskId)).toEqual(["normal"]);
+    expect(result.unassigned[0].taskId).toBe("filler");
+  });
+
+  it("fills a quiet day with spare-time work", () => {
+    const result = assignDay({
+      date: MON,
+      tasks: [
+        task("filler", {
+          estimatedMinutes: 60,
+          templateId: "tpl-a",
+          priority: "SPARE_TIME",
+        }),
+        task("normal", { estimatedMinutes: 60, templateId: "tpl-b" }),
+      ],
+      candidates: [candidate("only")],
+    });
+
+    expect(result.assignments).toHaveLength(2);
+  });
+
+  it("assigns a must-do task even when nobody has room", () => {
+    const result = assignDay({
+      date: MON,
+      tasks: [
+        task("must", {
+          estimatedMinutes: 120,
+          templateId: "tpl-b",
+          priority: "MUST",
+        }),
+      ],
+      // Both already full.
+      candidates: [
+        candidate("a", { committedMinutes: 480 }),
+        candidate("b", { committedMinutes: 480 }),
+      ],
+    });
+
+    expect(result.unassigned).toEqual([]);
+    expect(result.assignments).toHaveLength(1);
+    expect(result.assignments[0].overCapacity).toBe(true);
+  });
+
+  it("still drops normal work when nobody has room", () => {
+    const result = assignDay({
+      date: MON,
+      tasks: [task("normal", { estimatedMinutes: 120 })],
+      candidates: [candidate("a", { committedMinutes: 480 })],
+    });
+
+    expect(result.assignments).toEqual([]);
+    expect(result.unassigned[0].reason).toBe("no-capacity");
+  });
+
+  it("spreads several must-do tasks rather than piling them on one person", () => {
+    const result = assignDay({
+      date: MON,
+      tasks: [
+        task("m1", { estimatedMinutes: 120, priority: "MUST" }),
+        task("m2", { estimatedMinutes: 120, priority: "MUST" }),
+        task("m3", { estimatedMinutes: 120, priority: "MUST" }),
+      ],
+      candidates: [candidate("a"), candidate("b"), candidate("c")],
+    });
+
+    expect(new Set(result.assignments.map((a) => a.userId)).size).toBe(3);
+  });
+
+  it("does not let priority override a fixed window", () => {
+    const result = assignDay({
+      date: MON,
+      tasks: [
+        task("must", {
+          estimatedMinutes: 240,
+          templateId: "tpl-a",
+          priority: "MUST",
+        }),
+        task("meeting", {
+          estimatedMinutes: 60,
+          templateId: "tpl-b",
+          fixedStartMinutes: at(9),
+          fixedEndMinutes: at(10),
+        }),
+      ],
+      candidates: [candidate("only")],
+    });
+
+    // The fixed meeting keeps its hour; the must-do task fits around it.
+    const meeting = result.assignments.find((a) => a.taskId === "meeting");
+    expect(meeting?.start).toBe(at(9));
+    expect(result.assignments).toHaveLength(2);
+  });
+
+  it("treats an unset priority as normal", () => {
+    const result = assignDay({
+      date: MON,
+      tasks: [task("t1")],
+      candidates: [candidate("a")],
+    });
+    expect(result.assignments).toHaveLength(1);
+  });
+});
+
+describe("must-do work is never dropped", () => {
+  it("assigns a must-do task too long for any single free window", () => {
+    // Lunch splits the day into 4h + 3h, so a 5h task fits neither, even
+    // though the day has 7h of capacity.
+    const split = computeAvailability({
+      date: MON,
+      patterns: [
+        {
+          weekday: 1,
+          startMinutes: at(9),
+          endMinutes: at(17),
+          breakMinutes: 60,
+          breakStartMinutes: at(13),
+        },
+      ],
+    });
+
+    const result = assignDay({
+      date: MON,
+      tasks: [task("big", { estimatedMinutes: 300, priority: "MUST" })],
+      candidates: [{ ...candidate("a"), availability: split }],
+    });
+
+    expect(result.unassigned).toEqual([]);
+    expect(result.assignments[0].userId).toBe("a");
+    expect(result.assignments[0].overCapacity).toBe(true);
+    expect(result.assignments[0].start).toBeNull();
+  });
+
+  it("still drops normal work that fits no window", () => {
+    const split = computeAvailability({
+      date: MON,
+      patterns: [
+        {
+          weekday: 1,
+          startMinutes: at(9),
+          endMinutes: at(17),
+          breakMinutes: 60,
+          breakStartMinutes: at(13),
+        },
+      ],
+    });
+
+    const result = assignDay({
+      date: MON,
+      tasks: [task("big", { estimatedMinutes: 300 })],
+      candidates: [{ ...candidate("a"), availability: split }],
+    });
+
+    expect(result.assignments).toEqual([]);
+    expect(result.unassigned[0].reason).toBe("no-slot-fits");
   });
 });

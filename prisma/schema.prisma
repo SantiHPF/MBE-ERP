@@ -192,6 +192,7 @@ model TaskTemplate {
   /// True for tasks that are actually meetings -- starting one opens the
   /// notes pane instead of just running a timer.
   isMeeting        Boolean  @default(false)
+  priority         Priority @default(NORMAL)
   active           Boolean  @default(true)
   createdAt        DateTime @default(now())
 
@@ -203,6 +204,19 @@ model TaskTemplate {
   rotation       RotationLedger[]
 
   @@unique([departmentId, name])
+}
+
+/// How hard a task pushes for capacity.
+enum Priority {
+  /// Has to happen. Takes first claim on the day and is assigned even when
+  /// everybody is full, so the overload is visible rather than the task
+  /// quietly vanishing.
+  MUST
+  /// Normal work: scheduled when there is room.
+  NORMAL
+  /// Backlog. Only appears once everything else has been placed and somebody
+  /// still has hours free.
+  SPARE_TIME
 }
 
 enum Frequency {
@@ -271,6 +285,9 @@ model Task {
   dueDate          DateTime   @db.Date
   origin           TaskOrigin
   status           TaskStatus @default(UNASSIGNED)
+  /// Copied from the template when the task is created, so changing the
+  /// catalogue later does not rewrite work already scheduled.
+  priority         Priority   @default(NORMAL)
   createdAt        DateTime   @default(now())
 
   departmentId String

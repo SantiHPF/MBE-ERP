@@ -24,10 +24,21 @@ export type CandidateInput = {
   busy: Window[];
 };
 
+export type Priority = "MUST" | "NORMAL" | "SPARE_TIME";
+
+/** Lower sorts first. */
+const PRIORITY_RANK: Record<Priority, number> = {
+  MUST: 0,
+  NORMAL: 1,
+  SPARE_TIME: 2,
+};
+
 export type TaskInput = {
   id: string;
   departmentId: string;
   estimatedMinutes: number;
+  /** MUST is placed first and never dropped; SPARE_TIME only fills leftovers. */
+  priority?: Priority;
   /** Null for one-offs -- meeting actions, sheet rows, ad-hoc work. */
   templateId: string | null;
   /** Named in the meeting: skips ranking entirely. */
@@ -51,8 +62,11 @@ export type Assignment = {
   taskId: string;
   userId: string;
   date: Date;
-  start: number;
-  end: number;
+  /** Null when a must-do task had to go to an already-full day. */
+  start: number | null;
+  end: number | null;
+  /** True when it was placed past the person's capacity. */
+  overCapacity?: boolean;
 };
 
 export type Unassigned = {
@@ -140,6 +154,16 @@ function claim(candidate: WorkingCandidate, slot: Window): void {
   candidate.remaining -= slot.end - slot.start;
 }
 
+/** Book time that exceeds the day, so later tasks see the true load. */
+function claimOverflow(
+  candidate: WorkingCandidate,
+  minutes: number,
+  slot: Window | null,
+): void {
+  if (slot) candidate.free = subtractBusy(candidate.free, [slot]);
+  candidate.remaining -= minutes;
+}
+
 /**
  * Assign one day's tasks.
  *
@@ -172,13 +196,40 @@ export function assignDay(input: {
   const assignments: Assignment[] = [];
   const unassigned: Unassigned[] = [];
 
+  /**
+   * Taking the job counts for rotation immediately, so a second identical
+   * task the same day goes to the next person rather than the same one.
+   */
+  const creditRotation = (task: TaskInput, userId: string) => {
+    if (task.templateId) {
+      const key = `${task.templateId}:${userId}`;
+      const existing = rotation.get(key);
+      rotation.set(key, {
+        templateId: task.templateId,
+        userId,
+        assignedCount: (existing?.assignedCount ?? 0) + 1,
+        lastAssignedAt: input.date,
+      });
+    } else {
+      oneOffLoad.set(userId, (oneOffLoad.get(userId) ?? 0) + 1);
+    }
+  };
+
   const ordered = [...input.tasks].sort((a, b) => {
+    // A fixed window is a placement constraint, not a statement of
+    // importance, so those still go first -- otherwise a must-do flexible
+    // task eats the hour a fixed meeting needs.
     const aFixed = a.fixedStartMinutes != null;
     const bFixed = b.fixedStartMinutes != null;
     if (aFixed !== bFixed) return aFixed ? -1 : 1;
     if (aFixed && bFixed) {
       return (a.fixedStartMinutes ?? 0) - (b.fixedStartMinutes ?? 0);
     }
+
+    const rankA = PRIORITY_RANK[a.priority ?? "NORMAL"];
+    const rankB = PRIORITY_RANK[b.priority ?? "NORMAL"];
+    if (rankA !== rankB) return rankA - rankB;
+
     if (a.estimatedMinutes !== b.estimatedMinutes) {
       return b.estimatedMinutes - a.estimatedMinutes;
     }
@@ -234,7 +285,38 @@ export function assignDay(input: {
     const withCapacity = inDepartment.filter(
       (c) => c.remaining >= task.estimatedMinutes,
     );
+
+    /**
+     * Must-do work is never dropped. Whether the day is full or merely too
+     * fragmented to hold it in one stretch, somebody gets it and their day
+     * reads as over -- an overload people can see beats work nobody knows
+     * was silently abandoned.
+     */
+    const forceOnSomebody = () => {
+      const ranked = [...inDepartment].sort((a, b) =>
+        compareForTask(a, b, task, rotation, oneOffLoad),
+      );
+      const target =
+        ranked.find((c) => c.availability.availableMinutes > 0) ?? ranked[0];
+      if (!target) return false;
+
+      // Take a slot if one exists, even a smaller-than-ideal day.
+      const slot = findSlot(target.free, task.estimatedMinutes);
+      claimOverflow(target, task.estimatedMinutes, slot);
+      assignments.push({
+        taskId: task.id,
+        userId: target.userId,
+        date: input.date,
+        start: slot?.start ?? null,
+        end: slot?.end ?? null,
+        overCapacity: true,
+      });
+      creditRotation(task, target.userId);
+      return true;
+    };
+
     if (withCapacity.length === 0) {
+      if ((task.priority ?? "NORMAL") === "MUST" && forceOnSomebody()) continue;
       unassigned.push({ taskId: task.id, reason: "no-capacity" });
       continue;
     }
@@ -257,29 +339,15 @@ export function assignDay(input: {
         end: slot.end,
       });
 
-      // Taking the job counts for rotation immediately, so a second identical
-      // task the same day goes to the next person rather than the same one.
-      if (task.templateId) {
-        const key = `${task.templateId}:${candidate.userId}`;
-        const existing = rotation.get(key);
-        rotation.set(key, {
-          templateId: task.templateId,
-          userId: candidate.userId,
-          assignedCount: (existing?.assignedCount ?? 0) + 1,
-          lastAssignedAt: input.date,
-        });
-      } else {
-        oneOffLoad.set(
-          candidate.userId,
-          (oneOffLoad.get(candidate.userId) ?? 0) + 1,
-        );
-      }
-
+      creditRotation(task, candidate.userId);
       placed = true;
       break;
     }
 
-    if (!placed) unassigned.push({ taskId: task.id, reason: "no-slot-fits" });
+    if (!placed) {
+      if ((task.priority ?? "NORMAL") === "MUST" && forceOnSomebody()) continue;
+      unassigned.push({ taskId: task.id, reason: "no-slot-fits" });
+    }
   }
 
   return { assignments, unassigned };
