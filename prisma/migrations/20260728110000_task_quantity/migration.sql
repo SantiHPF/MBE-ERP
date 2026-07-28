@@ -1,0 +1,7 @@
+-- AlterTable
+ALTER TABLE "TaskTemplate" ADD COLUMN "repeatable" BOOLEAN NOT NULL DEFAULT false;
+
+-- AlterTable
+ALTER TABLE "Task" ADD COLUMN "unitMinutes" INTEGER,
+ADD COLUMN "quantity" INTEGER NOT NULL DEFAULT 1,
+ADD COLUMN "doneCount" INTEGER NOT NULL DEFAULT 0;

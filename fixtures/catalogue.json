@@ -6,7 +6,8 @@
     "estimatedMinutes": 30,
     "notes": "OJO, cuando te asignes esta tarea tienes que apuntar en NOTAS , en el calendar del departamento y en el tuyo particular, que canales y ofertas estás actualizando.",
     "instructions": "Ver Calendar",
-    "isMeeting": false
+    "isMeeting": false,
+    "repeatable": false
   },
   {
     "department": "HR (Human Resources)",
@@ -15,7 +16,8 @@
     "estimatedMinutes": 60,
     "notes": null,
     "instructions": "Ver Calendar",
-    "isMeeting": false
+    "isMeeting": false,
+    "repeatable": false
   },
   {
     "department": "HR (Human Resources)",
@@ -24,7 +26,8 @@
     "estimatedMinutes": 5,
     "notes": null,
     "instructions": "Ver Calendar",
-    "isMeeting": false
+    "isMeeting": false,
+    "repeatable": false
   },
   {
     "department": "HR (Human Resources)",
@@ -33,7 +36,8 @@
     "estimatedMinutes": 30,
     "notes": "OJO, max 1integrante por dia, apuntalo en el calendario para que no se solape",
     "instructions": "Lee los mensajes antes de enviarlos, apunta bien el histórico, mira antes las respuestas",
-    "isMeeting": false
+    "isMeeting": false,
+    "repeatable": false
   },
   {
     "department": "HR (Human Resources)",
@@ -42,7 +46,8 @@
     "estimatedMinutes": 30,
     "notes": "OJO, antes de Sentarte con su superior asegurate de que las tareas de la semana pasada están hechas, sino lo están pon un (+1). Anticipate a las desilusiones de tu jefe, evitalas.",
     "instructions": null,
-    "isMeeting": true
+    "isMeeting": true,
+    "repeatable": false
   },
   {
     "department": "HR (Human Resources)",
@@ -51,7 +56,8 @@
     "estimatedMinutes": 5,
     "notes": "OJO, max 1integrante por dia, de acuerdo a las instrucciones",
     "instructions": "Ver Calendar",
-    "isMeeting": false
+    "isMeeting": false,
+    "repeatable": false
   },
   {
     "department": "HR (Human Resources)",
@@ -60,7 +66,8 @@
     "estimatedMinutes": 7,
     "notes": null,
     "instructions": "Ver ModeloPreguntas",
-    "isMeeting": true
+    "isMeeting": true,
+    "repeatable": true
   },
   {
     "department": "HR (Human Resources)",
@@ -69,7 +76,8 @@
     "estimatedMinutes": 10,
     "notes": null,
     "instructions": "Ver ModeloPreguntas",
-    "isMeeting": true
+    "isMeeting": true,
+    "repeatable": true
   },
   {
     "department": "HR (Human Resources)",
@@ -78,7 +86,8 @@
     "estimatedMinutes": 15,
     "notes": null,
     "instructions": "Ver ModeloPreguntas",
-    "isMeeting": false
+    "isMeeting": false,
+    "repeatable": false
   },
   {
     "department": "HR (Human Resources)",
@@ -87,7 +96,8 @@
     "estimatedMinutes": 30,
     "notes": null,
     "instructions": null,
-    "isMeeting": true
+    "isMeeting": true,
+    "repeatable": false
   },
   {
     "department": "HR (Human Resources)",
@@ -96,7 +106,8 @@
     "estimatedMinutes": 90,
     "notes": null,
     "instructions": "Ver ModeloPreguntas",
-    "isMeeting": false
+    "isMeeting": false,
+    "repeatable": false
   },
   {
     "department": "HR (Human Resources)",
@@ -105,7 +116,8 @@
     "estimatedMinutes": 10,
     "notes": null,
     "instructions": null,
-    "isMeeting": true
+    "isMeeting": true,
+    "repeatable": true
   },
   {
     "department": "HR (Human Resources)",
@@ -114,7 +126,8 @@
     "estimatedMinutes": 60,
     "notes": null,
     "instructions": "Ver Guia onboarding",
-    "isMeeting": true
+    "isMeeting": true,
+    "repeatable": false
   },
   {
     "department": "HR (Human Resources)",
@@ -123,7 +136,8 @@
     "estimatedMinutes": 15,
     "notes": null,
     "instructions": "Ver Calendar",
-    "isMeeting": false
+    "isMeeting": false,
+    "repeatable": false
   },
   {
     "department": "HR (Human Resources)",
@@ -132,7 +146,8 @@
     "estimatedMinutes": 60,
     "notes": null,
     "instructions": "Ver Calendar",
-    "isMeeting": false
+    "isMeeting": false,
+    "repeatable": false
   },
   {
     "department": "HR (Human Resources)",
@@ -141,7 +156,8 @@
     "estimatedMinutes": 30,
     "notes": null,
     "instructions": "Ver Calendar",
-    "isMeeting": false
+    "isMeeting": false,
+    "repeatable": false
   },
   {
     "department": "HR (Human Resources)",
@@ -150,7 +166,8 @@
     "estimatedMinutes": 5,
     "notes": null,
     "instructions": null,
-    "isMeeting": false
+    "isMeeting": false,
+    "repeatable": false
   },
   {
     "department": "HR (Human Resources)",
@@ -159,7 +176,8 @@
     "estimatedMinutes": 10,
     "notes": null,
     "instructions": "Ver Calendar",
-    "isMeeting": false
+    "isMeeting": false,
+    "repeatable": false
   },
   {
     "department": "HR (Human Resources)",
@@ -168,7 +186,8 @@
     "estimatedMinutes": 5,
     "notes": null,
     "instructions": "Ver Calendar",
-    "isMeeting": false
+    "isMeeting": false,
+    "repeatable": false
   },
   {
     "department": "HR (Human Resources)",
@@ -177,7 +196,8 @@
     "estimatedMinutes": 30,
     "notes": null,
     "instructions": null,
-    "isMeeting": false
+    "isMeeting": false,
+    "repeatable": false
   },
   {
     "department": "HR (Human Resources)",
@@ -186,7 +206,8 @@
     "estimatedMinutes": 7,
     "notes": null,
     "instructions": "Seguir guion de Appsheet",
-    "isMeeting": false
+    "isMeeting": false,
+    "repeatable": true
   },
   {
     "department": "HR (Human Resources)",
@@ -195,7 +216,8 @@
     "estimatedMinutes": 30,
     "notes": null,
     "instructions": null,
-    "isMeeting": false
+    "isMeeting": false,
+    "repeatable": false
   },
   {
     "department": "HR (Human Resources)",
@@ -204,7 +226,8 @@
     "estimatedMinutes": 5,
     "notes": null,
     "instructions": "Ver Calendar",
-    "isMeeting": false
+    "isMeeting": false,
+    "repeatable": false
   },
   {
     "department": "HR (Human Resources)",
@@ -213,7 +236,8 @@
     "estimatedMinutes": 30,
     "notes": "OJO que tengas apuntada la tarea de teambuilding no significa que lo tengas que haer tu, sino que te encargas de hacerlo",
     "instructions": "Ver Calendar",
-    "isMeeting": true
+    "isMeeting": true,
+    "repeatable": false
   },
   {
     "department": "HR (Human Resources)",
@@ -222,7 +246,8 @@
     "estimatedMinutes": 120,
     "notes": "OJO esto se hace una, dos veces máximo al dia todo el equipo.",
     "instructions": null,
-    "isMeeting": false
+    "isMeeting": false,
+    "repeatable": false
   },
   {
     "department": "HR (Human Resources)",
@@ -231,7 +256,8 @@
     "estimatedMinutes": 30,
     "notes": null,
     "instructions": null,
-    "isMeeting": false
+    "isMeeting": false,
+    "repeatable": false
   },
   {
     "department": "HR (Human Resources)",
@@ -240,7 +266,8 @@
     "estimatedMinutes": 60,
     "notes": null,
     "instructions": null,
-    "isMeeting": true
+    "isMeeting": true,
+    "repeatable": false
   },
   {
     "department": "HR (Human Resources)",
@@ -249,7 +276,8 @@
     "estimatedMinutes": 30,
     "notes": null,
     "instructions": null,
-    "isMeeting": false
+    "isMeeting": false,
+    "repeatable": false
   },
   {
     "department": "HR (Human Resources)",
@@ -258,7 +286,8 @@
     "estimatedMinutes": 5,
     "notes": null,
     "instructions": null,
-    "isMeeting": false
+    "isMeeting": false,
+    "repeatable": true
   },
   {
     "department": "HR (Human Resources)",
@@ -267,7 +296,8 @@
     "estimatedMinutes": 30,
     "notes": null,
     "instructions": null,
-    "isMeeting": true
+    "isMeeting": true,
+    "repeatable": false
   },
   {
     "department": "HR (Human Resources)",
@@ -276,7 +306,8 @@
     "estimatedMinutes": 30,
     "notes": null,
     "instructions": null,
-    "isMeeting": false
+    "isMeeting": false,
+    "repeatable": false
   },
   {
     "department": "HR (Human Resources)",
@@ -285,7 +316,8 @@
     "estimatedMinutes": 10,
     "notes": null,
     "instructions": null,
-    "isMeeting": false
+    "isMeeting": false,
+    "repeatable": false
   },
   {
     "department": "MYD (Marketing y Diseño)",
@@ -294,7 +326,8 @@
     "estimatedMinutes": 30,
     "notes": null,
     "instructions": null,
-    "isMeeting": false
+    "isMeeting": false,
+    "repeatable": false
   },
   {
     "department": "MYD (Marketing y Diseño)",
@@ -303,7 +336,8 @@
     "estimatedMinutes": 30,
     "notes": null,
     "instructions": null,
-    "isMeeting": false
+    "isMeeting": false,
+    "repeatable": false
   },
   {
     "department": "MYD (Marketing y Diseño)",
@@ -312,7 +346,8 @@
     "estimatedMinutes": 60,
     "notes": null,
     "instructions": null,
-    "isMeeting": true
+    "isMeeting": true,
+    "repeatable": true
   },
   {
     "department": "MYD (Marketing y Diseño)",
@@ -321,7 +356,8 @@
     "estimatedMinutes": 20,
     "notes": null,
     "instructions": null,
-    "isMeeting": false
+    "isMeeting": false,
+    "repeatable": false
   },
   {
     "department": "MYD (Marketing y Diseño)",
@@ -330,7 +366,8 @@
     "estimatedMinutes": 180,
     "notes": null,
     "instructions": null,
-    "isMeeting": false
+    "isMeeting": false,
+    "repeatable": false
   },
   {
     "department": "MYD (Marketing y Diseño)",
@@ -339,7 +376,8 @@
     "estimatedMinutes": 60,
     "notes": null,
     "instructions": null,
-    "isMeeting": false
+    "isMeeting": false,
+    "repeatable": false
   },
   {
     "department": "MYD (Marketing y Diseño)",
@@ -348,7 +386,8 @@
     "estimatedMinutes": 15,
     "notes": null,
     "instructions": null,
-    "isMeeting": false
+    "isMeeting": false,
+    "repeatable": true
   },
   {
     "department": "MYD (Marketing y Diseño)",
@@ -357,7 +396,8 @@
     "estimatedMinutes": 30,
     "notes": null,
     "instructions": null,
-    "isMeeting": false
+    "isMeeting": false,
+    "repeatable": true
   },
   {
     "department": "MYD (Marketing y Diseño)",
@@ -366,7 +406,8 @@
     "estimatedMinutes": 30,
     "notes": null,
     "instructions": null,
-    "isMeeting": true
+    "isMeeting": true,
+    "repeatable": false
   },
   {
     "department": "MYD (Marketing y Diseño)",
@@ -375,7 +416,8 @@
     "estimatedMinutes": 30,
     "notes": null,
     "instructions": null,
-    "isMeeting": true
+    "isMeeting": true,
+    "repeatable": false
   },
   {
     "department": "MYD (Marketing y Diseño)",
@@ -384,7 +426,8 @@
     "estimatedMinutes": 60,
     "notes": null,
     "instructions": null,
-    "isMeeting": false
+    "isMeeting": false,
+    "repeatable": false
   },
   {
     "department": "MYD (Marketing y Diseño)",
@@ -393,7 +436,8 @@
     "estimatedMinutes": 60,
     "notes": null,
     "instructions": null,
-    "isMeeting": false
+    "isMeeting": false,
+    "repeatable": false
   },
   {
     "department": "MYD (Marketing y Diseño)",
@@ -402,7 +446,8 @@
     "estimatedMinutes": 45,
     "notes": null,
     "instructions": null,
-    "isMeeting": false
+    "isMeeting": false,
+    "repeatable": false
   },
   {
     "department": "MYD (Marketing y Diseño)",
@@ -411,7 +456,8 @@
     "estimatedMinutes": 20,
     "notes": null,
     "instructions": null,
-    "isMeeting": false
+    "isMeeting": false,
+    "repeatable": false
   },
   {
     "department": "ATIC (Informatica)",
@@ -420,7 +466,8 @@
     "estimatedMinutes": 20,
     "notes": null,
     "instructions": null,
-    "isMeeting": false
+    "isMeeting": false,
+    "repeatable": false
   },
   {
     "department": "ATIC (Informatica)",
@@ -429,7 +476,8 @@
     "estimatedMinutes": 30,
     "notes": null,
     "instructions": null,
-    "isMeeting": true
+    "isMeeting": true,
+    "repeatable": false
   },
   {
     "department": "ATIC (Informatica)",
@@ -438,7 +486,8 @@
     "estimatedMinutes": 180,
     "notes": null,
     "instructions": null,
-    "isMeeting": true
+    "isMeeting": true,
+    "repeatable": false
   },
   {
     "department": "ATIC (Informatica)",
@@ -447,7 +496,8 @@
     "estimatedMinutes": 10,
     "notes": null,
     "instructions": null,
-    "isMeeting": false
+    "isMeeting": false,
+    "repeatable": false
   },
   {
     "department": "ATIC (Informatica)",
@@ -456,7 +506,8 @@
     "estimatedMinutes": 10,
     "notes": null,
     "instructions": null,
-    "isMeeting": false
+    "isMeeting": false,
+    "repeatable": false
   },
   {
     "department": "ATIC (Informatica)",
@@ -465,7 +516,8 @@
     "estimatedMinutes": 60,
     "notes": null,
     "instructions": null,
-    "isMeeting": false
+    "isMeeting": false,
+    "repeatable": false
   },
   {
     "department": "ATIC (Informatica)",
@@ -474,7 +526,8 @@
     "estimatedMinutes": 60,
     "notes": null,
     "instructions": null,
-    "isMeeting": false
+    "isMeeting": false,
+    "repeatable": false
   },
   {
     "department": "ATIC (Informatica)",
@@ -483,7 +536,8 @@
     "estimatedMinutes": 30,
     "notes": null,
     "instructions": null,
-    "isMeeting": false
+    "isMeeting": false,
+    "repeatable": false
   },
   {
     "department": "ATIC (Informatica)",
@@ -492,7 +546,8 @@
     "estimatedMinutes": 15,
     "notes": null,
     "instructions": null,
-    "isMeeting": false
+    "isMeeting": false,
+    "repeatable": false
   },
   {
     "department": "ATIC (Informatica)",
@@ -501,7 +556,8 @@
     "estimatedMinutes": 5,
     "notes": null,
     "instructions": null,
-    "isMeeting": false
+    "isMeeting": false,
+    "repeatable": false
   },
   {
     "department": "ATIC (Informatica)",
@@ -510,7 +566,8 @@
     "estimatedMinutes": 15,
     "notes": null,
     "instructions": null,
-    "isMeeting": false
+    "isMeeting": false,
+    "repeatable": false
   },
   {
     "department": "ATIC (Informatica)",
@@ -519,7 +576,8 @@
     "estimatedMinutes": 10,
     "notes": null,
     "instructions": null,
-    "isMeeting": false
+    "isMeeting": false,
+    "repeatable": false
   },
   {
     "department": "ATIC (Informatica)",
@@ -528,7 +586,8 @@
     "estimatedMinutes": 5,
     "notes": null,
     "instructions": null,
-    "isMeeting": false
+    "isMeeting": false,
+    "repeatable": false
   },
   {
     "department": "ATIC (Informatica)",
@@ -537,7 +596,8 @@
     "estimatedMinutes": 5,
     "notes": null,
     "instructions": null,
-    "isMeeting": false
+    "isMeeting": false,
+    "repeatable": false
   },
   {
     "department": "ATIC (Informatica)",
@@ -546,7 +606,8 @@
     "estimatedMinutes": 10,
     "notes": null,
     "instructions": null,
-    "isMeeting": false
+    "isMeeting": false,
+    "repeatable": false
   },
   {
     "department": "ATIC (Informatica)",
@@ -555,7 +616,8 @@
     "estimatedMinutes": 30,
     "notes": null,
     "instructions": null,
-    "isMeeting": false
+    "isMeeting": false,
+    "repeatable": false
   },
   {
     "department": "ATIC (Informatica)",
@@ -564,7 +626,8 @@
     "estimatedMinutes": 30,
     "notes": null,
     "instructions": null,
-    "isMeeting": false
+    "isMeeting": false,
+    "repeatable": false
   },
   {
     "department": "ATIC (Informatica)",
@@ -573,7 +636,8 @@
     "estimatedMinutes": 60,
     "notes": null,
     "instructions": null,
-    "isMeeting": false
+    "isMeeting": false,
+    "repeatable": false
   },
   {
     "department": "ATIC (Informatica)",
@@ -582,7 +646,8 @@
     "estimatedMinutes": 60,
     "notes": null,
     "instructions": null,
-    "isMeeting": false
+    "isMeeting": false,
+    "repeatable": false
   },
   {
     "department": "ATIC (Informatica)",
@@ -591,7 +656,8 @@
     "estimatedMinutes": 60,
     "notes": null,
     "instructions": null,
-    "isMeeting": false
+    "isMeeting": false,
+    "repeatable": false
   },
   {
     "department": "ATIC (Informatica)",
@@ -600,7 +666,8 @@
     "estimatedMinutes": 60,
     "notes": null,
     "instructions": null,
-    "isMeeting": false
+    "isMeeting": false,
+    "repeatable": false
   },
   {
     "department": "ATIC (Informatica)",
@@ -609,7 +676,8 @@
     "estimatedMinutes": 60,
     "notes": null,
     "instructions": null,
-    "isMeeting": false
+    "isMeeting": false,
+    "repeatable": false
   },
   {
     "department": "ATIC (Informatica)",
@@ -618,7 +686,8 @@
     "estimatedMinutes": 20,
     "notes": null,
     "instructions": null,
-    "isMeeting": false
+    "isMeeting": false,
+    "repeatable": false
   },
   {
     "department": "ATIC (Informatica)",
@@ -627,7 +696,8 @@
     "estimatedMinutes": 30,
     "notes": null,
     "instructions": null,
-    "isMeeting": false
+    "isMeeting": false,
+    "repeatable": false
   },
   {
     "department": "ATIC (Informatica)",
@@ -636,7 +706,8 @@
     "estimatedMinutes": 60,
     "notes": null,
     "instructions": null,
-    "isMeeting": false
+    "isMeeting": false,
+    "repeatable": false
   },
   {
     "department": "ATIC (Informatica)",
@@ -645,7 +716,8 @@
     "estimatedMinutes": 30,
     "notes": null,
     "instructions": null,
-    "isMeeting": false
+    "isMeeting": false,
+    "repeatable": false
   },
   {
     "department": "ATIC (Informatica)",
@@ -654,7 +726,8 @@
     "estimatedMinutes": 90,
     "notes": null,
     "instructions": null,
-    "isMeeting": false
+    "isMeeting": false,
+    "repeatable": false
   },
   {
     "department": "ATIC (Informatica)",
@@ -663,7 +736,8 @@
     "estimatedMinutes": 30,
     "notes": null,
     "instructions": null,
-    "isMeeting": false
+    "isMeeting": false,
+    "repeatable": false
   },
   {
     "department": "ATIC (Informatica)",
@@ -672,7 +746,8 @@
     "estimatedMinutes": 30,
     "notes": null,
     "instructions": null,
-    "isMeeting": false
+    "isMeeting": false,
+    "repeatable": false
   },
   {
     "department": "ATIC (Informatica)",
@@ -681,7 +756,8 @@
     "estimatedMinutes": 10,
     "notes": null,
     "instructions": null,
-    "isMeeting": true
+    "isMeeting": true,
+    "repeatable": false
   },
   {
     "department": "ATIC (Informatica)",
@@ -690,7 +766,8 @@
     "estimatedMinutes": 5,
     "notes": null,
     "instructions": null,
-    "isMeeting": false
+    "isMeeting": false,
+    "repeatable": false
   },
   {
     "department": "ATIC (Informatica)",
@@ -699,7 +776,8 @@
     "estimatedMinutes": 60,
     "notes": null,
     "instructions": null,
-    "isMeeting": false
+    "isMeeting": false,
+    "repeatable": false
   },
   {
     "department": "ATIC (Informatica)",
@@ -708,7 +786,8 @@
     "estimatedMinutes": 60,
     "notes": null,
     "instructions": null,
-    "isMeeting": false
+    "isMeeting": false,
+    "repeatable": false
   },
   {
     "department": "ATIC (Informatica)",
@@ -717,7 +796,8 @@
     "estimatedMinutes": 60,
     "notes": null,
     "instructions": null,
-    "isMeeting": false
+    "isMeeting": false,
+    "repeatable": false
   },
   {
     "department": "ATIC (Informatica)",
@@ -726,7 +806,8 @@
     "estimatedMinutes": 60,
     "notes": null,
     "instructions": null,
-    "isMeeting": false
+    "isMeeting": false,
+    "repeatable": false
   },
   {
     "department": "ATIC (Informatica)",
@@ -735,7 +816,8 @@
     "estimatedMinutes": 60,
     "notes": null,
     "instructions": null,
-    "isMeeting": false
+    "isMeeting": false,
+    "repeatable": false
   },
   {
     "department": "ADE (Admin & Legal)",
@@ -744,7 +826,8 @@
     "estimatedMinutes": 60,
     "notes": null,
     "instructions": null,
-    "isMeeting": false
+    "isMeeting": false,
+    "repeatable": false
   },
   {
     "department": "ADE (Admin & Legal)",
@@ -753,7 +836,8 @@
     "estimatedMinutes": 10,
     "notes": null,
     "instructions": null,
-    "isMeeting": false
+    "isMeeting": false,
+    "repeatable": true
   },
   {
     "department": "ADE (Admin & Legal)",
@@ -762,7 +846,8 @@
     "estimatedMinutes": 60,
     "notes": null,
     "instructions": null,
-    "isMeeting": false
+    "isMeeting": false,
+    "repeatable": false
   },
   {
     "department": "ADE (Admin & Legal)",
@@ -771,7 +856,8 @@
     "estimatedMinutes": 60,
     "notes": null,
     "instructions": null,
-    "isMeeting": true
+    "isMeeting": true,
+    "repeatable": false
   },
   {
     "department": "ADE (Admin & Legal)",
@@ -780,7 +866,8 @@
     "estimatedMinutes": 60,
     "notes": null,
     "instructions": null,
-    "isMeeting": false
+    "isMeeting": false,
+    "repeatable": false
   },
   {
     "department": "ADE (Admin & Legal)",
@@ -789,7 +876,8 @@
     "estimatedMinutes": 60,
     "notes": null,
     "instructions": null,
-    "isMeeting": false
+    "isMeeting": false,
+    "repeatable": false
   },
   {
     "department": "ADE (Admin & Legal)",
@@ -798,7 +886,8 @@
     "estimatedMinutes": 60,
     "notes": null,
     "instructions": null,
-    "isMeeting": false
+    "isMeeting": false,
+    "repeatable": false
   },
   {
     "department": "ADE (Admin & Legal)",
@@ -807,7 +896,8 @@
     "estimatedMinutes": 120,
     "notes": null,
     "instructions": null,
-    "isMeeting": false
+    "isMeeting": false,
+    "repeatable": false
   },
   {
     "department": "ADE (Admin & Legal)",
@@ -816,7 +906,8 @@
     "estimatedMinutes": 60,
     "notes": null,
     "instructions": null,
-    "isMeeting": false
+    "isMeeting": false,
+    "repeatable": false
   },
   {
     "department": "ADE (Admin & Legal)",
@@ -825,7 +916,8 @@
     "estimatedMinutes": 60,
     "notes": null,
     "instructions": null,
-    "isMeeting": false
+    "isMeeting": false,
+    "repeatable": false
   },
   {
     "department": "ADE (Admin & Legal)",
@@ -834,7 +926,8 @@
     "estimatedMinutes": 30,
     "notes": null,
     "instructions": null,
-    "isMeeting": false
+    "isMeeting": false,
+    "repeatable": true
   },
   {
     "department": "ADE (Admin & Legal)",
@@ -843,7 +936,8 @@
     "estimatedMinutes": 60,
     "notes": null,
     "instructions": null,
-    "isMeeting": false
+    "isMeeting": false,
+    "repeatable": true
   },
   {
     "department": "ADE (Admin & Legal)",
@@ -852,7 +946,8 @@
     "estimatedMinutes": 120,
     "notes": null,
     "instructions": null,
-    "isMeeting": false
+    "isMeeting": false,
+    "repeatable": false
   },
   {
     "department": "ADE (Admin & Legal)",
@@ -861,7 +956,8 @@
     "estimatedMinutes": 30,
     "notes": null,
     "instructions": null,
-    "isMeeting": false
+    "isMeeting": false,
+    "repeatable": false
   },
   {
     "department": "ADE (Admin & Legal)",
@@ -870,7 +966,8 @@
     "estimatedMinutes": 60,
     "notes": null,
     "instructions": null,
-    "isMeeting": false
+    "isMeeting": false,
+    "repeatable": false
   },
   {
     "department": "ADE (Admin & Legal)",
@@ -879,7 +976,8 @@
     "estimatedMinutes": 15,
     "notes": null,
     "instructions": null,
-    "isMeeting": false
+    "isMeeting": false,
+    "repeatable": false
   },
   {
     "department": "ADE (Admin & Legal)",
@@ -888,7 +986,8 @@
     "estimatedMinutes": 15,
     "notes": null,
     "instructions": null,
-    "isMeeting": false
+    "isMeeting": false,
+    "repeatable": false
   },
   {
     "department": "ADE (Admin & Legal)",
@@ -897,7 +996,8 @@
     "estimatedMinutes": 120,
     "notes": null,
     "instructions": null,
-    "isMeeting": false
+    "isMeeting": false,
+    "repeatable": false
   },
   {
     "department": "ADE (Admin & Legal)",
@@ -906,7 +1006,8 @@
     "estimatedMinutes": 60,
     "notes": null,
     "instructions": null,
-    "isMeeting": false
+    "isMeeting": false,
+    "repeatable": false
   },
   {
     "department": "ADE (Admin & Legal)",
@@ -915,7 +1016,8 @@
     "estimatedMinutes": 30,
     "notes": null,
     "instructions": null,
-    "isMeeting": false
+    "isMeeting": false,
+    "repeatable": true
   },
   {
     "department": "ADE (Admin & Legal)",
@@ -924,7 +1026,8 @@
     "estimatedMinutes": 60,
     "notes": null,
     "instructions": null,
-    "isMeeting": false
+    "isMeeting": false,
+    "repeatable": true
   },
   {
     "department": "ADE (Admin & Legal)",
@@ -933,7 +1036,8 @@
     "estimatedMinutes": 60,
     "notes": null,
     "instructions": null,
-    "isMeeting": false
+    "isMeeting": false,
+    "repeatable": false
   },
   {
     "department": "ADE (Admin & Legal)",
@@ -942,7 +1046,8 @@
     "estimatedMinutes": 60,
     "notes": null,
     "instructions": null,
-    "isMeeting": false
+    "isMeeting": false,
+    "repeatable": false
   },
   {
     "department": "ADE (Admin & Legal)",
@@ -951,7 +1056,8 @@
     "estimatedMinutes": 30,
     "notes": null,
     "instructions": null,
-    "isMeeting": false
+    "isMeeting": false,
+    "repeatable": false
   },
   {
     "department": "ADE (Admin & Legal)",
@@ -960,7 +1066,8 @@
     "estimatedMinutes": 30,
     "notes": null,
     "instructions": null,
-    "isMeeting": false
+    "isMeeting": false,
+    "repeatable": false
   },
   {
     "department": "ADE (Admin & Legal)",
@@ -969,7 +1076,8 @@
     "estimatedMinutes": 60,
     "notes": null,
     "instructions": null,
-    "isMeeting": true
+    "isMeeting": true,
+    "repeatable": false
   },
   {
     "department": "ADE (Admin & Legal)",
@@ -978,7 +1086,8 @@
     "estimatedMinutes": 30,
     "notes": null,
     "instructions": null,
-    "isMeeting": false
+    "isMeeting": false,
+    "repeatable": false
   },
   {
     "department": "ADE (Admin & Legal)",
@@ -987,7 +1096,8 @@
     "estimatedMinutes": 30,
     "notes": null,
     "instructions": null,
-    "isMeeting": false
+    "isMeeting": false,
+    "repeatable": true
   },
   {
     "department": "ADE (Admin & Legal)",
@@ -996,7 +1106,8 @@
     "estimatedMinutes": 30,
     "notes": null,
     "instructions": null,
-    "isMeeting": false
+    "isMeeting": false,
+    "repeatable": false
   },
   {
     "department": "ADE (Admin & Legal)",
@@ -1005,7 +1116,8 @@
     "estimatedMinutes": 60,
     "notes": null,
     "instructions": null,
-    "isMeeting": false
+    "isMeeting": false,
+    "repeatable": false
   },
   {
     "department": "ADE (Admin & Legal)",
@@ -1014,7 +1126,8 @@
     "estimatedMinutes": 10,
     "notes": null,
     "instructions": null,
-    "isMeeting": false
+    "isMeeting": false,
+    "repeatable": false
   },
   {
     "department": "ADE (Admin & Legal)",
@@ -1023,7 +1136,8 @@
     "estimatedMinutes": 10,
     "notes": null,
     "instructions": null,
-    "isMeeting": false
+    "isMeeting": false,
+    "repeatable": false
   },
   {
     "department": "ADE (Admin & Legal)",
@@ -1032,7 +1146,8 @@
     "estimatedMinutes": 10,
     "notes": null,
     "instructions": null,
-    "isMeeting": false
+    "isMeeting": false,
+    "repeatable": false
   },
   {
     "department": "ADE (Admin & Legal)",
@@ -1041,7 +1156,8 @@
     "estimatedMinutes": 15,
     "notes": null,
     "instructions": null,
-    "isMeeting": false
+    "isMeeting": false,
+    "repeatable": false
   },
   {
     "department": "ADE (Admin & Legal)",
@@ -1050,7 +1166,8 @@
     "estimatedMinutes": 15,
     "notes": null,
     "instructions": null,
-    "isMeeting": false
+    "isMeeting": false,
+    "repeatable": false
   },
   {
     "department": "ADE (Admin & Legal)",
@@ -1059,7 +1176,8 @@
     "estimatedMinutes": 2,
     "notes": null,
     "instructions": null,
-    "isMeeting": false
+    "isMeeting": false,
+    "repeatable": true
   },
   {
     "department": "ADE (Admin & Legal)",
@@ -1068,7 +1186,8 @@
     "estimatedMinutes": 60,
     "notes": null,
     "instructions": null,
-    "isMeeting": false
+    "isMeeting": false,
+    "repeatable": false
   },
   {
     "department": "ADE (Admin & Legal)",
@@ -1077,7 +1196,8 @@
     "estimatedMinutes": 60,
     "notes": null,
     "instructions": null,
-    "isMeeting": false
+    "isMeeting": false,
+    "repeatable": false
   },
   {
     "department": "ADE (Admin & Legal)",
@@ -1086,7 +1206,8 @@
     "estimatedMinutes": 15,
     "notes": null,
     "instructions": null,
-    "isMeeting": false
+    "isMeeting": false,
+    "repeatable": true
   },
   {
     "department": "ADE (Admin & Legal)",
@@ -1095,7 +1216,8 @@
     "estimatedMinutes": 20,
     "notes": null,
     "instructions": null,
-    "isMeeting": false
+    "isMeeting": false,
+    "repeatable": true
   },
   {
     "department": "ADE (Admin & Legal)",
@@ -1104,7 +1226,8 @@
     "estimatedMinutes": 60,
     "notes": null,
     "instructions": null,
-    "isMeeting": false
+    "isMeeting": false,
+    "repeatable": false
   },
   {
     "department": "ADE (Admin & Legal)",
@@ -1113,7 +1236,8 @@
     "estimatedMinutes": 30,
     "notes": null,
     "instructions": null,
-    "isMeeting": false
+    "isMeeting": false,
+    "repeatable": false
   },
   {
     "department": "ADE (Admin & Legal)",
@@ -1122,7 +1246,8 @@
     "estimatedMinutes": 60,
     "notes": null,
     "instructions": null,
-    "isMeeting": false
+    "isMeeting": false,
+    "repeatable": false
   },
   {
     "department": "MYD (Marketing y Diseño)",
@@ -1131,7 +1256,8 @@
     "estimatedMinutes": 60,
     "notes": null,
     "instructions": null,
-    "isMeeting": true
+    "isMeeting": true,
+    "repeatable": true
   },
   {
     "department": "HR (Human Resources)",
@@ -1140,7 +1266,8 @@
     "estimatedMinutes": 15,
     "notes": null,
     "instructions": null,
-    "isMeeting": false
+    "isMeeting": false,
+    "repeatable": false
   },
   {
     "department": "ATIC (Informatica)",
@@ -1149,7 +1276,8 @@
     "estimatedMinutes": 10,
     "notes": null,
     "instructions": null,
-    "isMeeting": false
+    "isMeeting": false,
+    "repeatable": false
   },
   {
     "department": "HR (Human Resources)",
@@ -1158,7 +1286,8 @@
     "estimatedMinutes": 30,
     "notes": null,
     "instructions": null,
-    "isMeeting": false
+    "isMeeting": false,
+    "repeatable": false
   },
   {
     "department": "HR (Human Resources)",
@@ -1167,7 +1296,8 @@
     "estimatedMinutes": 60,
     "notes": null,
     "instructions": null,
-    "isMeeting": false
+    "isMeeting": false,
+    "repeatable": false
   },
   {
     "department": "HR (Human Resources)",
@@ -1176,7 +1306,8 @@
     "estimatedMinutes": 15,
     "notes": null,
     "instructions": null,
-    "isMeeting": false
+    "isMeeting": false,
+    "repeatable": false
   },
   {
     "department": "HR (Human Resources)",
@@ -1185,7 +1316,8 @@
     "estimatedMinutes": 90,
     "notes": null,
     "instructions": null,
-    "isMeeting": false
+    "isMeeting": false,
+    "repeatable": false
   },
   {
     "department": "HR (Human Resources)",
@@ -1194,7 +1326,8 @@
     "estimatedMinutes": 15,
     "notes": null,
     "instructions": null,
-    "isMeeting": false
+    "isMeeting": false,
+    "repeatable": false
   },
   {
     "department": "HR (Human Resources)",
@@ -1203,6 +1336,7 @@
     "estimatedMinutes": 30,
     "notes": null,
     "instructions": null,
-    "isMeeting": true
+    "isMeeting": true,
+    "repeatable": true
   }
 ]

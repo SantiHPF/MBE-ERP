@@ -48,6 +48,7 @@ const Entry = z.object({
   notes: z.string().trim().max(2000).optional(),
   instructions: z.string().trim().max(500).optional(),
   isMeeting: z.boolean().optional(),
+  repeatable: z.boolean().optional(),
   priority: z.enum(["MUST", "NORMAL", "SPARE_TIME"]).default("NORMAL"),
   instancesPerOccurrence: z.coerce.number().int().min(1).max(20).optional(),
   fixedStart: z.string().optional(),
@@ -103,6 +104,7 @@ export async function saveCatalogueEntry(
       notes: formData.get("notes") || undefined,
       instructions: formData.get("instructions") || undefined,
       isMeeting: formData.get("isMeeting") === "on",
+      repeatable: formData.get("repeatable") === "on",
       priority: formData.get("priority") || "NORMAL",
       instancesPerOccurrence: formData.get("instancesPerOccurrence") || 1,
       fixedStart: formData.get("fixedStart") || undefined,
@@ -138,6 +140,7 @@ export async function saveCatalogueEntry(
       notes: input.notes || null,
       instructions: input.instructions || null,
       isMeeting: input.isMeeting ?? false,
+      repeatable: input.repeatable ?? false,
       priority: input.priority,
       active: true,
     };

@@ -77,6 +77,7 @@ export default async function CataloguePage({
             notes: t.notes,
             instructions: t.instructions,
             isMeeting: t.isMeeting,
+            repeatable: t.repeatable,
             priority: t.priority as "MUST" | "NORMAL" | "SPARE_TIME",
             active: t.active,
             rule: rule

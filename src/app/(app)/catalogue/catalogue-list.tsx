@@ -147,6 +147,14 @@ export function CatalogueList({
                   spare time
                 </span>
               )}
+              {entry.repeatable && (
+                <span
+                  title="Several can be planned as one block"
+                  className="badge cursor-help"
+                >
+                  per go
+                </span>
+              )}
               {entry.isMeeting && (
                 <span className="rounded border border-accent px-1.5 py-px text-[9.5px] font-semibold tracking-wider text-accent uppercase">
                   meeting

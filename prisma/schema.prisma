@@ -199,6 +199,10 @@ model TaskTemplate {
   /// True for tasks that are actually meetings -- starting one opens the
   /// notes pane instead of just running a timer.
   isMeeting        Boolean  @default(false)
+  /// True when the estimate is for one go and people normally do several --
+  /// a candidate call, an invoice, a check-in. Lets the day hold "10 calls"
+  /// as one block instead of ten identical rows.
+  repeatable       Boolean  @default(false)
   priority         Priority @default(NORMAL)
   active           Boolean  @default(true)
   createdAt        DateTime @default(now())
@@ -288,7 +292,15 @@ model Task {
   id               String     @id @default(cuid())
   title            String
   description      String?
+  /// Always the total: unitMinutes x quantity. Everything that reasons about
+  /// capacity reads this and needs to know nothing about repeats.
   estimatedMinutes Int
+  /// Minutes for one go, when this is a repeatable task.
+  unitMinutes      Int?
+  /// How many are planned.
+  quantity         Int        @default(1)
+  /// How many have actually been done, counted while working.
+  doneCount        Int        @default(0)
   dueDate          DateTime   @db.Date
   origin           TaskOrigin
   status           TaskStatus @default(UNASSIGNED)

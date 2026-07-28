@@ -27,6 +27,7 @@ type Entry = {
   notes: string | null;
   instructions: string | null;
   isMeeting?: boolean;
+  repeatable?: boolean;
 };
 
 async function main() {
@@ -67,6 +68,7 @@ async function main() {
           notes: entry.notes,
           instructions: entry.instructions,
           isMeeting: entry.isMeeting ?? false,
+          repeatable: entry.repeatable ?? false,
           active: true,
         },
       });
@@ -80,6 +82,7 @@ async function main() {
           notes: entry.notes,
           instructions: entry.instructions,
           isMeeting: entry.isMeeting ?? false,
+          repeatable: entry.repeatable ?? false,
         },
       });
       created += 1;

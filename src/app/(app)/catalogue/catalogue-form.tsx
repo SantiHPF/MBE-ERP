@@ -18,6 +18,7 @@ export type CatalogueEntry = {
   notes: string | null;
   instructions: string | null;
   isMeeting: boolean;
+  repeatable: boolean;
   priority: "MUST" | "NORMAL" | "SPARE_TIME";
   active: boolean;
   rule: {
@@ -159,6 +160,16 @@ export function CatalogueForm({
           defaultChecked={entry?.isMeeting}
         />
         This is a meeting — starting it opens the notes pane
+      </label>
+
+      <label className="flex items-center gap-2 text-[12.5px]">
+        <input
+          type="checkbox"
+          name="repeatable"
+          defaultChecked={entry?.repeatable}
+        />
+        The estimate is for one go — people usually do several
+        <span className="text-muted">(e.g. a candidate call)</span>
       </label>
 
       {/* --------------------------------------------------- how hard it pushes */}

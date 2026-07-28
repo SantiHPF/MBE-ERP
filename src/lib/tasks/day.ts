@@ -20,6 +20,11 @@ export type DayTask = {
   instructions: string | null;
   /** This task is a meeting: starting it opens the notes pane. */
   isMeeting: boolean;
+  /** The estimate is per go, so several can be planned as one block. */
+  repeatable: boolean;
+  quantity: number;
+  doneCount: number;
+  unitMinutes: number | null;
   /** The meeting being minuted, once started. */
   meetingId: string | null;
 };
@@ -82,7 +87,15 @@ export async function getDayView(
           include: { pauses: true },
           orderBy: { startedAt: "asc" },
         },
-        template: { select: { notes: true, instructions: true, isMeeting: true } },
+        template: {
+          select: {
+            notes: true,
+            instructions: true,
+            isMeeting: true,
+            repeatable: true,
+            estimatedMinutes: true,
+          },
+        },
         hostedMeeting: { select: { id: true, status: true } },
       },
       orderBy: [{ scheduledStart: "asc" }, { title: "asc" }],
@@ -117,6 +130,10 @@ export async function getDayView(
       notes: task.template?.notes ?? null,
       instructions: task.template?.instructions ?? null,
       isMeeting: task.template?.isMeeting ?? false,
+      repeatable: task.template?.repeatable ?? false,
+      quantity: task.quantity,
+      doneCount: task.doneCount,
+      unitMinutes: task.unitMinutes ?? task.template?.estimatedMinutes ?? null,
       meetingId:
         task.hostedMeeting && task.hostedMeeting.status === "DRAFT"
           ? task.hostedMeeting.id

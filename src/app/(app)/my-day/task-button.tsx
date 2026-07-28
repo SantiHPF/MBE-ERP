@@ -10,6 +10,7 @@ import {
   type BlockingTask,
 } from "@/lib/tasks/actions";
 import { startMeetingForTask } from "@/lib/meetings/live";
+import { countOne, setTaskQuantity } from "@/lib/tasks/quantity";
 
 const initial: ActionState = {};
 
@@ -103,6 +104,12 @@ export function TaskButton({
           </span>
           <span className="num text-[12px] text-faint">
             {formatDuration(task.estimatedMinutes)}
+            {task.repeatable && task.quantity > 1 && task.unitMinutes && (
+              <span className="text-faint">
+                {" "}
+                · {task.quantity} × {task.unitMinutes}m
+              </span>
+            )}
           </span>
           {task.notes && (
             <span title={task.notes} className="badge badge-warn cursor-help">
@@ -113,6 +120,7 @@ export function TaskButton({
         <div className="mt-1 flex flex-wrap items-center gap-2 text-[12px] text-muted">
           <span className="badge">{task.origin}</span>
           <StateLabel task={task} />
+          {task.repeatable && <Counter task={task} />}
         </div>
       </div>
 
@@ -234,3 +242,77 @@ function Controls({
 }
 
 TaskButton.Controls = Controls;
+
+
+/**
+ * How many of a repeatable task are planned, and how many are done.
+ *
+ * While it is running this is a tally you click as you go; the rest of the
+ * time it is just how many you intend to do, and changing it re-sizes the
+ * block in the day.
+ */
+function Counter({ task }: { task: DayTask }) {
+  const [, count] = useActionState(countOne, initial);
+  const [, setQuantity] = useActionState(setTaskQuantity, initial);
+  const running = task.status === "IN_PROGRESS" || task.status === "PAUSED";
+  const done = task.status === "DONE";
+
+  if (done) {
+    return (
+      <span className="num text-[12px] text-done">
+        {task.doneCount || task.quantity} done
+      </span>
+    );
+  }
+
+  if (running) {
+    return (
+      <span className="flex items-center gap-1">
+        <form action={count}>
+          <input type="hidden" name="taskId" value={task.id} />
+          <input type="hidden" name="delta" value="-1" />
+          <button
+            type="submit"
+            aria-label="One fewer"
+            disabled={task.doneCount === 0}
+            className="btn btn-sm px-1.5 py-0 leading-5 disabled:opacity-30"
+          >
+            −
+          </button>
+        </form>
+        <span className="num min-w-[54px] text-center text-[12px] font-semibold">
+          {task.doneCount} of {task.quantity}
+        </span>
+        <form action={count}>
+          <input type="hidden" name="taskId" value={task.id} />
+          <input type="hidden" name="delta" value="1" />
+          <button
+            type="submit"
+            aria-label="One more done"
+            className="btn btn-sm px-1.5 py-0 leading-5"
+          >
+            +
+          </button>
+        </form>
+      </span>
+    );
+  }
+
+  return (
+    <form action={setQuantity} className="flex items-center gap-1">
+      <input type="hidden" name="taskId" value={task.id} />
+      <label className="text-[12px] text-muted">
+        How many
+        <input
+          type="number"
+          name="quantity"
+          defaultValue={task.quantity}
+          min={1}
+          max={200}
+          onChange={(e) => e.currentTarget.form?.requestSubmit()}
+          className="num ml-1 w-14 rounded border border-line-strong bg-surface px-1.5 py-0.5 text-[12px]"
+        />
+      </label>
+    </form>
+  );
+}
