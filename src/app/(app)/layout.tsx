@@ -59,19 +59,20 @@ export default async function AppLayout({
 
           <div className="flex items-center gap-2.5 py-3.5">
             <div className="hidden text-right leading-tight sm:block">
-              <span className="block text-[13px] font-medium">
+              <a href="/me" className="block text-[13px] font-medium hover:text-accent">
                 {user.displayName}
-              </span>
+              </a>
               <span className="block text-[11px] text-faint">
                 {user.departmentName.replace(/\s*\(.*\)$/, "")}
               </span>
             </div>
-            <span
-              aria-hidden
-              className="flex h-8 w-8 items-center justify-center rounded-full bg-accent-wash text-[12px] font-semibold text-accent"
+            <a
+              href="/me"
+              title="Your record"
+              className="flex h-8 w-8 items-center justify-center rounded-full bg-accent-wash text-[12px] font-semibold text-accent transition-colors hover:bg-accent hover:text-accent-ink"
             >
               {initials}
-            </span>
+            </a>
             <form action={logout}>
               <button type="submit" className="btn btn-sm">
                 Sign out
