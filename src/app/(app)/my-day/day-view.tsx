@@ -4,6 +4,7 @@ import { useEffect, useState, useTransition } from "react";
 import type { DayTask, DayView } from "@/lib/tasks/day";
 import { reorderDay, type BlockingTask } from "@/lib/tasks/actions";
 import { formatClock, formatDuration } from "@/lib/time";
+import { useT } from "@/lib/i18n/client";
 import { PauseDialog } from "./pause-dialog";
 import { DeferDialog } from "./defer-dialog";
 import { MeetingPanel, StartMeetingButton } from "./meeting-panel";
@@ -76,7 +77,8 @@ function buildDayRows(view: DayView, dayStart: number, dayEnd: number): DayRow[]
 }
 
 export function DayViewClient({ view }: { view: DayView }) {
-  const active = view.tasks.find((t) => t.id === view.activeTaskId);
+  const { t } = useT();
+  const active = view.tasks.find((x) => x.id === view.activeTaskId);
   const [pausing, setPausing] = useState<string | null>(null);
   const [blocked, setBlocked] = useState<BlockingTask | null>(null);
   const [dragging, setDragging] = useState<string | null>(null);
@@ -97,7 +99,7 @@ export function DayViewClient({ view }: { view: DayView }) {
   if (!view.rostered) {
     return (
       <p className="empty">
-        You are not scheduled to work today.
+        {t("myDay.notScheduledToday")}
       </p>
     );
   }
@@ -105,7 +107,7 @@ export function DayViewClient({ view }: { view: DayView }) {
   if (view.availableMinutes === 0) {
     return (
       <p className="rounded border border-stall bg-stall-wash p-10 text-center text-sm">
-        You are marked absent today. Your tasks are with your manager.
+        {t("myDay.markedAbsent")}
       </p>
     );
   }
@@ -172,11 +174,11 @@ export function DayViewClient({ view }: { view: DayView }) {
         {/* ------------------------------------------------------ the rota */}
         <section className="card">
           <header className="card-head">
-            <span className="eyebrow">Today</span>
+            <span className="eyebrow">{t("myDay.today")}</span>
             <span className="num text-[12px] text-muted">
               {reordering
-                ? "saving order…"
-                : `${view.tasks.length} ${view.tasks.length === 1 ? "task" : "tasks"}`}
+                ? t("myDay.savingOrder")
+                : `${view.tasks.length} ${view.tasks.length === 1 ? t("common.task") : t("common.tasks")}`}
             </span>
           </header>
 
@@ -228,8 +230,8 @@ export function DayViewClient({ view }: { view: DayView }) {
                     }`}
                   >
                     {row.kind === "break"
-                      ? `Break · ${formatDuration(row.end - row.start)}`
-                      : `${formatDuration(row.end - row.start)} free`}
+                      ? `${t("myDay.breakLabel")} · ${formatDuration(row.end - row.start)}`
+                      : `${formatDuration(row.end - row.start)} ${t("common.free")}`}
                   </span>
                   <span className="h-px flex-1 border-t border-dashed border-line" />
                 </li>
@@ -238,10 +240,9 @@ export function DayViewClient({ view }: { view: DayView }) {
 
             {rows.length === 0 && (
               <li className="px-4 py-12 text-center">
-                <p className="text-[14px] font-medium">Nothing scheduled today</p>
+                <p className="text-[14px] font-medium">{t("myDay.nothingScheduled")}</p>
                 <p className="mt-1 text-[13px] text-muted">
-                  Pick something up from Plan week, or wait for the next
-                  scheduling run.
+                  {t("myDay.nothingScheduledHint")}
                 </p>
               </li>
             )}
@@ -263,7 +264,9 @@ export function DayViewClient({ view }: { view: DayView }) {
                   active.status === "IN_PROGRESS" ? "text-run" : "text-pause"
                 }`}
               >
-                {active.status === "IN_PROGRESS" ? "Running now" : "Paused"}
+                {active.status === "IN_PROGRESS"
+                  ? t("myDay.runningNow")
+                  : t("myDay.paused")}
               </p>
               <p className="mt-1.5 text-[15px] font-semibold text-balance">
                 {active.title}
@@ -278,13 +281,13 @@ export function DayViewClient({ view }: { view: DayView }) {
               </p>
               <p className="num mt-1.5 text-[12px] text-muted">
                 {over
-                  ? `over the ${formatDuration(active.estimatedMinutes)} estimate`
+                  ? t("myDay.overEstimate", formatDuration(active.estimatedMinutes))
                   : `${formatDuration(
                       Math.max(
                         0,
                         active.estimatedMinutes - Math.floor(elapsed / 60),
                       ),
-                    )} left of ${formatDuration(active.estimatedMinutes)}`}
+                    )} ${t("myDay.leftOf")} ${formatDuration(active.estimatedMinutes)}`}
               </p>
 
               <div className="my-3.5 h-1.5 overflow-hidden rounded-full bg-line">
@@ -301,7 +304,7 @@ export function DayViewClient({ view }: { view: DayView }) {
 
               {active.status === "PAUSED" && active.pauseText && (
                 <p className="notice notice-warn mb-3">
-                  <span className="eyebrow mb-0.5 block text-pause">Paused</span>
+                  <span className="eyebrow mb-0.5 block text-pause">{t("myDay.paused")}</span>
                   {active.pauseText}
                 </p>
               )}
@@ -315,7 +318,7 @@ export function DayViewClient({ view }: { view: DayView }) {
               )}
               {active.instructions && (
                 <p className="mb-3 text-[12px] text-muted">
-                  How to: {active.instructions}
+                  {t("myDay.howTo")} {active.instructions}
                 </p>
               )}
 
@@ -326,9 +329,9 @@ export function DayViewClient({ view }: { view: DayView }) {
             </section>
           ) : (
             <section className="card card-body text-center">
-              <p className="text-[13px] font-medium">Nothing running</p>
+              <p className="text-[13px] font-medium">{t("myDay.nothingRunning")}</p>
               <p className="mt-0.5 text-[12.5px] text-muted">
-                Start a task from the list.
+                {t("myDay.startFromList")}
               </p>
             </section>
           )}
@@ -341,15 +344,15 @@ export function DayViewClient({ view }: { view: DayView }) {
 
           <section className="card">
             <header className="card-head">
-              <span className="eyebrow">Day at a glance</span>
+              <span className="eyebrow">{t("myDay.dayAtAGlance")}</span>
             </header>
             <dl className="px-4 py-1.5">
-              <Stat label="Booked">
+              <Stat label={t("myDay.booked")}>
                 {formatDuration(booked)} of {formatDuration(view.availableMinutes)}
               </Stat>
-              <Stat label="Finished">{formatDuration(done)}</Stat>
-              <Stat label="Left to do">{formatDuration(booked - done)}</Stat>
-              <Stat label="Unbooked">
+              <Stat label={t("myDay.finished")}>{formatDuration(done)}</Stat>
+              <Stat label={t("myDay.leftToDo")}>{formatDuration(booked - done)}</Stat>
+              <Stat label={t("myDay.unbooked")}>
                 {formatDuration(Math.max(0, view.availableMinutes - booked))}
               </Stat>
             </dl>

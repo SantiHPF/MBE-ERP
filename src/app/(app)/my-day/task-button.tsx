@@ -11,6 +11,7 @@ import {
 } from "@/lib/tasks/actions";
 import { startMeetingForTask } from "@/lib/meetings/live";
 import { countOne, setTaskQuantity } from "@/lib/tasks/quantity";
+import { useT } from "@/lib/i18n/client";
 
 const initial: ActionState = {};
 
@@ -38,6 +39,7 @@ export function TaskButton({
   onBlocked: (blocked: BlockingTask) => void;
   onMove?: (direction: "up" | "down") => void;
 }) {
+  const { t } = useT();
   const movable = onMove && task.status !== "DONE";
   const done = task.status === "DONE";
 
@@ -55,7 +57,7 @@ export function TaskButton({
             <button
               type="button"
               onClick={() => onMove("up")}
-              aria-label={`Move ${task.title} earlier`}
+              aria-label={t("myDay.moveEarlier", task.title)}
               className="hover:text-accent"
             >
               <svg width="11" height="7" viewBox="0 0 11 7" aria-hidden>
@@ -65,7 +67,7 @@ export function TaskButton({
             <button
               type="button"
               onClick={() => onMove("down")}
-              aria-label={`Move ${task.title} later`}
+              aria-label={t("myDay.moveLater", task.title)}
               className="hover:text-accent"
             >
               <svg width="11" height="7" viewBox="0 0 11 7" aria-hidden>
@@ -84,7 +86,7 @@ export function TaskButton({
       >
         {task.scheduledStart != null && task.scheduledEnd != null
           ? `${formatClock(task.scheduledStart)}–${formatClock(task.scheduledEnd)}`
-          : "unplaced"}
+          : t("common.unplaced")}
       </span>
 
       <span
@@ -132,25 +134,26 @@ export function TaskButton({
 }
 
 function StateLabel({ task }: { task: DayTask }) {
+  const { t } = useT();
   if (task.status === "IN_PROGRESS") {
     return (
       <span className="flex shrink-0 items-center gap-1.5 text-[12px] font-semibold text-run">
         <span className="throb h-1.5 w-1.5 rounded-full bg-current" />
-        Running
+        {t("myDay.running")}
       </span>
     );
   }
   if (task.status === "PAUSED") {
     return (
       <span className="truncate text-[12px] font-medium text-pause">
-        Paused · {task.pauseText}
+        {t("myDay.paused")} · {task.pauseText}
       </span>
     );
   }
   if (task.status === "DONE") {
     return (
       <span className="num shrink-0 text-[12px] text-done">
-        Done in {formatDuration(Math.round(task.elapsedSeconds / 60))}
+        {t("myDay.doneIn", formatDuration(Math.round(task.elapsedSeconds / 60)))}
       </span>
     );
   }
@@ -168,6 +171,7 @@ function Controls({
   onBlocked?: (blocked: BlockingTask) => void;
   compact?: boolean;
 }) {
+  const { t } = useT();
   const [startState, start, starting] = useActionState(
     async (prev: ActionState, formData: FormData) => {
       const result = await startTask(prev, formData);
@@ -199,7 +203,7 @@ function Controls({
 
       {task.status === "IN_PROGRESS" ? (
         <button type="button" onClick={onPause} className={`btn ${size}`}>
-          Pause
+          {t("myDay.pause")}
         </button>
       ) : (
         <form
@@ -217,10 +221,10 @@ function Controls({
           <input type="hidden" name="taskId" value={task.id} />
           <button type="submit" disabled={starting} className={`btn ${size}`}>
             {task.status === "PAUSED"
-              ? "Resume"
+              ? t("myDay.resume")
               : task.isMeeting
-                ? "Start + notes"
-                : "Start"}
+                ? t("myDay.startWithNotes")
+                : t("myDay.start")}
           </button>
         </form>
       )}
@@ -233,7 +237,7 @@ function Controls({
             disabled={completing}
             className={`btn btn-primary ${size}`}
           >
-            Complete
+            {t("myDay.complete")}
           </button>
         </form>
       )}
@@ -252,6 +256,7 @@ TaskButton.Controls = Controls;
  * block in the day.
  */
 function Counter({ task }: { task: DayTask }) {
+  const { t } = useT();
   const [, count] = useActionState(countOne, initial);
   const [, setQuantity] = useActionState(setTaskQuantity, initial);
   const running = task.status === "IN_PROGRESS" || task.status === "PAUSED";
@@ -260,7 +265,7 @@ function Counter({ task }: { task: DayTask }) {
   if (done) {
     return (
       <span className="num text-[12px] text-done">
-        {task.doneCount || task.quantity} done
+        {task.doneCount || task.quantity} {t("myDay.done")}
       </span>
     );
   }
@@ -281,7 +286,7 @@ function Counter({ task }: { task: DayTask }) {
           </button>
         </form>
         <span className="num min-w-[54px] text-center text-[12px] font-semibold">
-          {task.doneCount} of {task.quantity}
+          {task.doneCount} {t("myDay.ofDone")} {task.quantity}
         </span>
         <form action={count}>
           <input type="hidden" name="taskId" value={task.id} />
@@ -302,7 +307,7 @@ function Counter({ task }: { task: DayTask }) {
     <form action={setQuantity} className="flex items-center gap-1">
       <input type="hidden" name="taskId" value={task.id} />
       <label className="text-[12px] text-muted">
-        How many
+        {t("myDay.howMany")}
         <input
           type="number"
           name="quantity"

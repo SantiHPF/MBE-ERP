@@ -3,6 +3,7 @@
 import { useActionState, useEffect, useRef, useState } from "react";
 import { deferTask, type ActionState, type BlockingTask } from "@/lib/tasks/actions";
 import { formatClock } from "@/lib/time";
+import { useT } from "@/lib/i18n/client";
 
 const initial: ActionState = {};
 
@@ -25,6 +26,7 @@ export function DeferDialog({
   onClose: () => void;
   onDeferred: () => void;
 }) {
+  const { t } = useT();
   const [state, submit, pending] = useActionState(deferTask, initial);
   const [reason, setReason] = useState("");
   const [when, setWhen] = useState(today);
@@ -66,14 +68,15 @@ export function DeferDialog({
         className="w-full max-w-[440px] rounded-[10px] border border-line bg-surface p-5 shadow-[var(--shadow-raised)]"
       >
         <p className="eyebrow">
-          Out of order
+          {t("defer.eyebrow")}
         </p>
         <h2 id="defer-title" className="mt-1 text-[16px] font-semibold tracking-[-0.012em]">
-          {blocked.title} still needs doing
+          {t("defer.stillNeeds", blocked.title)}
         </h2>
         <p className="mt-1 mb-4 text-[12.5px] text-muted">
-          {blocked.start != null && `It was set for ${formatClock(blocked.start)}. `}
-          You can move past it, but say what happened and when you will do it.
+          {blocked.start != null &&
+            `${t("defer.wasSetFor", formatClock(blocked.start))} `}
+          {t("defer.explain")}
         </p>
 
         <form action={submit}>
@@ -84,7 +87,7 @@ export function DeferDialog({
             htmlFor="defer-reason"
             className="field-label"
           >
-            Why couldn&rsquo;t you do it?
+            {t("defer.whyNot")}
           </label>
           <textarea
             id="defer-reason"
@@ -92,12 +95,12 @@ export function DeferDialog({
             ref={box}
             value={reason}
             onChange={(e) => setReason(e.target.value)}
-            placeholder="e.g. the portal was down all morning"
+            placeholder={t("defer.placeholder")}
             className="field min-h-[70px] resize-y"
           />
 
           <p className="mt-3.5 mb-1.5 text-[11px] font-semibold tracking-[0.07em] text-faint uppercase">
-            When will you do it?
+            {t("defer.whenWill")}
           </p>
           <div className="flex flex-wrap items-center gap-1.5">
             <button
@@ -110,7 +113,7 @@ export function DeferDialog({
                   : "rounded-md border border-line-strong px-2.5 py-1.5 text-[12.5px] text-muted transition-colors hover:border-accent hover:text-ink"
               }
             >
-              Later today
+              {t("defer.laterToday")}
             </button>
             <button
               type="button"
@@ -122,7 +125,7 @@ export function DeferDialog({
                   : "rounded-md border border-line-strong px-2.5 py-1.5 text-[12.5px] text-muted transition-colors hover:border-accent hover:text-ink"
               }
             >
-              Tomorrow
+              {t("defer.tomorrow")}
             </button>
             <input
               type="date"
@@ -140,7 +143,7 @@ export function DeferDialog({
           >
             {state.error ??
               (reason.trim().length < 3
-                ? "A few words — your manager sees this."
+                ? t("defer.managerSees")
                 : "")}
           </p>
 
@@ -150,14 +153,14 @@ export function DeferDialog({
               onClick={onClose}
               className="rounded border border-line-strong bg-surface px-3 py-1.5 text-[13px] font-medium hover:bg-surface-2"
             >
-              I&rsquo;ll do it now
+              {t("defer.doItNow")}
             </button>
             <button
               type="submit"
               disabled={!ready || pending}
               className="rounded border border-accent bg-accent px-3 py-1.5 text-[13px] font-medium text-accent-ink hover:brightness-110 disabled:opacity-45"
             >
-              {pending ? "Moving…" : "Move it and carry on"}
+              {pending ? t("defer.moving") : t("defer.moveOn")}
             </button>
           </div>
         </form>

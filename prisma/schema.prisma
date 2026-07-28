@@ -20,6 +20,13 @@ datasource db {
 
 // ---------------------------------------------------------------- people
 
+/// Interface language. Data -- task names, notes, meeting minutes -- is left
+/// exactly as typed, whichever this is set to.
+enum Locale {
+  EN
+  ES
+}
+
 enum Role {
   WORKER
   MANAGER
@@ -50,6 +57,7 @@ model User {
   passwordHash String
   displayName  String
   role         Role     @default(WORKER)
+  locale       Locale   @default(ES)
   active       Boolean  @default(true)
   createdAt    DateTime @default(now())
 

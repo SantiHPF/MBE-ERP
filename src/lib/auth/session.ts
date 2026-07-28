@@ -2,7 +2,7 @@ import "server-only";
 import { createHash, randomBytes } from "node:crypto";
 import { cookies } from "next/headers";
 import { prisma } from "@/lib/db";
-import type { Role } from "@prisma/client";
+import type { Locale, Role } from "@prisma/client";
 import { SESSION_COOKIE } from "./session-cookie";
 
 export { SESSION_COOKIE };
@@ -21,6 +21,7 @@ export type SessionUser = {
   username: string;
   displayName: string;
   role: Role;
+  locale: Locale;
   departmentId: string;
   departmentName: string;
 };
@@ -61,6 +62,7 @@ export async function getSessionUser(): Promise<SessionUser | null> {
     username: session.user.username,
     displayName: session.user.displayName,
     role: session.user.role,
+    locale: session.user.locale,
     departmentId: session.user.departmentId,
     departmentName: session.user.department.name,
   };

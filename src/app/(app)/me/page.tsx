@@ -1,12 +1,15 @@
 import { requireUser } from "@/lib/auth/guards";
 import { getProfileStats } from "@/lib/profile/stats";
 import { formatDuration } from "@/lib/time";
+import { getT } from "@/lib/i18n/server";
+import { LanguagePicker } from "./language-picker";
 
 export const dynamic = "force-dynamic";
 
 export default async function ProfilePage() {
   const user = await requireUser();
   const stats = await getProfileStats(user.id);
+  const { t, locale } = await getT();
 
   return (
     <div>
@@ -20,39 +23,39 @@ export default async function ProfilePage() {
       {/* ------------------------------------------------------- how long */}
       <section className="card mb-5">
         <header className="card-head">
-          <span className="eyebrow">Your time here</span>
+          <span className="eyebrow">{t("profile.yourTimeHere")}</span>
           {stats.tenure.startDate && (
             <span className="num text-[12px] text-muted">
-              since {stats.tenure.startDate}
+              {t("profile.since", stats.tenure.startDate)}
             </span>
           )}
         </header>
 
         {stats.tenure.daysHere === null ? (
           <p className="card-body text-[13px] text-muted">
-            No start date on record. HR can add one on the People page.
+            {t("profile.noStartDate")}
           </p>
         ) : (
           <div className="grid gap-px bg-line sm:grid-cols-3">
             <Figure
               value={stats.tenure.daysHere.toLocaleString("en-GB")}
-              unit="days here"
+              unit={t("profile.daysHere")}
               note={stats.tenure.served ?? undefined}
             />
             {stats.tenure.daysLeft === null ? (
-              <Figure value="—" unit="until you leave" note="indefinite" />
+              <Figure value="—" unit={t("profile.untilYouLeave")} note={t("profile.indefinite")} />
             ) : (
               <Figure
                 value={stats.tenure.daysLeft.toLocaleString("en-GB")}
-                unit="days left"
-                note={`last day ${stats.tenure.endDate}`}
+                unit={t("profile.daysLeft")}
+                note={t("profile.lastDay", stats.tenure.endDate ?? "")}
                 tone={stats.tenure.daysLeft <= 30 ? "warn" : undefined}
               />
             )}
             <Figure
               value={formatDuration(stats.tracked.total)}
-              unit="tracked in total"
-              note={`${formatDuration(stats.tracked.month)} this month`}
+              unit={t("profile.trackedTotal")}
+              note={t("profile.thisMonth", formatDuration(stats.tracked.month))}
             />
           </div>
         )}
@@ -62,17 +65,20 @@ export default async function ProfilePage() {
         {/* ------------------------------------------------------ the work */}
         <section className="card">
           <header className="card-head">
-            <span className="eyebrow">Work finished</span>
+            <span className="eyebrow">{t("profile.workFinished")}</span>
           </header>
           <dl className="px-4 py-1.5">
-            <Row label="This week">
-              {stats.completed.week} tasks · {formatDuration(stats.tracked.week)}
+            <Row label={t("common.thisWeek")}>
+              {t("profile.tasksCount", stats.completed.week)} ·{" "}
+              {formatDuration(stats.tracked.week)}
             </Row>
-            <Row label="This month">
-              {stats.completed.month} tasks ·{" "}
+            <Row label={t("profile.monthLabel")}>
+              {t("profile.tasksCount", stats.completed.month)} ·{" "}
               {formatDuration(stats.tracked.month)}
             </Row>
-            <Row label="All time">{stats.completed.total} tasks</Row>
+            <Row label={t("profile.allTime")}>
+              {t("profile.tasksCount", stats.completed.total)}
+            </Row>
           </dl>
         </section>
 
@@ -81,14 +87,14 @@ export default async function ProfilePage() {
              usually it is. */}
         <section className="card">
           <header className="card-head">
-            <span className="eyebrow">How close the estimates are</span>
+            <span className="eyebrow">{t("profile.estimates")}</span>
             <span className="num text-[12px] text-muted">
-              {stats.estimate.sample} tasks
+              {t("profile.tasksCount", stats.estimate.sample)}
             </span>
           </header>
           {stats.estimate.driftPercent === null ? (
             <p className="card-body text-[13px] text-muted">
-              Nothing timed yet. Finish a few tasks and this fills in.
+              {t("profile.nothingTimed")}
             </p>
           ) : (
             <div className="card-body">
@@ -104,14 +110,17 @@ export default async function ProfilePage() {
               </p>
               <p className="mt-1.5 text-[13px] text-muted">
                 {stats.estimate.driftPercent > 0
-                  ? "Your work takes longer than the catalogue says."
+                  ? t("profile.takesLonger")
                   : stats.estimate.driftPercent < 0
-                    ? "Your work is quicker than the catalogue says."
-                    : "The catalogue has it about right."}
+                    ? t("profile.isQuicker")
+                    : t("profile.aboutRight")}
               </p>
               <p className="num mt-2 text-[12px] text-faint">
-                {formatDuration(stats.estimate.actualMinutes)} actual vs{" "}
-                {formatDuration(stats.estimate.estimatedMinutes)} estimated
+                {t(
+                  "profile.actualVs",
+                  formatDuration(stats.estimate.actualMinutes),
+                  formatDuration(stats.estimate.estimatedMinutes),
+                )}
               </p>
             </div>
           )}
@@ -120,22 +129,22 @@ export default async function ProfilePage() {
         {/* ------------------------------------------------- what stops you */}
         <section className="card">
           <header className="card-head">
-            <span className="eyebrow">What holds your work up</span>
+            <span className="eyebrow">{t("profile.whatHoldsUp")}</span>
           </header>
           {stats.stalls.length === 0 ? (
             <p className="card-body text-[13px] text-muted">
-              You have not paused anything yet.
+              {t("profile.noPauses")}
             </p>
           ) : (
             <ul className="px-4 py-1.5">
-              {stats.stalls.map((s) => (
+              {stats.stalls.map((stall) => (
                 <li
-                  key={s.reason}
+                  key={stall.reason}
                   className="flex items-baseline justify-between gap-3 border-b border-line py-2.5 last:border-0"
                 >
-                  <span className="text-[13px]">{s.reason}</span>
+                  <span className="text-[13px]">{stall.reason}</span>
                   <span className="num shrink-0 text-[12px] text-muted">
-                    {s.count}× · {formatDuration(s.minutes)}
+                    {stall.count}× · {formatDuration(stall.minutes)}
                   </span>
                 </li>
               ))}
@@ -146,22 +155,22 @@ export default async function ProfilePage() {
         {/* ------------------------------------------------- what you do most */}
         <section className="card">
           <header className="card-head">
-            <span className="eyebrow">What you do most</span>
+            <span className="eyebrow">{t("profile.whatYouDoMost")}</span>
           </header>
           {stats.favourites.length === 0 ? (
             <p className="card-body text-[13px] text-muted">
-              Nothing finished yet.
+              {t("profile.nothingFinished")}
             </p>
           ) : (
             <ul className="px-4 py-1.5">
-              {stats.favourites.map((f) => (
+              {stats.favourites.map((fav) => (
                 <li
-                  key={f.title}
+                  key={fav.title}
                   className="flex items-baseline justify-between gap-3 border-b border-line py-2.5 last:border-0"
                 >
-                  <span className="truncate text-[13px]">{f.title}</span>
+                  <span className="truncate text-[13px]">{fav.title}</span>
                   <span className="num shrink-0 text-[12px] text-muted">
-                    {f.count}×
+                    {fav.count}×
                   </span>
                 </li>
               ))}
@@ -172,27 +181,27 @@ export default async function ProfilePage() {
         {/* ---------------------------------------------------- time off */}
         <section className="card">
           <header className="card-head">
-            <span className="eyebrow">Time off this year</span>
+            <span className="eyebrow">{t("profile.timeOffYear")}</span>
             {stats.pendingRequests > 0 && (
               <span className="badge badge-warn">
-                {stats.pendingRequests} awaiting HR
+                {t("profile.awaitingHr", stats.pendingRequests)}
               </span>
             )}
           </header>
           {stats.timeOff.length === 0 ? (
             <p className="card-body text-[13px] text-muted">
-              None taken this year.
+              {t("profile.noneTaken")}
             </p>
           ) : (
             <ul className="px-4 py-1.5">
-              {stats.timeOff.map((t) => (
+              {stats.timeOff.map((entry) => (
                 <li
-                  key={t.category}
+                  key={entry.category}
                   className="flex items-baseline justify-between gap-3 border-b border-line py-2.5 last:border-0"
                 >
-                  <span className="text-[13px] capitalize">{t.category}</span>
+                  <span className="text-[13px] capitalize">{entry.category}</span>
                   <span className="num shrink-0 text-[12px] text-muted">
-                    {t.days} {t.days === 1 ? "day" : "days"}
+                    {entry.days} {t("common.days")}
                   </span>
                 </li>
               ))}
@@ -200,21 +209,23 @@ export default async function ProfilePage() {
           )}
         </section>
 
+        <LanguagePicker current={locale} />
+
         {/* -------------------------------------------- induction still due */}
         {stats.upcoming.length > 0 && (
           <section className="card">
             <header className="card-head">
-              <span className="eyebrow">Your interviews coming up</span>
+              <span className="eyebrow">{t("profile.interviewsComing")}</span>
             </header>
             <ul className="px-4 py-1.5">
-              {stats.upcoming.map((u) => (
+              {stats.upcoming.map((item) => (
                 <li
-                  key={`${u.title}-${u.dueDate}`}
+                  key={`${item.title}-${item.dueDate}`}
                   className="flex items-baseline justify-between gap-3 border-b border-line py-2.5 last:border-0"
                 >
-                  <span className="truncate text-[13px]">{u.title}</span>
+                  <span className="truncate text-[13px]">{item.title}</span>
                   <span className="num shrink-0 text-[12px] text-muted">
-                    {u.dueDate}
+                    {item.dueDate}
                   </span>
                 </li>
               ))}

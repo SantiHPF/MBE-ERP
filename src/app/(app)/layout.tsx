@@ -7,6 +7,8 @@ import {
 import { prisma } from "@/lib/db";
 import { logout } from "@/app/login/actions";
 import { NavLink } from "./nav-link";
+import { LocaleProvider } from "@/lib/i18n/client";
+import { getT } from "@/lib/i18n/server";
 
 export default async function AppLayout({
   children,
@@ -16,6 +18,7 @@ export default async function AppLayout({
   const user = await requireUser();
   const isManager = hasRole(user, "MANAGER");
   const isHr = canDecideAbsences(user);
+  const { t, locale } = await getT();
 
   // Badge the queue so HR does not have to go looking for new requests.
   const waiting = isHr
@@ -29,6 +32,7 @@ export default async function AppLayout({
     .join("");
 
   return (
+    <LocaleProvider locale={locale}>
     <div className="min-h-screen">
       <header className="sticky top-0 z-40 border-b border-line bg-surface/95 backdrop-blur">
         <div className="mx-auto flex max-w-[1180px] items-center gap-6 px-6">
@@ -37,16 +41,16 @@ export default async function AppLayout({
           </span>
 
           <nav className="flex flex-1 flex-wrap gap-0.5 py-3.5" aria-label="Main">
-            <NavLink href="/my-day">My day</NavLink>
-            <NavLink href="/plan">Plan week</NavLink>
-            <NavLink href="/my-calendar">My calendar</NavLink>
-            <NavLink href="/meetings">Meetings</NavLink>
-            {isManager && <NavLink href="/team">Team</NavLink>}
-            {isManager && <NavLink href="/triage">Triage</NavLink>}
-            {isManager && <NavLink href="/catalogue">Catalogue</NavLink>}
+            <NavLink href="/my-day">{t("nav.myDay")}</NavLink>
+            <NavLink href="/plan">{t("nav.planWeek")}</NavLink>
+            <NavLink href="/my-calendar">{t("nav.myCalendar")}</NavLink>
+            <NavLink href="/meetings">{t("nav.meetings")}</NavLink>
+            {isManager && <NavLink href="/team">{t("nav.team")}</NavLink>}
+            {isManager && <NavLink href="/triage">{t("nav.triage")}</NavLink>}
+            {isManager && <NavLink href="/catalogue">{t("nav.catalogue")}</NavLink>}
             {isHr && (
               <NavLink href="/hr/absences">
-                Requests
+                {t("nav.requests")}
                 {waiting > 0 && (
                   <span className="num ml-1.5 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-pause px-1 text-[10px] font-semibold text-white">
                     {waiting}
@@ -54,7 +58,7 @@ export default async function AppLayout({
                 )}
               </NavLink>
             )}
-            {canManagePeople(user) && <NavLink href="/hr/people">People</NavLink>}
+            {canManagePeople(user) && <NavLink href="/hr/people">{t("nav.people")}</NavLink>}
           </nav>
 
           <div className="flex items-center gap-2.5 py-3.5">
@@ -68,14 +72,14 @@ export default async function AppLayout({
             </div>
             <a
               href="/me"
-              title="Your record"
+              title={t("common.yourRecord")}
               className="flex h-8 w-8 items-center justify-center rounded-full bg-accent-wash text-[12px] font-semibold text-accent transition-colors hover:bg-accent hover:text-accent-ink"
             >
               {initials}
             </a>
             <form action={logout}>
               <button type="submit" className="btn btn-sm">
-                Sign out
+                {t("common.signOut")}
               </button>
             </form>
           </div>
@@ -84,5 +88,6 @@ export default async function AppLayout({
 
       <main className="mx-auto max-w-[1180px] px-6 py-7">{children}</main>
     </div>
+    </LocaleProvider>
   );
 }

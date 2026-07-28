@@ -2,14 +2,15 @@
 
 import { useActionState, useEffect, useRef, useState } from "react";
 import { pauseTask, type ActionState } from "@/lib/tasks/actions";
+import { useT } from "@/lib/i18n/client";
 
-const REASONS = [
-  { id: "BREAK", label: "Break" },
-  { id: "WAITING_CLIENT", label: "Waiting on client" },
-  { id: "WAITING_INTERNAL", label: "Waiting on someone here" },
-  { id: "MEETING", label: "Pulled into a meeting" },
-  { id: "INTERRUPTION", label: "Interrupted" },
-  { id: "OTHER", label: "Something else" },
+const REASON_IDS = [
+  "BREAK",
+  "WAITING_CLIENT",
+  "WAITING_INTERNAL",
+  "MEETING",
+  "INTERRUPTION",
+  "OTHER",
 ] as const;
 
 const initial: ActionState = {};
@@ -28,6 +29,7 @@ export function PauseDialog({
   title: string;
   onClose: () => void;
 }) {
+  const { t } = useT();
   const [state, submit, pending] = useActionState(pauseTask, initial);
   const [reason, setReason] = useState<string | null>(null);
   const [text, setText] = useState("");
@@ -52,9 +54,9 @@ export function PauseDialog({
   const ready = reason !== null && text.trim().length >= 3;
 
   const hint = !reason
-    ? "Pick what is holding it up."
+    ? t("pause.pickCategory")
     : text.trim().length < 3
-      ? "A few words — enough for your manager to act on."
+      ? t("pause.fewWords")
       : "";
 
   return (
@@ -71,14 +73,13 @@ export function PauseDialog({
         className="w-full max-w-[430px] rounded-[10px] border border-line bg-surface p-5 shadow-[var(--shadow-raised)]"
       >
         <p className="eyebrow">
-          Pausing
+          {t("pause.eyebrow")}
         </p>
         <h2 id="pause-title" className="mt-1 text-[16px] font-semibold tracking-[-0.012em]">
           {title}
         </h2>
         <p className="mt-1 mb-4 text-[12.5px] text-muted">
-          The reason is what tells your manager whether the hold-up is yours to
-          fix. It is required — nothing pauses silently.
+          {t("pause.why")}
         </p>
 
         <form action={submit}>
@@ -87,22 +88,22 @@ export function PauseDialog({
 
           <fieldset className="mb-3.5">
             <legend className="mb-2 text-[11px] font-semibold tracking-[0.07em] text-faint uppercase">
-              What is holding it up
+              {t("pause.whatIsHolding")}
             </legend>
             <div className="flex flex-wrap gap-1.5">
-              {REASONS.map((r) => (
+              {REASON_IDS.map((id) => (
                 <button
-                  key={r.id}
+                  key={id}
                   type="button"
-                  aria-pressed={reason === r.id}
-                  onClick={() => setReason(r.id)}
+                  aria-pressed={reason === id}
+                  onClick={() => setReason(id)}
                   className={
-                    reason === r.id
+                    reason === id
                       ? "rounded-full border border-accent bg-accent px-3 py-1.5 text-[12.5px] font-medium text-accent-ink"
                       : "rounded-full border border-line-strong bg-surface px-3 py-1.5 text-[12.5px] text-muted transition-colors hover:border-accent hover:text-ink"
                   }
                 >
-                  {r.label}
+                  {t(`pause.reasons.${id}`)}
                 </button>
               ))}
             </div>
@@ -112,7 +113,7 @@ export function PauseDialog({
             htmlFor="reasonText"
             className="field-label"
           >
-            In your words
+            {t("pause.inYourWords")}
           </label>
           <textarea
             id="reasonText"
@@ -120,7 +121,7 @@ export function PauseDialog({
             ref={textarea}
             value={text}
             onChange={(e) => setText(e.target.value)}
-            placeholder="e.g. Pallet scanner is out of battery, charging it now"
+            placeholder={t("pause.placeholder")}
             className="field min-h-[74px] resize-y"
           />
 
@@ -138,14 +139,14 @@ export function PauseDialog({
               onClick={onClose}
               className="rounded border border-line-strong bg-surface px-3 py-1.5 text-[13px] font-medium hover:bg-surface-2"
             >
-              Keep working
+              {t("pause.keepWorking")}
             </button>
             <button
               type="submit"
               disabled={!ready || pending}
               className="rounded border border-accent bg-accent px-3 py-1.5 text-[13px] font-medium text-accent-ink hover:brightness-110 disabled:opacity-45"
             >
-              {pending ? "Pausing…" : "Pause task"}
+              {pending ? t("pause.pausing") : t("pause.pauseTask")}
             </button>
           </div>
         </form>
