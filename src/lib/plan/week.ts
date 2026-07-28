@@ -48,6 +48,8 @@ export type PlanDayHeader = {
   label: string;
   short: string;
   rostered: boolean;
+  /** Off because of an approved absence, rather than simply not a work day. */
+  absent: boolean;
   capacityMinutes: number;
   claimedMinutes: number;
   /** What is still going spare -- the number people actually plan against. */
@@ -150,6 +152,9 @@ export async function getPlanWeek(
     });
     const claimed = claimedByDate.get(key) ?? 0;
     const rostered = availability.rostered && availability.availableMinutes > 0;
+    const absent =
+      availability.reducedBy === "absence" ||
+      availability.reducedBy === "override+absence";
 
     if (rostered) totalCapacity += availability.availableMinutes;
     totalClaimed += claimed;
@@ -159,6 +164,7 @@ export async function getPlanWeek(
       label: LABELS[i],
       short: LABELS[i].slice(0, 3),
       rostered,
+      absent: absent && availability.availableMinutes === 0,
       capacityMinutes: availability.availableMinutes,
       claimedMinutes: claimed,
       freeMinutes: Math.max(0, availability.availableMinutes - claimed),
@@ -166,9 +172,11 @@ export async function getPlanWeek(
     };
   });
 
-  // Drop days nobody works, unless something is already scheduled there.
-  const scheduledDates = new Set(tasks.map((t) => dateKey(t.dueDate)));
-  const days = headers.filter((d) => d.rostered || scheduledDates.has(d.date));
+  // The whole week is shown, weekend included. Planning is where somebody
+  // decides to come in on a Sunday, so the column has to exist for them to
+  // put anything in it -- a day you do not normally work still reads as
+  // "off", and work put there shows the day as over.
+  const days = headers;
 
   // --- one row per catalogue task, plus rows for one-off work with no template
   const tasksByTemplateDate = new Map<string, (typeof tasks)[number]>();
@@ -187,9 +195,12 @@ export async function getPlanWeek(
     day: PlanDayHeader,
   ): PlanCell => {
     if (!task) {
+      // A weekend you do not normally work is still clickable -- coming in on
+      // a Sunday is a decision somebody is allowed to make. A day off because
+      // of approved leave is not: that is a mistake, not a choice.
       return {
         date: day.date,
-        state: day.rostered ? "empty" : "off",
+        state: day.absent ? "off" : "empty",
         taskId: null,
         holder: null,
       };

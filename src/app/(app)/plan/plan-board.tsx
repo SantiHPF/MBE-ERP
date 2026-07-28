@@ -53,14 +53,17 @@ export function PlanBoard({ week }: { week: PlanWeek }) {
     const form = new FormData();
     form.set("wanted", wanted ? "true" : "false");
     if (row.templateId) form.set("templateId", row.templateId);
-    for (const cell of row.cells) {
+    row.cells.forEach((cell, i) => {
+      // Taking "all" should not quietly book you in on a day off; those days
+      // are shown so they can be chosen deliberately, one cell at a time.
+      if (wanted && !week.days[i]?.rostered) return;
       const changeable = wanted
         ? cell.state === "empty" || cell.state === "free"
         : cell.state === "mine";
-      if (!changeable) continue;
+      if (!changeable) return;
       form.append("dates", cell.date);
       form.append("cell", `${cell.date}|${cell.taskId ?? ""}`);
-    }
+    });
     if (!form.getAll("dates").length) return;
     run(form, toggleTaskRow);
   }
@@ -160,7 +163,11 @@ export function PlanBoard({ week }: { week: PlanWeek }) {
                   <span className="num block text-[10px] text-muted">
                     {day.date.slice(8)}/{day.date.slice(5, 7)}
                   </span>
-                  {day.rostered ? (
+                  {day.absent ? (
+                    <span className="block text-[10px] font-semibold text-stall">
+                      away
+                    </span>
+                  ) : day.rostered || day.claimedMinutes > 0 ? (
                     // What is still going spare, not what is used -- that is
                     // the number you plan against.
                     <span
@@ -275,8 +282,7 @@ function NewTaskForm({
     {} as PlanState,
   );
 
-  const workable = days.filter((d) => d.rostered);
-  const first = workable[0] ?? days[0];
+  const first = days.find((d) => d.rostered) ?? days[0];
 
   return (
     <form
@@ -321,10 +327,10 @@ function NewTaskForm({
           defaultValue={first?.date}
           className="rounded border border-line-strong bg-surface px-2 py-1.5 text-[13px]"
         >
-          {workable.map((d) => (
+          {days.map((d) => (
             <option key={d.date} value={d.date}>
               {d.label} {d.date.slice(8)}/{d.date.slice(5, 7)} ·{" "}
-              {formatDuration(d.freeMinutes)} free
+              {d.rostered ? `${formatDuration(d.freeMinutes)} free` : "not working"}
             </option>
           ))}
         </select>
