@@ -6,6 +6,7 @@ import {
   rejectAbsence,
   type DecisionState,
 } from "@/lib/hr/absence-decisions";
+import { cancelAbsence } from "@/lib/absence/actions";
 
 const initial: DecisionState = {};
 
@@ -16,6 +17,13 @@ export function DecisionButtons({ absenceId }: { absenceId: string }) {
   );
   const [rejectState, reject, rejecting] = useActionState(
     rejectAbsence,
+    initial,
+  );
+  const [, withdraw] = useActionState(
+    async (p: DecisionState, f: FormData) => {
+      const r = await cancelAbsence({}, f);
+      return { error: r.error, ok: r.ok } as DecisionState;
+    },
     initial,
   );
   const [showReject, setShowReject] = useState(false);
@@ -87,6 +95,20 @@ export function DecisionButtons({ absenceId }: { absenceId: string }) {
       >
         Reject
       </button>
+
+      {/* Withdrawing is not the same as rejecting: it removes a request that
+          should never have been made, rather than turning one down. */}
+      <form action={withdraw}>
+        <input type="hidden" name="absenceId" value={absenceId} />
+        <button
+          type="submit"
+          disabled={busy}
+          title="Remove the request entirely, as though it was never made"
+          className="rounded border border-line px-2.5 py-1.5 text-[13px] text-muted hover:border-stall hover:text-stall disabled:opacity-50"
+        >
+          Withdraw
+        </button>
+      </form>
 
       {approveState.ok && approveState.orphaned ? (
         <span className="text-xs text-muted">

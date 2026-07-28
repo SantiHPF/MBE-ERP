@@ -4,6 +4,9 @@ import { prisma } from "@/lib/db";
 import { getTeamWeek, weekStart } from "@/lib/team/week";
 import { addDays, dateKey, formatDuration } from "@/lib/time";
 import { effectiveLabel } from "@/lib/absence/effective";
+import { canDecideAbsences } from "@/lib/auth/guards";
+import { formatClock } from "@/lib/time";
+import { AbsenceRow } from "./absence-row";
 import { WeekGrid } from "../team/week-grid";
 import { AbsenceForm } from "./absence-form";
 
@@ -87,40 +90,26 @@ export default async function MyCalendarPage({
           ) : (
             <ul className="flex flex-col gap-1.5">
               {upcoming.map((a) => (
-                <li
+                <AbsenceRow
                   key={a.id}
-                  className="flex flex-wrap items-baseline gap-2 rounded border border-line bg-surface px-3.5 py-2.5 text-[13px]"
-                >
-                  <span className="rounded border border-line px-1.5 py-px text-[9.5px] font-semibold tracking-wider text-muted uppercase">
-                    {a.category.toLowerCase()}
-                  </span>
-                  <span className="num">
-                    {dateKey(a.startDate)}
-                    {dateKey(a.endDate) !== dateKey(a.startDate) &&
-                      ` → ${dateKey(a.endDate)}`}
-                  </span>
-                  {a.scope === "PARTIAL" && (
-                    <span className="text-xs text-muted">part of the day</span>
-                  )}
-                  {a.note && <span className="text-muted">— {a.note}</span>}
-                  <span className="flex-1" />
-                  <span
-                    className={`rounded border px-1.5 py-px text-[9.5px] font-semibold tracking-wider uppercase ${
-                      a.status === "APPROVED"
-                        ? "border-run text-run"
-                        : a.status === "REJECTED"
-                          ? "border-stall text-stall"
-                          : "border-pause text-pause"
-                    }`}
-                  >
-                    {effectiveLabel(a)}
-                  </span>
-                  {a.status === "REJECTED" && a.decisionNote && (
-                    <span className="w-full text-xs text-stall">
-                      HR said: {a.decisionNote}
-                    </span>
-                  )}
-                </li>
+                  absence={{
+                    id: a.id,
+                    startDate: dateKey(a.startDate),
+                    endDate: dateKey(a.endDate),
+                    scope: a.scope,
+                    startTime:
+                      a.startMinutes != null ? formatClock(a.startMinutes) : null,
+                    endTime:
+                      a.endMinutes != null ? formatClock(a.endMinutes) : null,
+                    category: a.category,
+                    note: a.note,
+                    status: a.status,
+                    statusLabel: effectiveLabel(a),
+                    decisionNote: a.decisionNote,
+                    // Once HR has decided, only HR can change it.
+                    editable: a.status === "PENDING" || canDecideAbsences(user),
+                  }}
+                />
               ))}
             </ul>
           )}
