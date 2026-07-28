@@ -209,6 +209,32 @@ export default async function ProfilePage() {
           )}
         </section>
 
+        {/* P1N: reported mistakes. Shown as a count, not a score -- the
+             process split is the interesting number, not the total. */}
+        <section className="card">
+          <header className="card-head">
+            <span className="eyebrow">{t("p1n.title")}</span>
+            {stats.p1n.applied > 0 && (
+              <span className="badge badge-go">
+                {stats.p1n.applied} {t("p1n.applied")}
+              </span>
+            )}
+          </header>
+          <div className="card-body">
+            <p className="num text-[30px] leading-none font-medium tracking-[-0.03em]">
+              {stats.p1n.total}
+            </p>
+            <p className="mt-1.5 text-[13px] font-medium">{t("p1n.countAll")}</p>
+            {stats.p1n.total > 0 && (
+              <p className="mt-1 text-[12px] text-muted">
+                {stats.p1n.process > 0
+                  ? t("p1n.processHeads", stats.p1n.process)
+                  : `${stats.p1n.attention} · ${t("p1n.countAttention")}`}
+              </p>
+            )}
+          </div>
+        </section>
+
         <LanguagePicker current={locale} />
 
         {/* -------------------------------------------- induction still due */}

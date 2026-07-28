@@ -49,6 +49,7 @@ model Department {
   meetings       Meeting[]
   sheetSources   SheetSource[]
   actionItems    ActionItem[]
+  p1ns           P1n[]
 }
 
 model User {
@@ -82,6 +83,8 @@ model User {
   sessions        Session[]
   triageActions   TriageAction[]
   deferrals       TaskDeferral[]
+  p1ns            P1n[]
+  p1nsApplied     P1n[]            @relation("P1nApplier")
   meetingsCreated Meeting[]        @relation("MeetingAuthor")
   meetingsAttended Meeting[]       @relation("MeetingAttendees")
   pinnedItems     ActionItem[]     @relation("ActionItemPin")
@@ -343,6 +346,7 @@ model Task {
   timeEntries   TimeEntry[]
   triageActions TriageAction[]
   deferrals     TaskDeferral[]
+  p1ns          P1n[]
   actionItem    ActionItem?
   /// Set when this task is itself a meeting being minuted.
   hostedMeeting Meeting?       @relation("MeetingSourceTask")
@@ -445,6 +449,52 @@ model TriageAction {
   createdAt  DateTime         @default(now())
 
   @@index([taskId])
+}
+
+// ------------------------------------------------------------------ P1N
+
+/// Why the mistake happened. In practice it is nearly always one of the first
+/// two, and telling them apart is the whole point: one is fixed by paying
+/// attention, the other by fixing the process.
+enum P1nCause {
+  /// Dejadez -- not attentive enough.
+  ATTENTION
+  /// It was not written down or explained properly.
+  PROCESS
+  OTHER
+}
+
+/// "Pasa 1 vez, no vuelve a pasar."
+///
+/// Somebody reports their own mistake, says why it happened and proposes what
+/// would stop it happening again -- to them or to whoever comes after. The
+/// department can read them, because a fix nobody sees teaches nobody.
+model P1n {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  departmentId String
+  department   Department @relation(fields: [departmentId], references: [id])
+
+  mistake   String
+  cause     P1nCause
+  solution  String
+
+  /// The task it happened on, when there was one.
+  taskId    String?
+  task      Task?    @relation(fields: [taskId], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+
+  /// Set when the proposed fix has actually been made, which is the only
+  /// thing that turns a report into a change.
+  appliedAt   DateTime?
+  appliedById String?
+  appliedBy   User?     @relation("P1nApplier", fields: [appliedById], references: [id])
+  appliedNote String?
+
+  @@index([departmentId, createdAt])
+  @@index([userId])
 }
 
 // -------------------------------------------------------------- meetings

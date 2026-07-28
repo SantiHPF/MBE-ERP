@@ -34,6 +34,8 @@ export type ProfileStats = {
   favourites: { title: string; count: number }[];
   timeOff: { category: string; days: number }[];
   pendingRequests: number;
+  /** Mistakes reported, and how many pointed at the process rather than you. */
+  p1n: { total: number; attention: number; process: number; applied: number };
   upcoming: { title: string; dueDate: string }[];
 };
 
@@ -150,6 +152,11 @@ export async function getProfileStats(userId: string): Promise<ProfileStats> {
     where: { userId, status: "PENDING" },
   });
 
+  const p1ns = await prisma.p1n.findMany({
+    where: { userId },
+    select: { cause: true, appliedAt: true },
+  });
+
   // --- their own induction interviews still to come
   const upcoming = await prisma.task.findMany({
     where: {
@@ -223,6 +230,12 @@ export async function getProfileStats(userId: string): Promise<ProfileStats> {
       .map(([category, days]) => ({ category, days }))
       .sort((a, b) => b.days - a.days),
     pendingRequests,
+    p1n: {
+      total: p1ns.length,
+      attention: p1ns.filter((p) => p.cause === "ATTENTION").length,
+      process: p1ns.filter((p) => p.cause === "PROCESS").length,
+      applied: p1ns.filter((p) => p.appliedAt !== null).length,
+    },
     upcoming: upcoming.map((t) => ({
       title: t.title,
       dueDate: toDateOnly(t.dueDate).toISOString().slice(0, 10),

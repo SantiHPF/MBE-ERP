@@ -45,6 +45,7 @@ export default async function AppLayout({
             <NavLink href="/plan">{t("nav.planWeek")}</NavLink>
             <NavLink href="/my-calendar">{t("nav.myCalendar")}</NavLink>
             <NavLink href="/meetings">{t("nav.meetings")}</NavLink>
+            <NavLink href="/p1n">{t("nav.p1n")}</NavLink>
             {isManager && <NavLink href="/team">{t("nav.team")}</NavLink>}
             {isManager && <NavLink href="/triage">{t("nav.triage")}</NavLink>}
             {isManager && <NavLink href="/catalogue">{t("nav.catalogue")}</NavLink>}
