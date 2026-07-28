@@ -1,7 +1,7 @@
-import Link from "next/link";
 import { requireRole, hasRole } from "@/lib/auth/guards";
 import { prisma } from "@/lib/db";
 import { CatalogueList } from "./catalogue-list";
+import { DepartmentPicker } from "./department-picker";
 
 export const dynamic = "force-dynamic";
 
@@ -13,12 +13,19 @@ export default async function CataloguePage({
   const user = await requireRole("MANAGER");
   const params = await searchParams;
 
-  const departments = hasRole(user, "ADMIN")
-    ? await prisma.department.findMany({ orderBy: { name: "asc" } })
-    : [];
+  // Any manager can browse every department's catalogue -- knowing what
+  // another team does is useful and harmless. Editing is a separate question,
+  // settled just below and enforced again on the server.
+  const departments = await prisma.department.findMany({
+    orderBy: { name: "asc" },
+  });
 
   const departmentId =
-    hasRole(user, "ADMIN") && params.dept ? params.dept : user.departmentId;
+    params.dept && departments.some((d) => d.id === params.dept)
+      ? params.dept
+      : user.departmentId;
+
+  const canEdit = hasRole(user, "ADMIN") || departmentId === user.departmentId;
 
   const department = await prisma.department.findUniqueOrThrow({
     where: { id: departmentId },
@@ -46,26 +53,18 @@ export default async function CataloguePage({
           </p>
         </div>
 
-        {departments.length > 0 && (
-          <div className="flex flex-wrap gap-1 text-[13px]">
-            {departments.map((d) => (
-              <Link
-                key={d.id}
-                href={`/catalogue?dept=${d.id}`}
-                className={
-                  d.id === departmentId
-                    ? "rounded-md bg-accent-wash px-2.5 py-1.5 text-[12.5px] font-semibold text-accent"
-                    : "rounded-md px-2.5 py-1.5 text-[12.5px] text-muted transition-colors hover:bg-surface-2 hover:text-ink"
-                }
-              >
-                {d.name.replace(/\s*\(.*\)$/, "")}
-              </Link>
-            ))}
-          </div>
-        )}
+        <DepartmentPicker departments={departments} current={departmentId} />
       </div>
 
+      {!canEdit && (
+        <p className="notice notice-warn mb-3">
+          You are looking at {department.name}. Only that department&rsquo;s
+          managers can change it.
+        </p>
+      )}
+
       <CatalogueList
+        canEdit={canEdit}
         departmentId={departmentId}
         entries={templates.map((t) => {
           const rule = t.recurringRules[0];

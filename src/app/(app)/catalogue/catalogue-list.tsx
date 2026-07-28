@@ -47,9 +47,11 @@ export function describeRule(rule: CatalogueEntry["rule"]): string {
 export function CatalogueList({
   departmentId,
   entries,
+  canEdit,
 }: {
   departmentId: string;
   entries: CatalogueEntry[];
+  canEdit: boolean;
 }) {
   const [query, setQuery] = useState("");
   const [editing, setEditing] = useState<string | null>(null);
@@ -84,16 +86,18 @@ export function CatalogueList({
         </label>
         <span className="num text-[12px] text-muted">{rows.length} tasks</span>
         <span className="flex-1" />
-        <button
-          type="button"
-          onClick={() => {
-            setCreating((v) => !v);
-            setEditing(null);
-          }}
-          className="btn btn-primary btn-sm"
-        >
-          {creating ? "Close" : "+ New task"}
-        </button>
+        {canEdit && (
+          <button
+            type="button"
+            onClick={() => {
+              setCreating((v) => !v);
+              setEditing(null);
+            }}
+            className="btn btn-primary btn-sm"
+          >
+            {creating ? "Close" : "+ New task"}
+          </button>
+        )}
       </div>
 
       {(notice.error ?? notice.message) && (
@@ -105,7 +109,7 @@ export function CatalogueList({
         </p>
       )}
 
-      {creating && (
+      {creating && canEdit && (
         <div className="mb-3">
           <CatalogueForm
             departmentId={departmentId}
@@ -181,19 +185,21 @@ export function CatalogueList({
               >
                 {describeRule(entry.rule)}
               </span>
-              <button
-                type="button"
-                onClick={() => {
-                  setEditing(editing === entry.id ? null : entry.id);
-                  setCreating(false);
-                }}
-                className="btn btn-sm"
-              >
-                {editing === entry.id ? "Close" : "Edit"}
-              </button>
+              {canEdit && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setEditing(editing === entry.id ? null : entry.id);
+                    setCreating(false);
+                  }}
+                  className="btn btn-sm"
+                >
+                  {editing === entry.id ? "Close" : "Edit"}
+                </button>
+              )}
             </div>
 
-            {editing === entry.id && (
+            {editing === entry.id && canEdit && (
               <div className="border-t border-line p-3.5">
                 <CatalogueForm
                   departmentId={departmentId}

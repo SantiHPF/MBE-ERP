@@ -1,7 +1,8 @@
 import { requirePeopleAdmin } from "@/lib/auth/guards";
 import { prisma } from "@/lib/db";
 import { formatClock, formatDuration, weekdayName } from "@/lib/time";
-import { NewPersonForm } from "./new-person-form";
+import { NewDepartmentForm } from "./new-person-form";
+import { AddPersonPanel } from "./add-person-panel";
 import { PersonRow } from "./person-row";
 
 export const dynamic = "force-dynamic";
@@ -22,12 +23,18 @@ export default async function HrPeoplePage() {
 
   return (
     <div>
-      <h1 className="page-title">People</h1>
-      <p className="page-sub mb-5">
-        Accounts and working hours. Only HR can change these.
-      </p>
+      <div className="mb-5 flex flex-wrap items-end justify-between gap-4">
+        <div>
+          <h1 className="page-title">People</h1>
+          <p className="page-sub">
+            Accounts, working hours and employment dates. Only HR can change
+            these.
+          </p>
+        </div>
+        <AddPersonPanel departments={departments} />
+      </div>
 
-      <div className="grid items-start gap-5 lg:grid-cols-[minmax(0,1fr)_380px]">
+      <div className="flex flex-col gap-5">
         <section>
           <h2 className="eyebrow mb-2.5 block">
             Everyone · {people.filter((p) => p.active).length} active
@@ -79,7 +86,7 @@ export default async function HrPeoplePage() {
           </div>
         </section>
 
-        <NewPersonForm departments={departments} />
+        <NewDepartmentForm />
       </div>
     </div>
   );

@@ -3,13 +3,13 @@
 import { useState } from "react";
 
 const DAYS = [
-  { weekday: 1, label: "Monday" },
-  { weekday: 2, label: "Tuesday" },
-  { weekday: 3, label: "Wednesday" },
-  { weekday: 4, label: "Thursday" },
-  { weekday: 5, label: "Friday" },
-  { weekday: 6, label: "Saturday" },
-  { weekday: 7, label: "Sunday" },
+  { weekday: 1, label: "Monday", short: "Mon" },
+  { weekday: 2, label: "Tuesday", short: "Tue" },
+  { weekday: 3, label: "Wednesday", short: "Wed" },
+  { weekday: 4, label: "Thursday", short: "Thu" },
+  { weekday: 5, label: "Friday", short: "Fri" },
+  { weekday: 6, label: "Saturday", short: "Sat" },
+  { weekday: 7, label: "Sunday", short: "Sun" },
 ];
 
 type Existing = {
@@ -23,6 +23,10 @@ type Existing = {
  * One row per weekday. Unchecking a day is how "does not work Tuesdays" is
  * recorded -- there is no separate concept of a day off, just the absence of
  * a pattern.
+ *
+ * Four native time inputs will not fit side by side in a narrow column, so
+ * the row stacks into label-above-field pairs until there is room for the
+ * table layout.
  */
 export function WeekdayFields({ existing = [] }: { existing?: Existing[] }) {
   const byWeekday = new Map(existing.map((e) => [e.weekday, e]));
@@ -36,14 +40,17 @@ export function WeekdayFields({ existing = [] }: { existing?: Existing[] }) {
     ),
   );
 
+  const cell = "field num min-w-0 px-1.5 py-1 text-[12.5px]";
+
   return (
-    <div className="flex flex-col gap-1">
-      <div className="grid grid-cols-[104px_1fr_1fr_64px_1fr] gap-2 text-[10px] font-semibold tracking-[0.07em] text-faint uppercase">
-        <span>Day</span>
-        <span>Start</span>
-        <span>Finish</span>
-        <span>Break</span>
-        <span>Break at</span>
+    <div className="flex flex-col gap-1.5">
+      {/* Column headings only make sense once the rows line up. */}
+      <div className="hidden gap-2 sm:grid sm:grid-cols-[92px_repeat(4,minmax(0,1fr))]">
+        <span className="eyebrow">Day</span>
+        <span className="eyebrow">Start</span>
+        <span className="eyebrow">Finish</span>
+        <span className="eyebrow">Break</span>
+        <span className="eyebrow">Break at</span>
       </div>
 
       {DAYS.map((day) => {
@@ -54,9 +61,11 @@ export function WeekdayFields({ existing = [] }: { existing?: Existing[] }) {
         return (
           <div
             key={day.weekday}
-            className="grid grid-cols-[104px_1fr_1fr_64px_1fr] items-center gap-2"
+            className={`grid grid-cols-2 items-center gap-2 rounded-md sm:grid-cols-[92px_repeat(4,minmax(0,1fr))] ${
+              on ? "" : "opacity-55"
+            }`}
           >
-            <label className="flex items-center gap-1.5 text-[13px]">
+            <label className="col-span-2 flex items-center gap-2 text-[13px] sm:col-span-1">
               <input
                 type="checkbox"
                 name={`works-${day.weekday}`}
@@ -65,48 +74,61 @@ export function WeekdayFields({ existing = [] }: { existing?: Existing[] }) {
                   setChecked((c) => ({ ...c, [day.weekday]: e.target.checked }))
                 }
               />
-              {day.label.slice(0, 3)}
+              <span className="sm:hidden">{day.label}</span>
+              <span className="hidden sm:inline">{day.short}</span>
             </label>
 
-            <input
-              type="time"
-              name={`start-${day.weekday}`}
-              defaultValue={start}
-              disabled={!on}
-              className="num rounded border border-line-strong bg-surface-2 px-1.5 py-1 text-[12.5px] disabled:opacity-40"
-            />
-            <input
-              type="time"
-              name={`end-${day.weekday}`}
-              defaultValue={end}
-              disabled={!on}
-              className="num rounded border border-line-strong bg-surface-2 px-1.5 py-1 text-[12.5px] disabled:opacity-40"
-            />
-            <input
-              type="number"
-              name={`break-${day.weekday}`}
-              defaultValue={row?.breakMinutes ?? 60}
-              min={0}
-              max={240}
-              step={5}
-              disabled={!on}
-              className="num rounded border border-line-strong bg-surface-2 px-1.5 py-1 text-[12.5px] disabled:opacity-40"
-            />
-            <input
-              type="time"
-              name={`breakstart-${day.weekday}`}
-              defaultValue={row?.breakStart ?? "13:00"}
-              disabled={!on}
-              className="num rounded border border-line-strong bg-surface-2 px-1.5 py-1 text-[12.5px] disabled:opacity-40"
-            />
+            <label className="min-w-0">
+              <span className="eyebrow mb-0.5 block sm:hidden">Start</span>
+              <input
+                type="time"
+                name={`start-${day.weekday}`}
+                defaultValue={start}
+                disabled={!on}
+                className={cell}
+              />
+            </label>
+            <label className="min-w-0">
+              <span className="eyebrow mb-0.5 block sm:hidden">Finish</span>
+              <input
+                type="time"
+                name={`end-${day.weekday}`}
+                defaultValue={end}
+                disabled={!on}
+                className={cell}
+              />
+            </label>
+            <label className="min-w-0">
+              <span className="eyebrow mb-0.5 block sm:hidden">Break</span>
+              <input
+                type="number"
+                name={`break-${day.weekday}`}
+                defaultValue={row?.breakMinutes ?? 60}
+                min={0}
+                max={240}
+                step={5}
+                disabled={!on}
+                className={cell}
+              />
+            </label>
+            <label className="min-w-0">
+              <span className="eyebrow mb-0.5 block sm:hidden">Break at</span>
+              <input
+                type="time"
+                name={`breakstart-${day.weekday}`}
+                defaultValue={row?.breakStart ?? "13:00"}
+                disabled={!on}
+                className={cell}
+              />
+            </label>
           </div>
         );
       })}
 
-      <p className="mt-1 text-[11px] text-muted">
-        Leave &ldquo;break at&rdquo; set and work is scheduled around it, splitting
-        the day. Clear it and the break still costs time but work can go
-        anywhere.
+      <p className="mt-1 text-[12px] text-muted">
+        Leave &ldquo;break at&rdquo; set and work is scheduled around it,
+        splitting the day. Clear it and the break still costs time but work can
+        go anywhere.
       </p>
     </div>
   );
