@@ -9,6 +9,7 @@ import {
   updateWorkingPattern,
   type PeopleState,
 } from "@/lib/hr/people";
+import { useT } from "@/lib/i18n/client";
 import { WeekdayFields } from "./weekday-fields";
 
 const initial: PeopleState = {};
@@ -40,6 +41,7 @@ export function PersonRow({
   person: Person;
   departments: { id: string; name: string }[];
 }) {
+  const { t } = useT();
   const [open, setOpen] = useState(false);
   const [hoursState, saveHours, savingHours] = useActionState(
     updateWorkingPattern,
@@ -81,12 +83,14 @@ export function PersonRow({
         <span className="text-xs text-muted">{person.department}</span>
         {!person.active && (
           <span className="rounded border border-stall px-1.5 py-px text-[9.5px] font-semibold tracking-wider text-stall uppercase">
-            inactive
+            {t("people.inactive")}
           </span>
         )}
         <span className="flex-1" />
         <span className="num text-xs text-muted">
-          {person.startDate ? `from ${person.startDate}` : "no start date"}
+          {person.startDate
+            ? t("people.fromDate", person.startDate)
+            : t("people.noStartDate")}
           {person.endDate && ` → ${person.endDate}`}
         </span>
         <span className="num text-xs text-muted">{person.weeklySummary}</span>
@@ -96,7 +100,7 @@ export function PersonRow({
           aria-expanded={open}
           className="btn btn-sm"
         >
-          {open ? "Close" : "Edit"}
+          {open ? t("common.close") : t("common.edit")}
         </button>
       </div>
 
@@ -153,10 +157,10 @@ export function PersonRow({
                 defaultValue={person.role}
                 className="rounded border border-line-strong bg-surface-2 px-2 py-1.5 text-[13px]"
               >
-                <option value="WORKER">Worker</option>
-                <option value="MANAGER">Manager</option>
-                <option value="HR">HR</option>
-                <option value="ADMIN">Admin</option>
+                <option value="WORKER">{t("people.roles.WORKER")}</option>
+                <option value="MANAGER">{t("people.roles.MANAGER")}</option>
+                <option value="HR">{t("people.roles.HR")}</option>
+                <option value="ADMIN">{t("people.roles.ADMIN")}</option>
               </select>
             </label>
             <button
@@ -164,10 +168,10 @@ export function PersonRow({
               disabled={moving}
               className="btn"
             >
-              {moving ? "Moving…" : "Move"}
+              {moving ? t("people.moving") : t("people.move")}
             </button>
             <span className="text-[11px] text-muted">
-              Unstarted work stays with the old department.
+              {t("people.unstartedStays")}
             </span>
           </form>
 
@@ -177,7 +181,7 @@ export function PersonRow({
           >
             <input type="hidden" name="userId" value={person.id} />
             <label className="text-[11px]">
-              <span className="field-label">Started</span>
+              <span className="field-label">{t("people.started")}</span>
               <input
                 type="date"
                 name="startDate"
@@ -187,7 +191,7 @@ export function PersonRow({
               />
             </label>
             <label className="text-[11px]">
-              <span className="field-label">Leaves</span>
+              <span className="field-label">{t("people.leaves")}</span>
               <input
                 type="date"
                 name="endDate"
@@ -196,10 +200,10 @@ export function PersonRow({
               />
             </label>
             <button type="submit" disabled={savingDates} className="btn">
-              {savingDates ? "Saving…" : "Save dates"}
+              {savingDates ? t("common.saving") : t("people.saveDates")}
             </button>
             <span className="text-[11.5px] text-muted">
-              Blank end date means indefinite. Induction interviews follow these.
+              {t("people.datesHint")}
             </span>
           </form>
 
@@ -211,7 +215,7 @@ export function PersonRow({
               disabled={savingHours}
               className="mt-2.5 rounded border border-accent bg-accent px-3 py-1.5 text-[13px] font-medium text-accent-ink hover:brightness-110 disabled:opacity-50"
             >
-              {savingHours ? "Saving…" : "Save hours"}
+              {savingHours ? t("common.saving") : t("people.saveHours")}
             </button>
           </form>
 
@@ -226,7 +230,7 @@ export function PersonRow({
                   type="text"
                   name="password"
                   minLength={8}
-                  placeholder="at least 8 characters"
+                  placeholder={t("people.atLeast8")}
                   className="rounded border border-line-strong bg-surface-2 px-2 py-1.5 text-[13px]"
                 />
               </label>
@@ -235,7 +239,7 @@ export function PersonRow({
                 disabled={resetting}
                 className="rounded border border-line-strong bg-surface px-2.5 py-1.5 text-[13px] hover:bg-surface-2 disabled:opacity-50"
               >
-                Reset
+                {t("people.reset")}
               </button>
             </form>
 
@@ -256,7 +260,7 @@ export function PersonRow({
                     : "border-accent text-accent"
                 }`}
               >
-                {person.active ? "Deactivate" : "Reactivate"}
+                {person.active ? t("people.deactivate") : t("people.reactivate")}
               </button>
             </form>
           </div>

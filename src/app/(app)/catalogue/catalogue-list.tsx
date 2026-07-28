@@ -4,10 +4,17 @@ import { useMemo, useState } from "react";
 import { formatClock, formatDuration, weekdayName } from "@/lib/time";
 import { CatalogueForm, type CatalogueEntry } from "./catalogue-form";
 import type { CatalogueState } from "@/lib/catalogue/actions";
+import { useT } from "@/lib/i18n/client";
 
 /** Plain-English summary of a schedule, for the list. */
-export function describeRule(rule: CatalogueEntry["rule"]): string {
-  if (!rule) return "on demand";
+export function describeRule(
+  rule: CatalogueEntry["rule"],
+  everyWeekday = "every weekday",
+  onDemand = "on demand",
+  monthlyOnThe = "monthly on the",
+  monthlyNth = "monthly,",
+): string {
+  if (!rule) return onDemand;
 
   const at =
     rule.fixedStartMinutes != null
@@ -18,7 +25,7 @@ export function describeRule(rule: CatalogueEntry["rule"]): string {
 
   if (rule.frequency === "MONTHLY") {
     if (rule.monthlyDay != null) {
-      return `monthly on the ${rule.monthlyDay}${at}${times}`;
+      return `${monthlyOnThe} ${rule.monthlyDay}${at}${times}`;
     }
     const nth =
       rule.monthlyNth === -1
@@ -31,11 +38,15 @@ export function describeRule(rule: CatalogueEntry["rule"]): string {
               ? "third"
               : "fourth";
     const day = rule.weekdays[0] ? weekdayName(rule.weekdays[0]) : "day";
-    return `monthly, ${nth} ${day}${at}${times}`;
+    return `${monthlyNth} ${nth} ${day}${at}${times}`;
   }
 
-  if (rule.weekdays.length === 5 && !rule.weekdays.includes(6) && !rule.weekdays.includes(7)) {
-    return `every weekday${at}${times}`;
+  if (
+    rule.weekdays.length === 5 &&
+    !rule.weekdays.includes(6) &&
+    !rule.weekdays.includes(7)
+  ) {
+    return `${everyWeekday}${at}${times}`;
   }
   const days = [...rule.weekdays]
     .sort()
@@ -53,6 +64,7 @@ export function CatalogueList({
   entries: CatalogueEntry[];
   canEdit: boolean;
 }) {
+  const { t } = useT();
   const [query, setQuery] = useState("");
   const [editing, setEditing] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
@@ -73,7 +85,7 @@ export function CatalogueList({
         <input
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          placeholder="Find a task…"
+          placeholder={t("plan.findTask")}
           className="field w-56"
         />
         <label className="flex items-center gap-1.5 text-[12px] text-muted">
@@ -82,9 +94,9 @@ export function CatalogueList({
             checked={showRetired}
             onChange={(e) => setShowRetired(e.target.checked)}
           />
-          Show retired
+          {t("catalogue.showRetired")}
         </label>
-        <span className="num text-[12px] text-muted">{rows.length} tasks</span>
+        <span className="num text-[12px] text-muted">{t("catalogue.tasksCount", rows.length)}</span>
         <span className="flex-1" />
         {canEdit && (
           <button
@@ -95,7 +107,7 @@ export function CatalogueList({
             }}
             className="btn btn-primary btn-sm"
           >
-            {creating ? "Close" : "+ New task"}
+            {creating ? t("common.close") : t("plan.newTask")}
           </button>
         )}
       </div>
@@ -137,31 +149,31 @@ export function CatalogueList({
               </span>
               {entry.priority === "MUST" && (
                 <span
-                  title="Always assigned, even when the day is full"
+                  title={t("catalogue.mustTip")}
                   className="rounded border border-stall px-1.5 py-px text-[9.5px] font-semibold tracking-wider text-stall uppercase"
                 >
-                  must
+                  {t("catalogue.must")}
                 </span>
               )}
               {entry.priority === "SPARE_TIME" && (
                 <span
-                  title="Only scheduled when somebody has hours to spare"
+                  title={t("catalogue.spareTip")}
                   className="rounded border border-line-strong px-1.5 py-px text-[9.5px] font-semibold tracking-wider text-faint uppercase"
                 >
-                  spare time
+                  {t("catalogue.spare")}
                 </span>
               )}
               {entry.repeatable && (
                 <span
-                  title="Several can be planned as one block"
+                  title={t("catalogue.perGoTip")}
                   className="badge cursor-help"
                 >
-                  per go
+                  {t("catalogue.perGo")}
                 </span>
               )}
               {entry.isMeeting && (
                 <span className="rounded border border-accent px-1.5 py-px text-[9.5px] font-semibold tracking-wider text-accent uppercase">
-                  meeting
+                  {t("catalogue.meeting")}
                 </span>
               )}
               {entry.notes && (
@@ -169,12 +181,12 @@ export function CatalogueList({
                   title={entry.notes}
                   className="cursor-help rounded border border-pause px-1.5 py-px text-[9.5px] font-semibold tracking-wider text-pause uppercase"
                 >
-                  note
+                  {t("catalogue.note")}
                 </span>
               )}
               {!entry.active && (
                 <span className="rounded border border-stall px-1.5 py-px text-[9.5px] font-semibold tracking-wider text-stall uppercase">
-                  retired
+                  {t("catalogue.retired")}
                 </span>
               )}
               <span className="flex-1" />
@@ -183,7 +195,13 @@ export function CatalogueList({
                   entry.rule ? "text-accent" : "text-muted"
                 }`}
               >
-                {describeRule(entry.rule)}
+                {describeRule(
+                  entry.rule,
+                  t("catalogue.everyWeekday").toLowerCase(),
+                  t("catalogue.onDemand").toLowerCase(),
+                  t("catalogue.monthly").toLowerCase() + " " + t("catalogue.dayOf").toLowerCase(),
+                  t("catalogue.monthly").toLowerCase() + ",",
+                )}
               </span>
               {canEdit && (
                 <button
@@ -194,7 +212,7 @@ export function CatalogueList({
                   }}
                   className="btn btn-sm"
                 >
-                  {editing === entry.id ? "Close" : "Edit"}
+                  {editing === entry.id ? t("common.close") : t("common.edit")}
                 </button>
               )}
             </div>
@@ -217,7 +235,7 @@ export function CatalogueList({
 
         {rows.length === 0 && (
           <p className="empty">
-            Nothing matches.
+            {t("common.nothingMatches")}
           </p>
         )}
       </div>

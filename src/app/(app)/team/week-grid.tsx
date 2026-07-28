@@ -1,5 +1,6 @@
 import type { TeamWeek, WeekBlock, WeekDay } from "@/lib/team/week";
 import { formatClock, formatDuration } from "@/lib/time";
+import { getT } from "@/lib/i18n/server";
 
 // Every cell is drawn on the same scale so a short day visibly reads as short
 // next to a long one. The range covers a split shift finishing at 20:00.
@@ -25,8 +26,21 @@ function dayName(isoDate: string): string {
   return DAY_NAMES[(date.getUTCDay() + 6) % 7];
 }
 
-export function WeekGrid({ week }: { week: TeamWeek }) {
+export async function WeekGrid({
+  week,
+  size = "compact",
+}: {
+  week: TeamWeek;
+  /**
+   * "tall" is for one person's own week, where the page has room and the
+   * point is reading what the day holds. "compact" packs a whole department
+   * onto one screen, where the point is comparing days at a glance.
+   */
+  size?: "compact" | "tall";
+}) {
+  const { t } = await getT();
   const today = new Date().toISOString().slice(0, 10);
+  const cellHeight = size === "tall" ? 420 : 116;
 
   return (
     <>
@@ -35,7 +49,7 @@ export function WeekGrid({ week }: { week: TeamWeek }) {
           <thead>
             <tr>
               <th className="w-[190px] border border-line bg-surface-2 px-3 py-2 text-left text-[11px] font-semibold tracking-[0.07em] text-faint uppercase">
-                Person
+                {t("common.person")}
               </th>
               {week.dates.map((date) => (
                 <th
@@ -68,7 +82,7 @@ export function WeekGrid({ week }: { week: TeamWeek }) {
 
                 {person.days.map((day) => (
                   <td key={day.date} className="border border-line p-0 align-top">
-                    <DayCell day={day} />
+                    <DayCell day={day} height={cellHeight} t={t} />
                   </td>
                 ))}
               </tr>
@@ -78,13 +92,13 @@ export function WeekGrid({ week }: { week: TeamWeek }) {
       </div>
 
       <div className="mt-3.5 flex flex-wrap gap-4 text-xs text-muted">
-        <Key className="border-l-2 border-l-accent bg-accent-wash">Scheduled</Key>
-        <Key className="border-l-2 border-l-run bg-run-wash">Running</Key>
-        <Key className="border-l-2 border-l-pause bg-pause-wash">Paused</Key>
+        <Key className="border-l-2 border-l-accent bg-accent-wash">{t("team.scheduled")}</Key>
+        <Key className="border-l-2 border-l-run bg-run-wash">{t("team.running")}</Key>
+        <Key className="border-l-2 border-l-pause bg-pause-wash">{t("team.paused")}</Key>
         <Key className="border-l-2 border-l-stall bg-stall-wash">
-          Needs a decision
+          {t("team.needsDecision")}
         </Key>
-        <Key className="border border-line bg-canvas">Working hours</Key>
+        <Key className="border border-line bg-canvas">{t("team.workingHours")}</Key>
       </div>
     </>
   );
@@ -96,9 +110,11 @@ export function WeekGrid({ week }: { week: TeamWeek }) {
  * five-minute tasks renders as an unreadable smear of one-pixel slivers.
  * Exact times live in the tooltip; the cell's job is "how full is this day".
  */
-function layoutBlocks(blocks: WeekBlock[], cellHeight: number) {
-  const MIN_PX = 5;
-  const GAP_PX = 1;
+function layoutBlocks(blocks: WeekBlock[], cellHeight: number, roomy = false) {
+  // With room to breathe a block can be tall enough to read; packed tight it
+  // only needs to be visible.
+  const MIN_PX = roomy ? 22 : 5;
+  const GAP_PX = roomy ? 2 : 1;
 
   let lastBottom = -Infinity;
   return [...blocks]
@@ -121,21 +137,32 @@ function layoutBlocks(blocks: WeekBlock[], cellHeight: number) {
     }));
 }
 
-function DayCell({ day }: { day: WeekDay }) {
-  const CELL_H = 116;
+function DayCell({
+  day,
+  height,
+  t,
+}: {
+  day: WeekDay;
+  height: number;
+  t: (key: string, ...args: (string | number)[]) => string;
+}) {
+  const roomy = height >= 240;
 
   if (!day.rostered) {
     return (
-      <div className="relative flex h-[116px] items-center justify-center bg-surface-2 text-[10.5px] text-faint">
-        not working
+      <div
+        className="relative flex items-center justify-center bg-surface-2 text-[10.5px] text-faint"
+        style={{ height }}
+      >
+        {t("common.notWorking")}
       </div>
     );
   }
 
-  const laid = layoutBlocks(day.blocks, CELL_H);
+  const laid = layoutBlocks(day.blocks, height, roomy);
 
   return (
-    <div className="relative h-[116px] bg-surface">
+    <div className="relative bg-surface" style={{ height }}>
       {/* Working hours as the backdrop, so an empty day still shows capacity. */}
       {day.windows.map((w) => (
         <div
@@ -148,7 +175,7 @@ function DayCell({ day }: { day: WeekDay }) {
       {day.absent && (
         <div className="absolute inset-1 flex items-center justify-center rounded-sm border border-dashed border-line-strong bg-[repeating-linear-gradient(-45deg,transparent,transparent_4px,var(--color-line)_4px,var(--color-line)_5px)]">
           <span className="rounded-sm border border-line bg-surface px-1.5 py-0.5 text-[10px] font-semibold tracking-wider text-muted uppercase">
-            {day.absenceCategory?.toLowerCase() ?? "away"}
+            {day.absenceCategory?.toLowerCase() ?? t("common.away")}
           </span>
         </div>
       )}
@@ -158,12 +185,23 @@ function DayCell({ day }: { day: WeekDay }) {
           <div
             key={block.id}
             title={`${block.title} · ${formatClock(block.start)}–${formatClock(block.end)} · ${formatDuration(block.estimatedMinutes)}`}
-            className={`absolute right-1.5 left-1.5 overflow-hidden rounded-sm border-l-2 px-1 text-[9px] leading-none whitespace-nowrap ${
-              BLOCK_STYLE[block.status] ?? "bg-accent-wash border-l-accent"
-            }`}
+            className={`absolute right-1.5 left-1.5 overflow-hidden rounded-sm border-l-2 ${
+              roomy ? "px-2 py-1 text-[11px] leading-tight" : "px-1 text-[9px] leading-none whitespace-nowrap"
+            } ${BLOCK_STYLE[block.status] ?? "bg-accent-wash border-l-accent"}`}
             style={{ top, height }}
           >
-            {height >= 9 ? block.title : ""}
+            {roomy ? (
+              <>
+                <span className="num mr-1.5 text-[10px] opacity-70">
+                  {formatClock(block.start)}
+                </span>
+                {block.title}
+              </>
+            ) : height >= 9 ? (
+              block.title
+            ) : (
+              ""
+            )}
           </div>
         ))}
 
@@ -175,7 +213,7 @@ function DayCell({ day }: { day: WeekDay }) {
 
       {day.rostered && !day.absent && day.blocks.length === 0 && (
         <span className="absolute inset-x-0 bottom-1 text-center text-[9.5px] text-faint">
-          nothing booked
+          {t("team.nothingBooked")}
         </span>
       )}
     </div>

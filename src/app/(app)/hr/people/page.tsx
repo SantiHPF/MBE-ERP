@@ -3,12 +3,14 @@ import { prisma } from "@/lib/db";
 import { formatClock, formatDuration, weekdayName } from "@/lib/time";
 import { NewDepartmentForm } from "./new-person-form";
 import { AddPersonPanel } from "./add-person-panel";
+import { getT } from "@/lib/i18n/server";
 import { PersonRow } from "./person-row";
 
 export const dynamic = "force-dynamic";
 
 export default async function HrPeoplePage() {
   await requirePeopleAdmin();
+  const { t } = await getT();
 
   const [departments, people] = await Promise.all([
     prisma.department.findMany({ orderBy: { name: "asc" } }),
@@ -25,10 +27,9 @@ export default async function HrPeoplePage() {
     <div>
       <div className="mb-5 flex flex-wrap items-end justify-between gap-4">
         <div>
-          <h1 className="page-title">People</h1>
+          <h1 className="page-title">{t("people.title")}</h1>
           <p className="page-sub">
-            Accounts, working hours and employment dates. Only HR can change
-            these.
+            {t("people.intro")}
           </p>
         </div>
         <AddPersonPanel departments={departments} />
@@ -37,7 +38,7 @@ export default async function HrPeoplePage() {
       <div className="flex flex-col gap-5">
         <section>
           <h2 className="eyebrow mb-2.5 block">
-            Everyone · {people.filter((p) => p.active).length} active
+            {t("people.everyone", people.filter((p) => p.active).length)}
           </h2>
 
           <div className="flex flex-col gap-1.5">
@@ -67,8 +68,8 @@ export default async function HrPeoplePage() {
                       ? person.endDate.toISOString().slice(0, 10)
                       : null,
                     weeklySummary: weekly
-                      ? `${formatDuration(weekly)} a week`
-                      : "no hours set",
+                      ? t("people.perWeek", formatDuration(weekly))
+                      : t("people.noHours"),
                     patternSummary: person.workingPatterns.map((p) => ({
                       weekday: p.weekday,
                       label: weekdayName(p.weekday).slice(0, 3),

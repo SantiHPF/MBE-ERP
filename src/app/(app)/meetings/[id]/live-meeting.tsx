@@ -9,6 +9,7 @@ import {
   saveNotes,
   type MeetingState,
 } from "@/lib/meetings/actions";
+import { useT } from "@/lib/i18n/client";
 
 const initial: MeetingState = {};
 
@@ -31,6 +32,7 @@ export function LiveMeeting({
   items: Item[];
   colleagues: { id: string; displayName: string }[];
 }) {
+  const { t } = useT();
   const [notesState, save, saving] = useActionState(saveNotes, initial);
   const [addState, add, adding] = useActionState(addActionItem, initial);
   const [removeState, remove] = useActionState(removeActionItem, initial);
@@ -48,9 +50,11 @@ export function LiveMeeting({
       <section className="card">
         <header className="flex items-center justify-between border-b border-line px-4 py-2.5">
           <span className="eyebrow">
-            Notes
+            {t("meetings.notes")}
           </span>
-          {notesState.ok && <span className="text-[11px] text-run">Saved</span>}
+          {notesState.ok && (
+            <span className="text-[11px] text-run">{t("meetings.saved")}</span>
+          )}
           {notesState.error && (
             <span className="text-[11px] text-stall">{notesState.error}</span>
           )}
@@ -69,7 +73,7 @@ export function LiveMeeting({
             disabled={saving}
             className="mt-2.5 rounded border border-line-strong bg-surface px-3 py-1.5 text-[13px] font-medium hover:bg-surface-2 disabled:opacity-50"
           >
-            {saving ? "Saving…" : "Save notes"}
+            {saving ? t("common.saving") : t("meetings.saveNotes")}
           </button>
         </form>
       </section>
@@ -79,7 +83,7 @@ export function LiveMeeting({
         <section className="card">
           <header className="flex items-center justify-between border-b border-line px-4 py-2.5">
             <span className="eyebrow">
-              Action items
+              {t("meetings.actionItems")}
             </span>
             <span className="num text-[11px] text-muted">
               {items.length} · {formatDuration(total)}
@@ -110,7 +114,7 @@ export function LiveMeeting({
                       aria-label={`Remove ${item.title}`}
                       className="rounded border border-line px-1.5 py-0.5 text-[11px] text-muted hover:border-stall hover:text-stall"
                     >
-                      Remove
+                      {t("common.remove")}
                     </button>
                   </form>
                 </li>
@@ -123,7 +127,7 @@ export function LiveMeeting({
 
             <input
               name="title"
-              placeholder="What needs doing?"
+              placeholder={t("meetings.whatNeedsDoing")}
               required
               className="rounded border border-line-strong bg-surface-2 px-2.5 py-1.5 text-[13.5px]"
             />
@@ -131,7 +135,7 @@ export function LiveMeeting({
             <div className="grid grid-cols-2 gap-2">
               <label className="text-[11px]">
                 <span className="field-label">
-                  How long
+                  {t("meetings.howLong")}
                 </span>
                 <input
                   type="number"
@@ -145,7 +149,7 @@ export function LiveMeeting({
               </label>
               <label className="text-[11px]">
                 <span className="field-label">
-                  Due
+                  {t("meetings.due")}
                 </span>
                 <input
                   type="date"
@@ -159,7 +163,7 @@ export function LiveMeeting({
 
             <label className="text-[11px]">
               <span className="field-label">
-                Anyone in particular?
+                {t("meetings.anyoneInParticular")}
               </span>
               <select
                 name="pinnedAssigneeId"
@@ -167,7 +171,7 @@ export function LiveMeeting({
                 className="field"
               >
                 <option value="">
-                  No — let the system pick who is free and due a turn
+                  {t("meetings.letSystemPick")}
                 </option>
                 {colleagues.map((c) => (
                   <option key={c.id} value={c.id}>
@@ -188,7 +192,7 @@ export function LiveMeeting({
               disabled={adding}
               className="btn"
             >
-              {adding ? "Adding…" : "Add action item"}
+              {adding ? t("common.adding") : t("meetings.addActionItem")}
             </button>
           </form>
         </section>
@@ -212,8 +216,11 @@ export function LiveMeeting({
               className="w-full rounded border border-accent bg-accent px-3 py-2 text-[13px] font-medium text-accent-ink hover:brightness-110 disabled:opacity-45"
             >
               {finalising
-                ? "Finalising…"
-                : `Finalise and create ${items.length} ${items.length === 1 ? "task" : "tasks"}`}
+                ? t("meetings.finalising")
+                : t(
+                    "meetings.finaliseAnd",
+                    `${items.length} ${items.length === 1 ? t("common.task") : t("common.tasks")}`,
+                  )}
             </button>
           </form>
         </section>

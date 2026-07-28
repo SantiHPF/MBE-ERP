@@ -9,10 +9,12 @@ import {
   reassignTask,
   type TriageState,
 } from "@/lib/triage/actions";
+import { useT } from "@/lib/i18n/client";
 
 const initial: TriageState = {};
 
 export function OrphanCard({ task }: { task: OrphanedTask }) {
+  const { t } = useT();
   const [reassignState, reassign, reassigning] = useActionState(
     reassignTask,
     initial,
@@ -32,7 +34,7 @@ export function OrphanCard({ task }: { task: OrphanedTask }) {
         </span>
         <span className="flex-1" />
         <span className="text-xs text-muted">
-          was {task.previousAssignee ?? "unassigned"}
+          {t("triage.was", task.previousAssignee ?? "—")}
           {task.scheduledDate && ` · ${task.scheduledDate}`}
         </span>
       </header>
@@ -47,7 +49,7 @@ export function OrphanCard({ task }: { task: OrphanedTask }) {
         {task.candidates.length > 0 ? (
           <>
             <p className="mb-1.5 text-[11px] font-semibold tracking-[0.07em] text-faint uppercase">
-              Give it to someone else that day
+              {t("triage.giveToSomeone")}
             </p>
             <div className="mb-3.5 flex flex-wrap gap-1.5">
               {task.candidates.map((c) => (
@@ -72,7 +74,7 @@ export function OrphanCard({ task }: { task: OrphanedTask }) {
           </>
         ) : (
           <p className="mb-3.5 text-[13px] text-muted">
-            Nobody else in the department has room for this that day.
+            {t("triage.nobodyElse")}
           </p>
         )}
 
@@ -86,15 +88,15 @@ export function OrphanCard({ task }: { task: OrphanedTask }) {
                 disabled={busy}
                 className="rounded border border-line-strong bg-surface px-2.5 py-1.5 text-[13px] hover:border-accent hover:bg-surface-2 disabled:opacity-50"
               >
-                Push to {task.earliestOwnerDate}
+                {t("triage.pushTo", task.earliestOwnerDate)}
                 <span className="ml-1.5 text-[11px] text-muted">
-                  when they are back
+                  {t("triage.whenBack")}
                 </span>
               </button>
             </form>
           ) : (
             <span className="text-[13px] text-muted">
-              They have no free day in the next three weeks.
+              {t("triage.noFreeDay")}
             </span>
           )}
 
@@ -107,7 +109,7 @@ export function OrphanCard({ task }: { task: OrphanedTask }) {
               disabled={busy}
               className="rounded border border-line px-2.5 py-1.5 text-[13px] text-muted hover:border-stall hover:text-stall disabled:opacity-50"
             >
-              Does not need doing
+              {t("triage.doesNotNeedDoing")}
             </button>
           </form>
         </div>

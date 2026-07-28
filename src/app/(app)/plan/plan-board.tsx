@@ -9,10 +9,12 @@ import {
   toggleTaskRow,
   type PlanState,
 } from "@/lib/plan/actions";
+import { useT } from "@/lib/i18n/client";
 
 type Filter = "all" | "mine" | "recurring" | "unclaimed";
 
 export function PlanBoard({ week }: { week: PlanWeek }) {
+  const { t } = useT();
   const [notice, setNotice] = useState<PlanState>({});
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState<Filter>("all");
@@ -74,16 +76,16 @@ export function PlanBoard({ week }: { week: PlanWeek }) {
         <input
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          placeholder="Find a task…"
+          placeholder={t("plan.findTask")}
           className="field w-56"
         />
         <div className="flex gap-1">
           {(
             [
-              ["all", "All"],
-              ["mine", "Mine"],
-              ["recurring", "Recurring"],
-              ["unclaimed", "Going spare"],
+              ["all", t("plan.all")],
+              ["mine", t("plan.mine")],
+              ["recurring", t("plan.recurring")],
+              ["unclaimed", t("plan.goingSpare")],
             ] as const
           ).map(([id, label]) => (
             <button
@@ -101,16 +103,16 @@ export function PlanBoard({ week }: { week: PlanWeek }) {
             </button>
           ))}
         </div>
-        <span className="num text-[12px] text-muted">{rows.length} tasks</span>
+        <span className="num text-[12px] text-muted">{t("catalogue.tasksCount", rows.length)}</span>
         <span className="flex-1" />
         <button
           type="button"
           onClick={() => setAdding((v) => !v)}
           className="btn btn-primary btn-sm"
         >
-          {adding ? "Close" : "+ New task"}
+          {adding ? t("common.close") : t("plan.newTask")}
         </button>
-        {pending && <span className="text-[12px] text-muted">saving…</span>}
+        {pending && <span className="text-[12px] text-muted">{t("common.saving")}</span>}
       </div>
 
       {adding && (
@@ -137,10 +139,10 @@ export function PlanBoard({ week }: { week: PlanWeek }) {
           <thead className="sticky top-0 z-10">
             <tr>
               <th className="border-b border-line bg-surface-2 px-3 py-2 text-left text-[11px] font-semibold tracking-[0.07em] text-faint uppercase">
-                Task
+                {t("common.task")}
               </th>
               <th className="border-b border-line bg-surface-2 px-2 py-2 text-right text-[11px] font-semibold tracking-[0.07em] text-faint uppercase">
-                Mins
+                {t("common.mins")}
               </th>
               {week.days.map((day) => (
                 <th
@@ -161,7 +163,7 @@ export function PlanBoard({ week }: { week: PlanWeek }) {
                   </span>
                   {day.absent ? (
                     <span className="block text-[10px] font-semibold text-stall">
-                      away
+                      {t("common.away")}
                     </span>
                   ) : day.rostered || day.claimedMinutes > 0 ? (
                     // What is still going spare, not what is used -- that is
@@ -177,16 +179,18 @@ export function PlanBoard({ week }: { week: PlanWeek }) {
                       title={`${formatDuration(day.claimedMinutes)} taken of ${formatDuration(day.capacityMinutes)}`}
                     >
                       {day.overBy > 0
-                        ? `${formatDuration(day.overBy)} over`
-                        : `${formatDuration(day.freeMinutes)} free`}
+                        ? `${formatDuration(day.overBy)} ${t("common.over")}`
+                        : `${formatDuration(day.freeMinutes)} ${t("common.free")}`}
                     </span>
                   ) : (
-                    <span className="block text-[10px] text-faint">off</span>
+                    <span className="block text-[10px] text-faint">
+                      {t("common.off")}
+                    </span>
                   )}
                 </th>
               ))}
               <th className="w-[70px] border-b border-l border-line bg-surface-2 px-1 py-2 text-center text-[11px] font-semibold tracking-[0.07em] text-faint uppercase">
-                All
+                {t("plan.all")}
               </th>
             </tr>
           </thead>
@@ -230,7 +234,7 @@ export function PlanBoard({ week }: { week: PlanWeek }) {
                       onClick={() => toggleWholeRow(row, true)}
                       className="rounded border border-line-strong px-1.5 py-0.5 text-[10px] hover:border-accent hover:text-accent"
                     >
-                      all
+                      {t("plan.allDays")}
                     </button>
                     <button
                       type="button"
@@ -238,7 +242,7 @@ export function PlanBoard({ week }: { week: PlanWeek }) {
                       onClick={() => toggleWholeRow(row, false)}
                       className="rounded border border-line-strong px-1.5 py-0.5 text-[10px] hover:border-stall hover:text-stall"
                     >
-                      none
+                      {t("plan.noDays")}
                     </button>
                   </div>
                 </td>
@@ -250,11 +254,11 @@ export function PlanBoard({ week }: { week: PlanWeek }) {
 
       <div className="mt-3 flex flex-wrap gap-4 text-[12px] text-muted">
         <Key className="border-accent bg-accent text-accent-ink">✓</Key>
-        <span>yours</span>
+        <span>{t("plan.yours")}</span>
         <Key className="border-dashed border-line-strong text-muted">·</Key>
-        <span>free to take</span>
+        <span>{t("plan.freeToTake")}</span>
         <Key className="border-line-strong bg-surface-2 text-faint">–</Key>
-        <span>someone else has it</span>
+        <span>{t("plan.someoneElse")}</span>
         <Key className="border-run bg-run-wash text-run">✓</Key>
         <span>started or done — can&rsquo;t change</span>
       </div>
@@ -269,6 +273,7 @@ function NewTaskForm({
   days: PlanWeek["days"];
   onDone: (s: PlanState) => void;
 }) {
+  const { t } = useT();
   const [state, submit, pending] = useActionState(
     async (p: PlanState, f: FormData) => {
       const r = await createAdHocTask(p, f);
@@ -287,20 +292,20 @@ function NewTaskForm({
     >
       <label className="flex-1 text-[11px] min-w-52">
         <span className="field-label">
-          What needs doing
+          {t("plan.whatNeedsDoing")}
         </span>
         <input
           name="title"
           required
           autoFocus
-          placeholder="Something not in the catalogue"
+          placeholder={t("plan.notInCatalogue")}
           className="w-full rounded border border-line-strong bg-surface px-2.5 py-1.5 text-[13px]"
         />
       </label>
 
       <label className="text-[11px]">
         <span className="field-label">
-          Minutes
+          {t("common.minutes")}
         </span>
         <input
           type="number"
@@ -316,7 +321,7 @@ function NewTaskForm({
 
       <label className="text-[11px]">
         <span className="field-label">
-          Day
+          {t("common.day")}
         </span>
         <select
           name="date"
@@ -326,7 +331,9 @@ function NewTaskForm({
           {days.map((d) => (
             <option key={d.date} value={d.date}>
               {d.label} {d.date.slice(8)}/{d.date.slice(5, 7)} ·{" "}
-              {d.rostered ? `${formatDuration(d.freeMinutes)} free` : "not working"}
+              {d.rostered
+                ? `${formatDuration(d.freeMinutes)} ${t("common.free")}`
+                : t("common.notWorking")}
             </option>
           ))}
         </select>
@@ -337,7 +344,7 @@ function NewTaskForm({
         disabled={pending}
         className="btn btn-primary"
       >
-        {pending ? "Adding…" : "Add to my week"}
+        {pending ? t("common.adding") : t("plan.addToMyWeek")}
       </button>
 
       {state.error && (
@@ -358,6 +365,7 @@ function Cell({
   onClick: () => void;
   label: string;
 }) {
+  const { t } = useT();
   const base =
     "mx-auto my-1 flex h-6 w-9 items-center justify-center rounded border text-[12px]";
 
@@ -368,7 +376,7 @@ function Cell({
   if (cell.state === "locked") {
     return (
       <span
-        title="Already started — plan it from My day"
+        title={t("myDay.alreadyStarted")}
         className={`${base} border-run bg-run-wash text-run`}
       >
         ✓
@@ -379,7 +387,7 @@ function Cell({
   if (cell.state === "theirs") {
     return (
       <span
-        title={`${cell.holder} has this one`}
+        title={`${cell.holder} — ${t("plan.someoneElse")}`}
         className={`${base} border-line-strong bg-surface-2 text-[10px] text-faint`}
       >
         {(cell.holder ?? "?").slice(0, 3)}
@@ -394,13 +402,13 @@ function Cell({
       type="button"
       onClick={onClick}
       aria-pressed={mine}
-      aria-label={`${mine ? "Give back" : "Take"} ${label} on ${cell.date}`}
+      aria-label={`${mine ? t("plan.noDays") : t("plan.allDays")} · ${label} · ${cell.date}`}
       title={
         mine
-          ? "Yours — click to give it back"
+          ? t("plan.yours")
           : cell.state === "free"
-            ? "Needed this day, nobody has it — click to take it"
-            : "Click to add it to this day"
+            ? t("plan.freeToTake")
+            : t("plan.newTask")
       }
       className={
         mine

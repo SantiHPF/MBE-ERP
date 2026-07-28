@@ -4,11 +4,13 @@ import { prisma } from "@/lib/db";
 import { dateKey, formatClock } from "@/lib/time";
 import { isEffective } from "@/lib/absence/effective";
 import { DecisionButtons } from "./decision-buttons";
+import { getT } from "@/lib/i18n/server";
 
 export const dynamic = "force-dynamic";
 
 export default async function HrAbsencesPage() {
   const user = await requireUser();
+  const { t } = await getT();
   if (!canDecideAbsences(user)) redirect("/my-day");
 
   const [pending, decided] = await Promise.all([
@@ -32,21 +34,19 @@ export default async function HrAbsencesPage() {
 
   return (
     <div>
-      <h1 className="page-title">Absence requests</h1>
+      <h1 className="page-title">{t("hr.requestsTitle")}</h1>
       <p className="page-sub mb-5 max-w-[65ch]">
-        Sick days already apply to the schedule when they are reported — nobody
-        is counted as at work while they are off. Your decision records them.
-        Holiday and personal leave do nothing until you approve them.
+        {t("hr.requestsIntro")}
       </p>
 
       <section className="mb-8">
         <h2 className="eyebrow mb-2.5 block">
-          Waiting for you · {pending.length}
+          {t("hr.waiting", pending.length)}
         </h2>
 
         {pending.length === 0 ? (
           <p className="empty">
-            Nothing waiting.
+            {t("hr.nothingWaiting")}
           </p>
         ) : (
           <div className="flex flex-col gap-2.5">
@@ -76,8 +76,8 @@ export default async function HrAbsencesPage() {
                       }`}
                     >
                       {counting
-                        ? "Already off — schedule updated"
-                        : "Not applied yet"}
+                        ? t("hr.alreadyOff")
+                        : t("hr.notApplied")}
                     </span>
                   </header>
 
@@ -113,23 +113,23 @@ export default async function HrAbsencesPage() {
 
       <section>
         <h2 className="eyebrow mb-2.5 block">
-          Decided
+          {t("hr.decided")}
         </h2>
 
         {decided.length === 0 ? (
           <p className="empty">
-            Nothing decided yet.
+            {t("hr.nothingDecided")}
           </p>
         ) : (
           <div className="card overflow-x-auto">
             <table className="w-full min-w-[680px] border-collapse text-[13px]">
               <thead>
                 <tr className="border-b border-line text-left text-[11px] font-semibold tracking-[0.07em] text-faint uppercase">
-                  <th className="px-3.5 py-2">Person</th>
-                  <th className="px-3 py-2">When</th>
-                  <th className="px-3 py-2">Type</th>
-                  <th className="px-3 py-2">Decision</th>
-                  <th className="px-3.5 py-2">By</th>
+                  <th className="px-3.5 py-2">{t("common.person")}</th>
+                  <th className="px-3 py-2">{t("hr.when")}</th>
+                  <th className="px-3 py-2">{t("hr.type")}</th>
+                  <th className="px-3 py-2">{t("hr.decision")}</th>
+                  <th className="px-3.5 py-2">{t("hr.by")}</th>
                 </tr>
               </thead>
               <tbody>

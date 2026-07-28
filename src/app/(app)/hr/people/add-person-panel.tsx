@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { NewPersonForm } from "./new-person-form";
+import { useT } from "@/lib/i18n/client";
 
 /**
  * The add-person form is full width rather than a sidebar: a weekly timetable
@@ -13,6 +14,7 @@ export function AddPersonPanel({
 }: {
   departments: { id: string; name: string }[];
 }) {
+  const { t } = useT();
   const [open, setOpen] = useState(false);
 
   if (!open) {
@@ -22,7 +24,7 @@ export function AddPersonPanel({
         onClick={() => setOpen(true)}
         className="btn btn-primary"
       >
-        + Add someone
+        {t("people.addSomeone")}
       </button>
     );
   }
@@ -30,9 +32,9 @@ export function AddPersonPanel({
   return (
     <section className="card mb-5 w-full">
       <header className="card-head">
-        <span className="eyebrow">Add someone</span>
+        <span className="eyebrow">{t("people.addSomeoneTitle")}</span>
         <button type="button" onClick={() => setOpen(false)} className="btn btn-sm">
-          Close
+          {t("common.close")}
         </button>
       </header>
       <div className="card-body">

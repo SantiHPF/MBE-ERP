@@ -4,6 +4,7 @@ import { prisma } from "@/lib/db";
 import { getTeamWeek, weekStart } from "@/lib/team/week";
 import { addDays, dateKey, formatDuration } from "@/lib/time";
 import { WeekGrid } from "./week-grid";
+import { getT } from "@/lib/i18n/server";
 
 export const dynamic = "force-dynamic";
 
@@ -13,6 +14,7 @@ export default async function TeamPage({
   searchParams: Promise<{ week?: string; dept?: string }>;
 }) {
   const user = await requireRole("MANAGER");
+  const { t } = await getT();
   const params = await searchParams;
 
   // Admins can look at any department; managers see their own.
@@ -42,16 +44,22 @@ export default async function TeamPage({
       <div className="mb-4 flex flex-wrap items-end justify-between gap-4">
         <div>
           <h1 className="page-title">
-            {week.departmentName} — week of{" "}
-            {monday.toLocaleDateString("en-GB", {
-              day: "numeric",
-              month: "long",
-              timeZone: "UTC",
-            })}
+            {t(
+              "team.weekOf",
+              week.departmentName,
+              monday.toLocaleDateString("en-GB", {
+                day: "numeric",
+                month: "long",
+                timeZone: "UTC",
+              }),
+            )}
           </h1>
           <p className="page-sub num">
-            {formatDuration(totalBooked)} booked of{" "}
-            {formatDuration(totalAvailable)} available
+            {t(
+              "team.bookedOf",
+              formatDuration(totalBooked),
+              formatDuration(totalAvailable),
+            )}
           </p>
         </div>
 
@@ -77,19 +85,19 @@ export default async function TeamPage({
             href={href(prev)}
             className="btn btn-sm"
           >
-            ← Previous
+            {t("common.previous")}
           </Link>
           <Link
             href={href(thisWeek)}
             className="btn btn-sm"
           >
-            This week
+            {t("common.thisWeek")}
           </Link>
           <Link
             href={href(next)}
             className="btn btn-sm"
           >
-            Next →
+            {t("common.next")}
           </Link>
         </div>
       </div>
@@ -98,18 +106,18 @@ export default async function TeamPage({
         <div className="notice notice-bad mb-4 flex items-center gap-3 !text-ink">
           <span>
             <b className="text-stall">
-              {week.orphanCount} {week.orphanCount === 1 ? "task needs" : "tasks need"}{" "}
-              a decision.
+              {week.orphanCount === 1
+                ? t("team.needDecisionOne", week.orphanCount)
+                : t("team.needDecision", week.orphanCount)}
             </b>{" "}
-            Somebody&rsquo;s absence left them without an owner. Nothing was
-            moved automatically.
+            {t("team.absenceLeft")}
           </span>
           <span className="flex-1" />
           <Link
             href="/triage"
             className="shrink-0 rounded border border-stall px-2.5 py-1 font-medium text-stall hover:bg-surface"
           >
-            Open triage
+            {t("team.openTriage")}
           </Link>
         </div>
       )}

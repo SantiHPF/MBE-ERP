@@ -3,11 +3,13 @@ import { getTriageQueue } from "@/lib/triage/queue";
 import { prisma } from "@/lib/db";
 import { formatClock } from "@/lib/time";
 import { OrphanCard } from "./orphan-card";
+import { getT } from "@/lib/i18n/server";
 
 export const dynamic = "force-dynamic";
 
 export default async function TriagePage() {
   const user = await requireRole("MANAGER");
+  const { t } = await getT();
   const [queue, paused, unassigned] = await Promise.all([
     getTriageQueue(user.departmentId),
     prisma.task.findMany({
@@ -26,20 +28,19 @@ export default async function TriagePage() {
 
   return (
     <div>
-      <h1 className="page-title">Triage</h1>
+      <h1 className="page-title">{t("triage.title")}</h1>
       <p className="page-sub mb-5">
-        Work that needs a decision. Nothing here has been moved automatically.
+        {t("triage.intro")}
       </p>
 
       <section className="mb-8">
         <h2 className="eyebrow mb-2.5 block">
-          Orphaned by an absence · {queue.length}
+          {t("triage.orphaned", queue.length)}
         </h2>
 
         {queue.length === 0 ? (
           <p className="empty">
-            Nothing orphaned. When somebody is marked away, the work they were
-            due to do appears here.
+            {t("triage.nothingOrphaned")}
           </p>
         ) : (
           <div className="flex flex-col gap-2.5">
@@ -52,12 +53,12 @@ export default async function TriagePage() {
 
       <section className="mb-8">
         <h2 className="eyebrow mb-2.5 block">
-          Stalled right now · {paused.length}
+          {t("triage.stalled", paused.length)}
         </h2>
 
         {paused.length === 0 ? (
           <p className="empty">
-            Nothing is paused.
+            {t("triage.nothingPaused")}
           </p>
         ) : (
           <ul className="flex flex-col gap-2">
@@ -76,9 +77,12 @@ export default async function TriagePage() {
                     <span className="flex-1" />
                     {open && (
                       <span className="num text-[11px] text-muted">
-                        since {formatClock(
-                          open.pausedAt.getUTCHours() * 60 +
-                            open.pausedAt.getUTCMinutes(),
+                        {t(
+                          "triage.since",
+                          formatClock(
+                            open.pausedAt.getUTCHours() * 60 +
+                              open.pausedAt.getUTCMinutes(),
+                          ),
                         )}
                       </span>
                     )}
@@ -101,12 +105,13 @@ export default async function TriagePage() {
       {unassigned > 0 && (
         <section>
           <h2 className="eyebrow mb-2.5 block">
-            Nobody had room · {unassigned}
+            {t("triage.nobodyHadRoom", unassigned)}
           </h2>
           <p className="rounded border border-line bg-surface px-3.5 py-2.5 text-[13px] text-muted">
-            {unassigned} {unassigned === 1 ? "task" : "tasks"} could not be
-            placed in the last scheduling run — the department was full.
-            Reducing scope or extending the deadline is the usual fix.
+            {t(
+              "triage.nobodyHadRoomText",
+              `${unassigned} ${unassigned === 1 ? t("common.task") : t("common.tasks")}`,
+            )}
           </p>
         </section>
       )}

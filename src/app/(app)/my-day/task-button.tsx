@@ -278,7 +278,7 @@ function Counter({ task }: { task: DayTask }) {
           <input type="hidden" name="delta" value="-1" />
           <button
             type="submit"
-            aria-label="One fewer"
+            aria-label={t("myDay.oneFewer")}
             disabled={task.doneCount === 0}
             className="btn btn-sm px-1.5 py-0 leading-5 disabled:opacity-30"
           >
@@ -293,7 +293,7 @@ function Counter({ task }: { task: DayTask }) {
           <input type="hidden" name="delta" value="1" />
           <button
             type="submit"
-            aria-label="One more done"
+            aria-label={t("myDay.oneMore")}
             className="btn btn-sm px-1.5 py-0 leading-5"
           >
             +

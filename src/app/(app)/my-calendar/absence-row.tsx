@@ -6,15 +6,11 @@ import {
   updateAbsence,
   type AbsenceState,
 } from "@/lib/absence/actions";
+import { useT } from "@/lib/i18n/client";
 
 const initial: AbsenceState = {};
 
-const CATEGORIES = [
-  { id: "SICK", label: "Sick" },
-  { id: "HOLIDAY", label: "Holiday" },
-  { id: "PERSONAL", label: "Personal" },
-  { id: "OTHER", label: "Other" },
-] as const;
+const CATEGORY_IDS = ["SICK", "HOLIDAY", "PERSONAL", "OTHER"] as const;
 
 export type AbsenceRecord = {
   id: string;
@@ -33,6 +29,7 @@ export type AbsenceRecord = {
 };
 
 export function AbsenceRow({ absence }: { absence: AbsenceRecord }) {
+  const { t } = useT();
   const [editing, setEditing] = useState(false);
   const [scope, setScope] = useState(absence.scope);
   const [state, save, saving] = useActionState(updateAbsence, initial);
@@ -84,7 +81,7 @@ export function AbsenceRow({ absence }: { absence: AbsenceRecord }) {
                 onClick={() => setEditing(true)}
                 className="btn btn-sm"
               >
-                Change
+                {t("common.change")}
               </button>
               {confirming ? (
                 <form action={cancel} className="flex items-center gap-1">
@@ -94,14 +91,14 @@ export function AbsenceRow({ absence }: { absence: AbsenceRecord }) {
                     disabled={cancelling}
                     className="rounded border border-stall bg-stall px-2 py-0.5 text-[11px] font-medium text-white disabled:opacity-50"
                   >
-                    {cancelling ? "Removing…" : "Yes, remove"}
+                    {cancelling ? t("calendar.removing") : t("calendar.yesRemove")}
                   </button>
                   <button
                     type="button"
                     onClick={() => setConfirming(false)}
                     className="rounded border border-line-strong px-2 py-0.5 text-[11px]"
                   >
-                    Keep
+                    {t("calendar.keep")}
                   </button>
                 </form>
               ) : (
@@ -110,20 +107,20 @@ export function AbsenceRow({ absence }: { absence: AbsenceRecord }) {
                   onClick={() => setConfirming(true)}
                   className="rounded border border-line-strong px-2 py-0.5 text-[11px] hover:border-stall hover:text-stall"
                 >
-                  Remove
+                  {t("common.remove")}
                 </button>
               )}
             </>
           ) : (
             <span className="text-[11px] text-muted">
-              HR decided this — ask them to change it
+              {t("calendar.hrDecided")}
             </span>
           )}
         </div>
 
         {absence.status === "REJECTED" && absence.decisionNote && (
           <p className="mt-1 text-xs text-stall">
-            HR said: {absence.decisionNote}
+            {t("calendar.hrSaid", absence.decisionNote)}
           </p>
         )}
         {error && (
@@ -145,19 +142,19 @@ export function AbsenceRow({ absence }: { absence: AbsenceRecord }) {
         <input type="hidden" name="scope" value={scope} />
 
         <div className="flex flex-wrap gap-1.5">
-          {CATEGORIES.map((c) => (
+          {CATEGORY_IDS.map((id) => (
             <label
-              key={c.id}
+              key={id}
               className="cursor-pointer rounded-full border border-line-strong px-3 py-1 text-xs text-muted has-checked:border-accent has-checked:bg-accent has-checked:font-medium has-checked:text-accent-ink"
             >
               <input
                 type="radio"
                 name="category"
-                value={c.id}
-                defaultChecked={absence.category === c.id}
+                value={id}
+                defaultChecked={absence.category === id}
                 className="sr-only"
               />
-              {c.label}
+              {t(`calendar.categories.${id}`)}
             </label>
           ))}
         </div>
@@ -165,7 +162,7 @@ export function AbsenceRow({ absence }: { absence: AbsenceRecord }) {
         <div className="flex flex-wrap items-end gap-2">
           <label className="text-[11px]">
             <span className="field-label">
-              From
+              {t("common.from")}
             </span>
             <input
               type="date"
@@ -177,7 +174,7 @@ export function AbsenceRow({ absence }: { absence: AbsenceRecord }) {
           </label>
           <label className="text-[11px]">
             <span className="field-label">
-              To
+              {t("common.to")}
             </span>
             <input
               type="date"
@@ -201,7 +198,7 @@ export function AbsenceRow({ absence }: { absence: AbsenceRecord }) {
                     : "rounded border border-line-strong px-2.5 py-1.5 text-xs text-muted"
                 }
               >
-                {s === "FULL_DAY" ? "Whole day" : "Part of the day"}
+                {s === "FULL_DAY" ? t("calendar.wholeDay") : t("calendar.partOfDay")}
               </button>
             ))}
           </div>
@@ -211,7 +208,7 @@ export function AbsenceRow({ absence }: { absence: AbsenceRecord }) {
           <div className="flex flex-wrap items-end gap-2">
             <label className="text-[11px]">
               <span className="field-label">
-                Away from
+                {t("calendar.awayFrom")}
               </span>
               <input
                 type="time"
@@ -222,7 +219,7 @@ export function AbsenceRow({ absence }: { absence: AbsenceRecord }) {
             </label>
             <label className="text-[11px]">
               <span className="field-label">
-                Back at
+                {t("calendar.backAt")}
               </span>
               <input
                 type="time"
@@ -239,13 +236,12 @@ export function AbsenceRow({ absence }: { absence: AbsenceRecord }) {
           name="note"
           defaultValue={absence.note ?? ""}
           maxLength={500}
-          placeholder="Anything useful to add (optional)"
+          placeholder={t("calendar.addNote")}
           className={field}
         />
 
         <p className="text-[11.5px] text-muted">
-          Changing the dates sends it back to HR — what they approved is no
-          longer what is on record.
+          {t("calendar.changingResets")}
         </p>
 
         {error && (
@@ -260,14 +256,14 @@ export function AbsenceRow({ absence }: { absence: AbsenceRecord }) {
             disabled={saving}
             className="btn btn-primary"
           >
-            {saving ? "Saving…" : "Save changes"}
+            {saving ? t("common.saving") : t("catalogue.saveChanges")}
           </button>
           <button
             type="button"
             onClick={() => setEditing(false)}
             className="btn"
           >
-            Cancel
+            {t("common.cancel")}
           </button>
         </div>
       </form>

@@ -7,6 +7,7 @@ import {
   setCatalogueActive,
   type CatalogueState,
 } from "@/lib/catalogue/actions";
+import { useT } from "@/lib/i18n/client";
 
 const initial: CatalogueState = {};
 
@@ -54,6 +55,7 @@ export function CatalogueForm({
   onDone: (s: CatalogueState) => void;
   onCancel: () => void;
 }) {
+  const { t } = useT();
   const [state, submit, pending] = useActionState(
     async (p: CatalogueState, f: FormData) => {
       const r = await saveCatalogueEntry(p, f);
@@ -98,7 +100,7 @@ export function CatalogueForm({
       {/* ------------------------------------------------- what the task is */}
       <div className="grid gap-2 sm:grid-cols-[minmax(0,2fr)_100px_minmax(0,1fr)]">
         <label className="text-[11px]">
-          <span className={label}>Task name</span>
+          <span className={label}>{t("catalogue.taskName")}</span>
           <input
             name="name"
             defaultValue={entry?.name}
@@ -108,7 +110,7 @@ export function CatalogueForm({
           />
         </label>
         <label className="text-[11px]">
-          <span className={label}>Minutes</span>
+          <span className={label}>{t("common.minutes")}</span>
           <input
             type="number"
             name="estimatedMinutes"
@@ -121,7 +123,7 @@ export function CatalogueForm({
           />
         </label>
         <label className="text-[11px]">
-          <span className={label}>Category (optional)</span>
+          <span className={label}>{t("catalogue.category")}</span>
           <input
             name="category"
             defaultValue={entry?.category ?? ""}
@@ -134,7 +136,7 @@ export function CatalogueForm({
       {/* ------------------------------------------------------ how it works */}
       <div className="grid gap-2 sm:grid-cols-2">
         <label className="text-[11px]">
-          <span className={label}>Warnings (shown while doing it)</span>
+          <span className={label}>{t("catalogue.warnings")}</span>
           <input
             name="notes"
             defaultValue={entry?.notes ?? ""}
@@ -143,7 +145,7 @@ export function CatalogueForm({
           />
         </label>
         <label className="text-[11px]">
-          <span className={label}>Where the procedure is</span>
+          <span className={label}>{t("catalogue.procedure")}</span>
           <input
             name="instructions"
             defaultValue={entry?.instructions ?? ""}
@@ -159,7 +161,7 @@ export function CatalogueForm({
           name="isMeeting"
           defaultChecked={entry?.isMeeting}
         />
-        This is a meeting — starting it opens the notes pane
+        {t("catalogue.isMeeting")}
       </label>
 
       <label className="flex items-center gap-2 text-[12.5px]">
@@ -168,21 +170,21 @@ export function CatalogueForm({
           name="repeatable"
           defaultChecked={entry?.repeatable}
         />
-        The estimate is for one go — people usually do several
-        <span className="text-muted">(e.g. a candidate call)</span>
+        {t("catalogue.isRepeatable")}{" "}
+        <span className="text-muted">{t("catalogue.repeatableEg")}</span>
       </label>
 
       {/* --------------------------------------------------- how hard it pushes */}
       <fieldset className="rounded border border-line bg-surface-2 p-3">
         <legend className="px-1 text-[11px] font-semibold tracking-[0.07em] text-faint uppercase">
-          How important is it?
+          {t("catalogue.importance")}
         </legend>
         <div className="flex flex-wrap gap-1.5">
           {(
             [
-              ["MUST", "Must be done", "First claim on the day. Assigned even when everyone is full — the day then shows as over."],
-              ["NORMAL", "Normal", "Scheduled when there is room."],
-              ["SPARE_TIME", "Only if there's time", "Backlog work. Fills a quiet day once everything else is placed."],
+              ["MUST", t("catalogue.must"), t("catalogue.mustHint")],
+              ["NORMAL", t("catalogue.normal"), t("catalogue.normalHint")],
+              ["SPARE_TIME", t("catalogue.spare"), t("catalogue.spareHint")],
             ] as const
           ).map(([id, text, why]) => (
             <button
@@ -206,25 +208,25 @@ export function CatalogueForm({
         <input type="hidden" name="priority" value={priority} />
         <p className="mt-1.5 text-[11.5px] text-muted">
           {priority === "MUST"
-            ? "It will be assigned to somebody every time it comes round, even if that puts them over their hours."
+            ? t("catalogue.mustHint")
             : priority === "SPARE_TIME"
-              ? "It only appears when someone still has free hours after everything else."
-              : "Scheduled when there is room, dropped to the manager's queue when there is not."}
+              ? t("catalogue.spareHint")
+              : t("catalogue.normalHint")}
         </p>
       </fieldset>
 
       {/* --------------------------------------------------------- when */}
       <fieldset className="rounded border border-line bg-surface-2 p-3">
         <legend className="px-1 text-[11px] font-semibold tracking-[0.07em] text-faint uppercase">
-          When does it happen?
+          {t("catalogue.whenHappens")}
         </legend>
 
         <div className="mb-2.5 flex flex-wrap gap-1.5">
           {(
             [
-              ["NONE", "On demand"],
-              ["WEEKLY", "Certain weekdays"],
-              ["MONTHLY", "Monthly"],
+              ["NONE", t("catalogue.onDemand")],
+              ["WEEKLY", t("catalogue.certainWeekdays")],
+              ["MONTHLY", t("catalogue.monthly")],
             ] as const
           ).map(([id, text]) => (
             <button
@@ -246,8 +248,7 @@ export function CatalogueForm({
 
         {freq === "NONE" && (
           <p className="text-[12px] text-muted">
-            It stays in the catalogue and can be picked on the plan board, but
-            it is never scheduled on its own.
+            {t("catalogue.onDemandHint")}
           </p>
         )}
 
@@ -281,7 +282,7 @@ export function CatalogueForm({
                 onClick={() => setDays([1, 2, 3, 4, 5])}
                 className="ml-1 rounded border border-dashed border-line-strong px-2.5 py-1 text-xs text-muted hover:border-accent hover:text-accent"
               >
-                Every weekday
+                {t("catalogue.everyWeekday")}
               </button>
             </div>
             {days.map((d) => (
@@ -289,7 +290,7 @@ export function CatalogueForm({
             ))}
             {days.length === 0 && (
               <p className="mt-1.5 text-[11.5px] text-pause">
-                Pick at least one day.
+                {t("catalogue.pickOneDay")}
               </p>
             )}
           </>
@@ -300,8 +301,8 @@ export function CatalogueForm({
             <div className="flex flex-wrap gap-1.5">
               {(
                 [
-                  ["NTH_WEEKDAY", "A particular weekday"],
-                  ["DAY_OF_MONTH", "A date each month"],
+                  ["NTH_WEEKDAY", t("catalogue.particularWeekday")],
+                  ["DAY_OF_MONTH", t("catalogue.dateEachMonth")],
                 ] as const
               ).map(([id, text]) => (
                 <button
@@ -323,7 +324,7 @@ export function CatalogueForm({
 
             {monthlyMode === "NTH_WEEKDAY" ? (
               <div className="flex flex-wrap items-center gap-1.5 text-[12.5px]">
-                <span className="text-muted">The</span>
+                <span className="text-muted">{t("catalogue.theNth")}</span>
                 <select
                   name="monthlyNth"
                   defaultValue={String(entry?.rule?.monthlyNth ?? -1)}
@@ -346,11 +347,11 @@ export function CatalogueForm({
                     </option>
                   ))}
                 </select>
-                <span className="text-muted">of each month</span>
+                <span className="text-muted">{t("catalogue.ofEachMonth")}</span>
               </div>
             ) : (
               <div className="flex flex-wrap items-center gap-1.5 text-[12.5px]">
-                <span className="text-muted">Day</span>
+                <span className="text-muted">{t("catalogue.dayOf")}</span>
                 <input
                   type="number"
                   name="monthlyDay"
@@ -360,7 +361,7 @@ export function CatalogueForm({
                   className="num w-20 rounded border border-line-strong bg-surface px-2 py-1 text-[13px]"
                 />
                 <span className="text-muted">
-                  of each month — months too short simply skip it
+                  {t("catalogue.shortMonthsSkip")}
                 </span>
               </div>
             )}
@@ -375,7 +376,7 @@ export function CatalogueForm({
                 checked={atTime}
                 onChange={(e) => setAtTime(e.target.checked)}
               />
-              At a fixed time
+              {t("catalogue.atFixedTime")}
             </label>
             {atTime ? (
               <input
@@ -390,14 +391,14 @@ export function CatalogueForm({
               />
             ) : (
               <span className="text-[11.5px] text-muted">
-                Otherwise it is fitted into free time on the day.
+                {t("catalogue.otherwiseFitted")}
               </span>
             )}
 
             <span className="flex-1" />
 
             <label className="flex items-center gap-1.5 text-[12.5px]">
-              <span className="text-muted">Times per day</span>
+              <span className="text-muted">{t("catalogue.timesPerDay")}</span>
               <input
                 type="number"
                 name="instancesPerOccurrence"
@@ -423,14 +424,18 @@ export function CatalogueForm({
           disabled={pending || (freq === "WEEKLY" && days.length === 0)}
           className="btn btn-primary"
         >
-          {pending ? "Saving…" : entry ? "Save changes" : "Add to catalogue"}
+          {pending
+            ? t("common.saving")
+            : entry
+              ? t("catalogue.saveChanges")
+              : t("catalogue.addToCatalogue")}
         </button>
         <button
           type="button"
           onClick={onCancel}
           className="btn"
         >
-          Cancel
+          {t("common.cancel")}
         </button>
 
         {entry && (
@@ -446,7 +451,7 @@ export function CatalogueForm({
                   : "border-accent text-accent"
               }`}
             >
-              {entry.active ? "Retire" : "Bring back"}
+              {entry.active ? t("catalogue.retire") : t("catalogue.bringBack")}
             </button>
           </>
         )}

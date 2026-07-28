@@ -3,6 +3,7 @@ import { requireUser } from "@/lib/auth/guards";
 import { defaultPlanWeek, getPlanWeek, mondayOf } from "@/lib/plan/week";
 import { addDays, dateKey, formatDuration } from "@/lib/time";
 import { PlanBoard } from "./plan-board";
+import { getT } from "@/lib/i18n/server";
 
 export const dynamic = "force-dynamic";
 
@@ -12,6 +13,7 @@ export default async function PlanPage({
   searchParams: Promise<{ week?: string }>;
 }) {
   const user = await requireUser();
+  const { t } = await getT();
   const params = await searchParams;
 
   const anchor = params.week
@@ -28,15 +30,17 @@ export default async function PlanPage({
       <div className="mb-4 flex flex-wrap items-end justify-between gap-4">
         <div>
           <h1 className="page-title">
-            Plan week of{" "}
-            {monday.toLocaleDateString("en-GB", {
-              day: "numeric",
-              month: "long",
-              timeZone: "UTC",
-            })}
+            {t(
+              "plan.title",
+              monday.toLocaleDateString("en-GB", {
+                day: "numeric",
+                month: "long",
+                timeZone: "UTC",
+              }),
+            )}
             {week.isCurrentWeek && (
               <span className="ml-2 text-[13px] font-normal text-pause">
-                this week
+                {t("plan.thisWeekTag")}
               </span>
             )}
           </h1>
@@ -44,23 +48,31 @@ export default async function PlanPage({
             {spare >= 0 ? (
               <>
                 <span className="font-semibold">
-                  {formatDuration(spare)} unassigned
+                  {t("plan.unassigned", formatDuration(spare))}
                 </span>
                 <span className="text-muted">
                   {" "}
-                  · {formatDuration(week.totalClaimed)} taken of{" "}
-                  {formatDuration(week.totalCapacity)}
+                  ·{" "}
+                  {t(
+                    "plan.takenOf",
+                    formatDuration(week.totalClaimed),
+                    formatDuration(week.totalCapacity),
+                  )}
                 </span>
               </>
             ) : (
               <>
                 <span className="font-semibold text-stall">
-                  {formatDuration(-spare)} over capacity
+                  {t("plan.overCapacity", formatDuration(-spare))}
                 </span>
                 <span className="text-muted">
                   {" "}
-                  · {formatDuration(week.totalClaimed)} taken of{" "}
-                  {formatDuration(week.totalCapacity)}
+                  ·{" "}
+                  {t(
+                    "plan.takenOf",
+                    formatDuration(week.totalClaimed),
+                    formatDuration(week.totalCapacity),
+                  )}
                 </span>
               </>
             )}
@@ -72,25 +84,25 @@ export default async function PlanPage({
             href={`/plan?week=${dateKey(addDays(monday, -7))}`}
             className="btn btn-sm"
           >
-            ← Previous
+            {t("common.previous")}
           </Link>
           <Link
             href={`/plan?week=${dateKey(mondayOf(new Date()))}`}
             className="btn btn-sm"
           >
-            This week
+            {t("common.thisWeek")}
           </Link>
           <Link
             href={`/plan?week=${dateKey(defaultPlanWeek())}`}
             className="rounded border border-accent bg-accent-wash px-2.5 py-1 font-medium text-accent"
           >
-            Next week
+            {t("plan.nextWeek")}
           </Link>
           <Link
             href={`/plan?week=${dateKey(addDays(monday, 7))}`}
             className="btn btn-sm"
           >
-            Forward →
+            {t("plan.forward")}
           </Link>
         </div>
       </div>

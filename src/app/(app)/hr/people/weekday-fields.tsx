@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useT } from "@/lib/i18n/client";
 
 const DAYS = [
   { weekday: 1, label: "Monday", short: "Mon" },
@@ -29,6 +30,7 @@ type Existing = {
  * table layout.
  */
 export function WeekdayFields({ existing = [] }: { existing?: Existing[] }) {
+  const { t } = useT();
   const byWeekday = new Map(existing.map((e) => [e.weekday, e]));
 
   const [checked, setChecked] = useState<Record<number, boolean>>(() =>
@@ -46,11 +48,11 @@ export function WeekdayFields({ existing = [] }: { existing?: Existing[] }) {
     <div className="flex flex-col gap-1.5">
       {/* Column headings only make sense once the rows line up. */}
       <div className="hidden gap-2 sm:grid sm:grid-cols-[92px_repeat(4,minmax(0,1fr))]">
-        <span className="eyebrow">Day</span>
-        <span className="eyebrow">Start</span>
-        <span className="eyebrow">Finish</span>
-        <span className="eyebrow">Break</span>
-        <span className="eyebrow">Break at</span>
+        <span className="eyebrow">{t("common.day")}</span>
+        <span className="eyebrow">{t("people.start")}</span>
+        <span className="eyebrow">{t("people.finish")}</span>
+        <span className="eyebrow">{t("people.breakLabel")}</span>
+        <span className="eyebrow">{t("people.breakAt")}</span>
       </div>
 
       {DAYS.map((day) => {
@@ -79,7 +81,7 @@ export function WeekdayFields({ existing = [] }: { existing?: Existing[] }) {
             </label>
 
             <label className="min-w-0">
-              <span className="eyebrow mb-0.5 block sm:hidden">Start</span>
+              <span className="eyebrow mb-0.5 block sm:hidden">{t("people.start")}</span>
               <input
                 type="time"
                 name={`start-${day.weekday}`}
@@ -89,7 +91,7 @@ export function WeekdayFields({ existing = [] }: { existing?: Existing[] }) {
               />
             </label>
             <label className="min-w-0">
-              <span className="eyebrow mb-0.5 block sm:hidden">Finish</span>
+              <span className="eyebrow mb-0.5 block sm:hidden">{t("people.finish")}</span>
               <input
                 type="time"
                 name={`end-${day.weekday}`}
@@ -99,7 +101,7 @@ export function WeekdayFields({ existing = [] }: { existing?: Existing[] }) {
               />
             </label>
             <label className="min-w-0">
-              <span className="eyebrow mb-0.5 block sm:hidden">Break</span>
+              <span className="eyebrow mb-0.5 block sm:hidden">{t("people.breakLabel")}</span>
               <input
                 type="number"
                 name={`break-${day.weekday}`}
@@ -112,7 +114,7 @@ export function WeekdayFields({ existing = [] }: { existing?: Existing[] }) {
               />
             </label>
             <label className="min-w-0">
-              <span className="eyebrow mb-0.5 block sm:hidden">Break at</span>
+              <span className="eyebrow mb-0.5 block sm:hidden">{t("people.breakAt")}</span>
               <input
                 type="time"
                 name={`breakstart-${day.weekday}`}
@@ -126,9 +128,7 @@ export function WeekdayFields({ existing = [] }: { existing?: Existing[] }) {
       })}
 
       <p className="mt-1 text-[12px] text-muted">
-        Leave &ldquo;break at&rdquo; set and work is scheduled around it,
-        splitting the day. Clear it and the break still costs time but work can
-        go anywhere.
+        {t("people.breakHint")}
       </p>
     </div>
   );

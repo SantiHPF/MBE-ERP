@@ -7,6 +7,7 @@ import { effectiveLabel } from "@/lib/absence/effective";
 import { canDecideAbsences } from "@/lib/auth/guards";
 import { formatClock } from "@/lib/time";
 import { AbsenceRow } from "./absence-row";
+import { getT } from "@/lib/i18n/server";
 import { WeekGrid } from "../team/week-grid";
 import { AbsenceForm } from "./absence-form";
 
@@ -19,6 +20,7 @@ export default async function MyCalendarPage({
 }) {
   const user = await requireUser();
   const params = await searchParams;
+  const { t } = await getT();
 
   const anchor = params.week ? new Date(`${params.week}T00:00:00Z`) : new Date();
   const week = await getTeamWeek(user.departmentId, anchor);
@@ -39,17 +41,22 @@ export default async function MyCalendarPage({
       <div className="mb-4 flex flex-wrap items-end justify-between gap-4">
         <div>
           <h1 className="page-title">
-            My week of{" "}
-            {monday.toLocaleDateString("en-GB", {
-              day: "numeric",
-              month: "long",
-              timeZone: "UTC",
-            })}
+            {t(
+              "calendar.myWeekOf",
+              monday.toLocaleDateString("en-GB", {
+                day: "numeric",
+                month: "long",
+                timeZone: "UTC",
+              }),
+            )}
           </h1>
           {me && (
             <p className="page-sub num">
-              {formatDuration(me.bookedMinutes)} booked of{" "}
-              {formatDuration(me.weeklyMinutes)} available
+              {t(
+                "calendar.bookedOf",
+                formatDuration(me.bookedMinutes),
+                formatDuration(me.weeklyMinutes),
+              )}
             </p>
           )}
         </div>
@@ -59,33 +66,33 @@ export default async function MyCalendarPage({
             href={`/my-calendar?week=${dateKey(addDays(monday, -7))}`}
             className="btn btn-sm"
           >
-            ← Previous
+            {t("common.previous")}
           </Link>
           <Link
             href={`/my-calendar?week=${dateKey(weekStart(new Date()))}`}
             className="btn btn-sm"
           >
-            This week
+            {t("common.thisWeek")}
           </Link>
           <Link
             href={`/my-calendar?week=${dateKey(addDays(monday, 7))}`}
             className="btn btn-sm"
           >
-            Next →
+            {t("common.next")}
           </Link>
         </div>
       </div>
 
-      <WeekGrid week={mine} />
+      <WeekGrid week={mine} size="tall" />
 
       <div className="mt-8 grid gap-5 lg:grid-cols-[minmax(0,1fr)_340px]">
         <section>
           <h2 className="eyebrow mb-2.5 block">
-            Time off on record
+            {t("calendar.timeOffRecord")}
           </h2>
           {upcoming.length === 0 ? (
             <p className="empty">
-              Nothing recorded.
+              {t("calendar.nothingRecorded")}
             </p>
           ) : (
             <ul className="flex flex-col gap-1.5">

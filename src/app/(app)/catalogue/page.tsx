@@ -2,6 +2,7 @@ import { requireRole, hasRole } from "@/lib/auth/guards";
 import { prisma } from "@/lib/db";
 import { CatalogueList } from "./catalogue-list";
 import { DepartmentPicker } from "./department-picker";
+import { getT } from "@/lib/i18n/server";
 
 export const dynamic = "force-dynamic";
 
@@ -12,6 +13,7 @@ export default async function CataloguePage({
 }) {
   const user = await requireRole("MANAGER");
   const params = await searchParams;
+  const { t } = await getT();
 
   // Any manager can browse every department's catalogue -- knowing what
   // another team does is useful and harmless. Editing is a separate question,
@@ -37,19 +39,21 @@ export default async function CataloguePage({
     orderBy: [{ active: "desc" }, { category: "asc" }, { name: "asc" }],
   });
 
-  const active = templates.filter((t) => t.active);
+  const active = templates.filter((tpl) => tpl.active);
 
   return (
     <div>
       <div className="mb-4 flex flex-wrap items-end justify-between gap-4">
         <div>
           <h1 className="page-title">
-            {department.name} — task catalogue
+            {t("catalogue.title", department.name)}
           </h1>
           <p className="page-sub num">
-            {active.length} active ·{" "}
-            {active.filter((t) => t.recurringRules.length > 0).length} on a
-            schedule
+            {t(
+              "catalogue.summary",
+              active.length,
+              active.filter((x) => x.recurringRules.length > 0).length,
+            )}
           </p>
         </div>
 
@@ -58,27 +62,26 @@ export default async function CataloguePage({
 
       {!canEdit && (
         <p className="notice notice-warn mb-3">
-          You are looking at {department.name}. Only that department&rsquo;s
-          managers can change it.
+          {t("catalogue.readOnly", department.name)}
         </p>
       )}
 
       <CatalogueList
         canEdit={canEdit}
         departmentId={departmentId}
-        entries={templates.map((t) => {
-          const rule = t.recurringRules[0];
+        entries={templates.map((tpl) => {
+          const rule = tpl.recurringRules[0];
           return {
-            id: t.id,
-            name: t.name,
-            category: t.category,
-            estimatedMinutes: t.estimatedMinutes,
-            notes: t.notes,
-            instructions: t.instructions,
-            isMeeting: t.isMeeting,
-            repeatable: t.repeatable,
-            priority: t.priority as "MUST" | "NORMAL" | "SPARE_TIME",
-            active: t.active,
+            id: tpl.id,
+            name: tpl.name,
+            category: tpl.category,
+            estimatedMinutes: tpl.estimatedMinutes,
+            notes: tpl.notes,
+            instructions: tpl.instructions,
+            isMeeting: tpl.isMeeting,
+            repeatable: tpl.repeatable,
+            priority: tpl.priority as "MUST" | "NORMAL" | "SPARE_TIME",
+            active: tpl.active,
             rule: rule
               ? {
                   frequency: rule.frequency as "WEEKLY" | "MONTHLY",

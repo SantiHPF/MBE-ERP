@@ -11,11 +11,13 @@ import {
   startAdHocMeeting,
   type LiveState,
 } from "@/lib/meetings/live";
+import { useT } from "@/lib/i18n/client";
 
 const initial: LiveState = {};
 
 /** Offered when nothing is being minuted: somebody pulled you into a meeting. */
 export function StartMeetingButton() {
+  const { t } = useT();
   const [state, submit, pending] = useActionState(startAdHocMeeting, initial);
   const [open, setOpen] = useState(false);
 
@@ -26,7 +28,7 @@ export function StartMeetingButton() {
         onClick={() => setOpen(true)}
         className="rounded border border-line-strong bg-surface px-3 py-1.5 text-[13px] font-medium hover:border-accent hover:text-accent"
       >
-        I&rsquo;m in a meeting
+        {t("myDay.inAMeeting")}
       </button>
     );
   }
@@ -37,7 +39,7 @@ export function StartMeetingButton() {
         name="title"
         required
         autoFocus
-        placeholder="What is it about?"
+        placeholder={t("myDay.meetingAbout")}
         className="field w-56"
       />
       <button
@@ -45,14 +47,14 @@ export function StartMeetingButton() {
         disabled={pending}
         className="btn btn-primary"
       >
-        {pending ? "Starting…" : "Start"}
+        {pending ? t("meetings.starting") : t("meetings.start")}
       </button>
       <button
         type="button"
         onClick={() => setOpen(false)}
         className="rounded border border-line-strong px-2.5 py-1.5 text-[13px]"
       >
-        Cancel
+        {t("common.cancel")}
       </button>
       {state.error && (
         <p role="alert" className="w-full text-xs text-stall">
@@ -72,6 +74,7 @@ export function MeetingPanel({
   colleagues: { id: string; displayName: string }[];
   today: string;
 }) {
+  const { t } = useT();
   const [notes, setNotes] = useState(meeting.notes);
   const [saved, setSaved] = useState<"idle" | "saving" | "saved">("idle");
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -104,16 +107,16 @@ export function MeetingPanel({
     <section className="mb-5 rounded border border-accent bg-surface shadow-sm">
       <header className="flex flex-wrap items-baseline gap-2 border-b border-line bg-accent-wash px-4 py-2.5">
         <span className="text-[10.5px] font-semibold tracking-[0.1em] text-accent uppercase">
-          In a meeting
+          {t("meetings.inAMeeting")}
         </span>
         <span className="text-sm font-semibold">{meeting.title}</span>
         <span className="flex-1" />
         <span className="text-[11px] text-muted">
           {saved === "saving"
-            ? "saving…"
+            ? t("common.saving")
             : saved === "saved"
-              ? "notes saved"
-              : "notes autosave"}
+              ? t("meetings.notesSaved")
+              : t("meetings.notesAutosave")}
         </span>
       </header>
 
@@ -123,13 +126,13 @@ export function MeetingPanel({
             htmlFor="live-notes"
             className="field-label"
           >
-            Notes
+            {t("meetings.notes")}
           </label>
           <textarea
             id="live-notes"
             value={notes}
             onChange={(e) => setNotes(e.target.value)}
-            placeholder="What is being said…"
+            placeholder={t("meetings.notes")}
             className="field min-h-[220px] resize-y leading-relaxed"
           />
         </div>
@@ -137,7 +140,7 @@ export function MeetingPanel({
         <div className="flex flex-col gap-2.5">
           <div>
             <p className="mb-1.5 text-[11px] font-semibold tracking-[0.07em] text-faint uppercase">
-              Things to do · {meeting.items.length}
+              {t("meetings.thingsToDo")} · {meeting.items.length}
               {total > 0 && (
                 <span className="num ml-1.5 font-normal normal-case">
                   {formatDuration(total)}
@@ -147,7 +150,7 @@ export function MeetingPanel({
 
             {meeting.items.length === 0 ? (
               <p className="rounded border border-dashed border-line px-3 py-2 text-[12px] text-muted">
-                Nothing captured yet.
+                {t("meetings.nothingCaptured")}
               </p>
             ) : (
               <ul className="flex flex-col gap-1">
@@ -165,7 +168,7 @@ export function MeetingPanel({
                         {item.pinnedTo ? (
                           <span className="text-accent"> · {item.pinnedTo}</span>
                         ) : (
-                          <span> · anyone</span>
+                          <span> · {t("meetings.anyone")}</span>
                         )}
                       </p>
                     </div>
@@ -190,7 +193,7 @@ export function MeetingPanel({
             <input
               name="title"
               required
-              placeholder="Something that needs doing"
+              placeholder={t("meetings.somethingNeeded")}
               className="rounded border border-line-strong bg-surface px-2 py-1.5 text-[12.5px]"
             />
             <div className="grid grid-cols-2 gap-1.5">
@@ -201,7 +204,7 @@ export function MeetingPanel({
                 min={1}
                 max={720}
                 step={1}
-                title="Minutes"
+                title={t("common.minutes")}
                 className="num rounded border border-line-strong bg-surface px-2 py-1.5 text-[12.5px]"
               />
               <input
@@ -217,7 +220,7 @@ export function MeetingPanel({
               defaultValue=""
               className="rounded border border-line-strong bg-surface px-2 py-1.5 text-[12.5px]"
             >
-              <option value="">Anyone — goes to the pool</option>
+              <option value="">{t("meetings.anyonePool")}</option>
               {colleagues.map((c) => (
                 <option key={c.id} value={c.id}>
                   {c.displayName}
@@ -234,7 +237,7 @@ export function MeetingPanel({
               disabled={adding}
               className="rounded border border-line-strong bg-surface px-2 py-1.5 text-[12.5px] font-medium hover:bg-surface-2 disabled:opacity-50"
             >
-              {adding ? "Adding…" : "+ Add"}
+              {adding ? t("common.adding") : t("common.add")}
             </button>
           </form>
 
@@ -246,10 +249,13 @@ export function MeetingPanel({
               className="w-full rounded border border-accent bg-accent px-3 py-2 text-[13px] font-medium text-accent-ink hover:brightness-110 disabled:opacity-50"
             >
               {closing
-                ? "Closing…"
+                ? t("meetings.closing")
                 : meeting.items.length > 0
-                  ? `End meeting · create ${meeting.items.length} ${meeting.items.length === 1 ? "task" : "tasks"}`
-                  : "End meeting"}
+                  ? t(
+                      "meetings.endAndCreate",
+                      `${meeting.items.length} ${meeting.items.length === 1 ? t("common.task") : t("common.tasks")}`,
+                    )
+                  : t("meetings.endMeeting")}
             </button>
             {endState.error && (
               <p role="alert" className="mt-1 text-[11px] text-stall">
@@ -258,7 +264,7 @@ export function MeetingPanel({
             )}
             {!meeting.fromTaskId && (
               <p className="mt-1.5 text-[11px] text-muted">
-                Ending it puts you back on the task you paused.
+                {t("meetings.backOnTask")}
               </p>
             )}
           </form>

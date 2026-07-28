@@ -1,4 +1,5 @@
 import { dateKey, formatDuration } from "@/lib/time";
+import { getT } from "@/lib/i18n/server";
 
 /**
  * The report is not a separate document anybody writes -- it is the meeting
@@ -34,7 +35,8 @@ const STATUS_LABEL: Record<string, { text: string; className: string }> = {
   CANCELLED: { text: "Cancelled", className: "text-muted border-line" },
 };
 
-export function MeetingReport({ meeting }: { meeting: ReportMeeting }) {
+export async function MeetingReport({ meeting }: { meeting: ReportMeeting }) {
+  const { t } = await getT();
   const done = meeting.actionItems.filter(
     (i) => i.task?.status === "DONE",
   ).length;
@@ -43,21 +45,22 @@ export function MeetingReport({ meeting }: { meeting: ReportMeeting }) {
     <div className="flex flex-col gap-5">
       <section className="rounded border border-line bg-surface p-5 shadow-sm">
         <h2 className="mb-2 text-[11px] font-semibold tracking-[0.09em] text-faint uppercase">
-          Present
+          {t("meetings.present")}
         </h2>
         <p className="text-[13.5px]">
           {meeting.attendees.map((a) => a.displayName).join(", ")}
         </p>
         <p className="mt-1 text-xs text-muted">
-          Written up by {meeting.createdBy.displayName}
-          {meeting.finalisedAt && ` · finalised ${dateKey(meeting.finalisedAt)}`}
+          {t("meetings.writtenBy", meeting.createdBy.displayName)}
+          {meeting.finalisedAt &&
+            t("meetings.finalisedOn", dateKey(meeting.finalisedAt))}
         </p>
       </section>
 
       {meeting.notes.trim() && (
         <section className="rounded border border-line bg-surface p-5 shadow-sm">
           <h2 className="eyebrow mb-2.5 block">
-            Notes
+            {t("meetings.notes")}
           </h2>
           <div className="max-w-[65ch] text-[13.5px] leading-relaxed whitespace-pre-wrap">
             {meeting.notes}
@@ -68,10 +71,10 @@ export function MeetingReport({ meeting }: { meeting: ReportMeeting }) {
       <section className="card">
         <header className="flex items-center justify-between border-b border-line px-5 py-3">
           <h2 className="eyebrow">
-            What was agreed
+            {t("meetings.whatWasAgreed")}
           </h2>
           <span className="num text-[11px] text-muted">
-            {done} of {meeting.actionItems.length} done
+            {t("meetings.doneOf", done, meeting.actionItems.length)}
           </span>
         </header>
 
@@ -79,10 +82,10 @@ export function MeetingReport({ meeting }: { meeting: ReportMeeting }) {
           <table className="w-full min-w-[560px] border-collapse text-[13.5px]">
             <thead>
               <tr className="border-b border-line text-left text-[11px] font-semibold tracking-[0.07em] text-faint uppercase">
-                <th className="px-5 py-2">Action</th>
-                <th className="px-3 py-2">Who</th>
-                <th className="px-3 py-2">Due</th>
-                <th className="px-5 py-2">State</th>
+                <th className="px-5 py-2">{t("meetings.actionItems")}</th>
+                <th className="px-3 py-2">{t("meetings.who")}</th>
+                <th className="px-3 py-2">{t("meetings.due")}</th>
+                <th className="px-5 py-2">{t("meetings.state")}</th>
               </tr>
             </thead>
             <tbody>
@@ -106,7 +109,7 @@ export function MeetingReport({ meeting }: { meeting: ReportMeeting }) {
                       </span>
                     </td>
                     <td className="px-3 py-2.5">
-                      {who ?? <span className="text-muted">not yet picked</span>}
+                      {who ?? <span className="text-muted">{t("meetings.notYetPicked")}</span>}
                     </td>
                     <td className="num px-3 py-2.5">{dateKey(item.dueDate)}</td>
                     <td className="px-5 py-2.5">

@@ -3,6 +3,7 @@
 import { useActionState, useEffect } from "react";
 import { createDepartment, createPerson, type PeopleState } from "@/lib/hr/people";
 import { WeekdayFields } from "./weekday-fields";
+import { useT } from "@/lib/i18n/client";
 
 const initial: PeopleState = {};
 
@@ -13,6 +14,7 @@ export function NewPersonForm({
   departments: { id: string; name: string }[];
   onDone?: () => void;
 }) {
+  const { t } = useT();
   const [state, submit, pending] = useActionState(createPerson, initial);
 
   useEffect(() => {
@@ -25,20 +27,20 @@ export function NewPersonForm({
     <form action={submit} className="flex flex-col gap-4">
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <label className="text-[11px]">
-          <span className="field-label">Full name</span>
+          <span className="field-label">{t("people.fullName")}</span>
           <input name="displayName" required className="field" />
         </label>
         <label className="text-[11px]">
-          <span className="field-label">Username</span>
+          <span className="field-label">{t("people.username")}</span>
           <input name="username" required className="field num" />
         </label>
         <label className="text-[11px]">
-          <span className="field-label">First password</span>
+          <span className="field-label">{t("people.firstPassword")}</span>
           <input name="password" required minLength={8} className="field" />
         </label>
         <div className="grid grid-cols-2 gap-2">
           <label className="text-[11px]">
-            <span className="field-label">Starts</span>
+            <span className="field-label">{t("people.starts")}</span>
             <input
               type="date"
               name="startDate"
@@ -48,7 +50,7 @@ export function NewPersonForm({
             />
           </label>
           <label className="text-[11px]">
-            <span className="field-label">Leaves</span>
+            <span className="field-label">{t("people.leaves")}</span>
             <input type="date" name="endDate" className="field num" />
           </label>
         </div>
@@ -56,7 +58,7 @@ export function NewPersonForm({
 
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <label className="text-[11px]">
-          <span className="field-label">Department</span>
+          <span className="field-label">{t("common.department")}</span>
           <select name="departmentId" required className="field">
             {departments.map((d) => (
               <option key={d.id} value={d.id}>
@@ -66,22 +68,21 @@ export function NewPersonForm({
           </select>
         </label>
         <label className="text-[11px]">
-          <span className="field-label">Role</span>
+          <span className="field-label">{t("common.role")}</span>
           <select name="role" defaultValue="WORKER" className="field">
-            <option value="WORKER">Worker</option>
-            <option value="MANAGER">Manager</option>
-            <option value="HR">HR</option>
-            <option value="ADMIN">Admin</option>
+            <option value="WORKER">{t("people.roles.WORKER")}</option>
+            <option value="MANAGER">{t("people.roles.MANAGER")}</option>
+            <option value="HR">{t("people.roles.HR")}</option>
+            <option value="ADMIN">{t("people.roles.ADMIN")}</option>
           </select>
         </label>
         <p className="self-end text-[12px] text-muted lg:col-span-2">
-          Leave the end date blank for an indefinite contract. Their induction
-          interviews are booked from the start date.
+          {t("people.indefiniteHint")}
         </p>
       </div>
 
       <div>
-        <p className="eyebrow mb-2">Working hours</p>
+        <p className="eyebrow mb-2">{t("people.workingHours")}</p>
         <WeekdayFields />
       </div>
 
@@ -96,7 +97,7 @@ export function NewPersonForm({
 
       <div>
         <button type="submit" disabled={pending} className="btn btn-primary">
-          {pending ? "Creating…" : "Create account"}
+          {pending ? t("people.creating") : t("people.createAccount")}
         </button>
       </div>
     </form>
@@ -105,11 +106,12 @@ export function NewPersonForm({
 
 /** Kept separate from adding a person: a rarer and unrelated job. */
 export function NewDepartmentForm() {
+  const { t } = useT();
   const [state, submit, pending] = useActionState(createDepartment, initial);
 
   return (
     <section className="card card-body max-w-md">
-      <h2 className="eyebrow mb-2.5 block">Add a department</h2>
+      <h2 className="eyebrow mb-2.5 block">{t("people.addDepartment")}</h2>
       <form action={submit} className="flex gap-2">
         <input
           name="name"
@@ -118,7 +120,7 @@ export function NewDepartmentForm() {
           className="field flex-1"
         />
         <button type="submit" disabled={pending} className="btn">
-          Add
+          {t("common.add")}
         </button>
       </form>
       {state.error && (

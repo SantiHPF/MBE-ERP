@@ -4,6 +4,7 @@ import { prisma } from "@/lib/db";
 import { dateKey, formatDuration } from "@/lib/time";
 import { LiveMeeting } from "./live-meeting";
 import { MeetingReport } from "./report";
+import { getT } from "@/lib/i18n/server";
 
 export const dynamic = "force-dynamic";
 
@@ -14,6 +15,7 @@ export default async function MeetingPage({
 }) {
   const user = await requireUser();
   const { id } = await params;
+  const { t } = await getT();
 
   const meeting = await prisma.meeting.findUnique({
     where: { id },
@@ -46,7 +48,7 @@ export default async function MeetingPage({
   const header = (
     <div className="mb-5">
       <p className="eyebrow">
-        {meeting.status === "DRAFT" ? "In progress" : "Meeting report"}
+        {meeting.status === "DRAFT" ? t("meetings.inProgress") : t("meetings.report")}
       </p>
       <h1 className="mt-1 text-xl font-semibold tracking-tight text-balance">
         {meeting.title}
@@ -75,8 +77,7 @@ export default async function MeetingPage({
       <>
         {header}
         <p className="empty">
-          This meeting is still being run. The report appears here once it is
-          finalised.
+          {t("meetings.stillRunning")}
         </p>
       </>
     );

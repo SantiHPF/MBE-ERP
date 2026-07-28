@@ -2,10 +2,12 @@
 
 import { useActionState } from "react";
 import { createMeeting, type MeetingState } from "@/lib/meetings/actions";
+import { useT } from "@/lib/i18n/client";
 
 const initial: MeetingState = {};
 
 export function NewMeetingForm() {
+  const { t } = useT();
   const [state, submit, pending] = useActionState(createMeeting, initial);
   const today = new Date().toISOString().slice(0, 10);
 
@@ -13,7 +15,7 @@ export function NewMeetingForm() {
     <form action={submit} className="flex flex-wrap items-end gap-1.5">
       <label className="text-xs">
         <span className="field-label">
-          New meeting
+          {t("meetings.newMeeting")}
         </span>
         <input
           name="title"
@@ -34,7 +36,7 @@ export function NewMeetingForm() {
         disabled={pending}
         className="btn btn-primary"
       >
-        {pending ? "Starting…" : "Start"}
+        {pending ? t("meetings.starting") : t("meetings.start")}
       </button>
       {state.error && (
         <p role="alert" className="w-full text-xs text-stall">

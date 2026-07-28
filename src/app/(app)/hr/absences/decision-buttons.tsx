@@ -7,10 +7,12 @@ import {
   type DecisionState,
 } from "@/lib/hr/absence-decisions";
 import { cancelAbsence } from "@/lib/absence/actions";
+import { useT } from "@/lib/i18n/client";
 
 const initial: DecisionState = {};
 
 export function DecisionButtons({ absenceId }: { absenceId: string }) {
+  const { t } = useT();
   const [approveState, approve, approving] = useActionState(
     approveAbsence,
     initial,
@@ -37,13 +39,13 @@ export function DecisionButtons({ absenceId }: { absenceId: string }) {
       <form action={reject} className="flex flex-col gap-2">
         <input type="hidden" name="absenceId" value={absenceId} />
         <label className="text-[11px] font-semibold tracking-[0.07em] text-faint uppercase">
-          Why are you turning it down?
+          {t("hr.whyTurnDown")}
           <input
             name="note"
             value={note}
             onChange={(e) => setNote(e.target.value)}
             autoFocus
-            placeholder="They will see this"
+            placeholder={t("hr.theyWillSee")}
             className="mt-1 w-full rounded border border-line-strong bg-surface-2 px-2.5 py-1.5 text-[13px] font-normal tracking-normal normal-case"
           />
         </label>
@@ -60,14 +62,14 @@ export function DecisionButtons({ absenceId }: { absenceId: string }) {
             disabled={busy || note.trim().length === 0}
             className="rounded border border-stall bg-stall px-3 py-1.5 text-[13px] font-medium text-white disabled:opacity-45"
           >
-            {rejecting ? "Rejecting…" : "Reject"}
+            {rejecting ? t("hr.rejecting") : t("hr.reject")}
           </button>
           <button
             type="button"
             onClick={() => setShowReject(false)}
             className="btn"
           >
-            Back
+            {t("hr.back")}
           </button>
         </div>
       </form>
@@ -83,7 +85,7 @@ export function DecisionButtons({ absenceId }: { absenceId: string }) {
           disabled={busy}
           className="btn btn-primary"
         >
-          {approving ? "Approving…" : "Approve"}
+          {approving ? t("hr.approving") : t("hr.approve")}
         </button>
       </form>
 
@@ -93,7 +95,7 @@ export function DecisionButtons({ absenceId }: { absenceId: string }) {
         disabled={busy}
         className="rounded border border-line-strong bg-surface px-3 py-1.5 text-[13px] hover:border-stall hover:text-stall disabled:opacity-50"
       >
-        Reject
+        {t("hr.reject")}
       </button>
 
       {/* Withdrawing is not the same as rejecting: it removes a request that
@@ -103,17 +105,19 @@ export function DecisionButtons({ absenceId }: { absenceId: string }) {
         <button
           type="submit"
           disabled={busy}
-          title="Remove the request entirely, as though it was never made"
+          title={t("hr.withdrawTip")}
           className="rounded border border-line px-2.5 py-1.5 text-[13px] text-muted hover:border-stall hover:text-stall disabled:opacity-50"
         >
-          Withdraw
+          {t("hr.withdraw")}
         </button>
       </form>
 
       {approveState.ok && approveState.orphaned ? (
         <span className="text-xs text-muted">
-          {approveState.orphaned} task
-          {approveState.orphaned === 1 ? "" : "s"} sent to their manager.
+          {t(
+            "hr.sentToManager",
+            `${approveState.orphaned} ${approveState.orphaned === 1 ? t("common.task") : t("common.tasks")}`,
+          )}
         </span>
       ) : null}
 
