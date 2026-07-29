@@ -11,8 +11,10 @@ import { useT } from "@/lib/i18n/client";
  */
 export function AddPersonPanel({
   departments,
+  today,
 }: {
   departments: { id: string; name: string }[];
+  today: string;
 }) {
   const { t } = useT();
   const [open, setOpen] = useState(false);
@@ -38,7 +40,11 @@ export function AddPersonPanel({
         </button>
       </header>
       <div className="card-body">
-        <NewPersonForm departments={departments} onDone={() => setOpen(false)} />
+        <NewPersonForm
+          departments={departments}
+          today={today}
+          onDone={() => setOpen(false)}
+        />
       </div>
     </section>
   );

@@ -1,9 +1,11 @@
 import { prisma } from "@/lib/db";
-import { addDays, dateKey, eachDay, toDateOnly } from "@/lib/time";
+import { addDays, dateKey, eachDay, today, toDateOnly } from "@/lib/time";
 import { getAvailabilityForRange } from "./availability-db";
 import { diffAgainstExisting, planRecurringTasks } from "./materialize";
 import { assignDay, type CandidateInput, type TaskInput } from "./assign";
 import { syncOnboarding } from "@/lib/people/onboarding-db";
+import { syncCrmCalls } from "@/lib/crm/sync";
+import { sweepOpenDays } from "@/lib/attendance/attendance-db";
 
 /**
  * The scheduling run: materialize what the rules say should exist, then place
@@ -23,6 +25,12 @@ export type RunSummary = {
   removedStale: number;
   /** Induction interviews created for joiners. */
   onboardingCreated: number;
+  /** Batched CRM call tasks raised for today. */
+  crmCallsCreated: number;
+  /** Past workdays nobody closed, closed by the sweep. */
+  attendanceClosed: number;
+  /** Abandoned timers ended, which stops them counting for ever. */
+  timersClosed: number;
   assigned: number;
   unassigned: number;
   skippedInFlight: number;
@@ -36,7 +44,7 @@ export async function runSchedule(options?: {
   to?: Date;
   departmentId?: string;
 }): Promise<RunSummary> {
-  const from = toDateOnly(options?.from ?? new Date());
+  const from = options?.from ? toDateOnly(options.from) : today();
   const to = toDateOnly(options?.to ?? addDays(from, 13));
   const days = eachDay(from, to);
 
@@ -53,6 +61,15 @@ export async function runSchedule(options?: {
   // Joiners' induction interviews are kept in existence here too, so an
   // indefinite contract never runs out of two-monthly reviews.
   const onboarding = await syncOnboarding();
+
+  // And the CRM's calls: one batched task per CRM per day, holding whoever is
+  // owed a call. Today only -- see syncCrmCalls.
+  const crm = await syncCrmCalls(options?.departmentId);
+
+  // Close yesterday's books before planning tomorrow: workdays nobody ended,
+  // and the abandoned timers that were counting until somebody happened to
+  // start something else.
+  const attendance = await sweepOpenDays();
 
   const planned = planRecurringTasks({ rules, from, to });
 
@@ -108,15 +125,23 @@ export async function runSchedule(options?: {
         priority: t.priority,
         origin: "RECURRING" as const,
         status: "UNASSIGNED" as const,
+        // Stored on the task so re-placing it later still knows where in the
+        // day it belongs, long after this run's plan is gone.
+        anchor: t.anchor,
       })),
     });
   }
 
-  // Fixed windows live on the rule, not the task, so keep a lookup for later.
+  // Fixed windows and routine grouping live on the rule, not the task, so keep
+  // a lookup for later.
   const fixedByKey = new Map(
     planned.map((p) => [
       p.externalKey,
-      { start: p.fixedStartMinutes, end: p.fixedEndMinutes },
+      {
+        start: p.fixedStartMinutes,
+        end: p.fixedEndMinutes,
+        groupKey: p.groupKey,
+      },
     ]),
   );
 
@@ -192,8 +217,11 @@ export async function runSchedule(options?: {
     to,
     created: toCreate.length,
     alreadyPresent,
-    removedStale: staleIds.length + onboarding.removed,
+    removedStale: staleIds.length + onboarding.removed + crm.removed,
     onboardingCreated: onboarding.created,
+    crmCallsCreated: crm.created,
+    attendanceClosed: attendance.daysClosed,
+    timersClosed: attendance.entriesClosed,
     assigned: 0,
     unassigned: 0,
     skippedInFlight: 0,
@@ -268,6 +296,10 @@ export async function runSchedule(options?: {
         pinnedAssigneeId: t.actionItem?.pinnedAssigneeId ?? null,
         fixedStartMinutes: fixed?.start ?? null,
         fixedEndMinutes: fixed?.end ?? null,
+        // The task's own anchor is authoritative -- it survives a rule being
+        // edited between the run that created it and this one.
+        anchor: t.anchor,
+        groupKey: t.anchor ? (fixed?.groupKey ?? null) : null,
       };
     });
 

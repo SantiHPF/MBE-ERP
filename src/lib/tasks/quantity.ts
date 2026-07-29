@@ -4,6 +4,8 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { prisma } from "@/lib/db";
 import { requireUserOrThrow } from "@/lib/auth/guards";
+import { errorText } from "@/lib/i18n/errors";
+import { getT } from "@/lib/i18n/server";
 import { placeOnDay } from "@/lib/plan/place";
 import type { ActionState } from "./actions";
 
@@ -18,7 +20,7 @@ import type { ActionState } from "./actions";
 
 const SetQuantity = z.object({
   taskId: z.string().min(1),
-  quantity: z.coerce.number().int().min(1, "At least one").max(200, "That is a lot"),
+  quantity: z.coerce.number().int().min(1, "errors.atLeastOne").max(200, "errors.thatIsALot"),
 });
 
 export async function setTaskQuantity(
@@ -27,6 +29,7 @@ export async function setTaskQuantity(
 ): Promise<ActionState> {
   try {
     const user = await requireUserOrThrow();
+    const { t } = await getT();
     const parsed = SetQuantity.safeParse({
       taskId: formData.get("taskId"),
       quantity: formData.get("quantity"),
@@ -37,9 +40,9 @@ export async function setTaskQuantity(
       where: { id: parsed.data.taskId },
       include: { template: { select: { estimatedMinutes: true } } },
     });
-    if (!task) return { error: "That task no longer exists" };
-    if (task.assigneeId !== user.id) return { error: "That is not your task" };
-    if (task.status === "DONE") return { error: "That one is already done" };
+    if (!task) return { error: t("errors.taskGone") };
+    if (task.assigneeId !== user.id) return { error: t("errors.notYourTask") };
+    if (task.status === "DONE") return { error: t("errors.alreadyDone") };
 
     // Work out the per-go cost once, then keep it on the task so later edits
     // do not compound against an already-multiplied total.
@@ -65,11 +68,11 @@ export async function setTaskQuantity(
       await placeOnDay(updated.id, user.id, task.scheduledDate);
     }
 
-    revalidatePath("/my-day");
+    revalidatePath("/", "layout");
     revalidatePath("/plan");
     return { ok: true };
   } catch (error) {
-    return { error: error instanceof Error ? error.message : "Could not save" };
+    return { error: await errorText(error, "errors.couldNotSave") };
   }
 }
 
@@ -85,15 +88,16 @@ export async function countOne(
 ): Promise<ActionState> {
   try {
     const user = await requireUserOrThrow();
+    const { t } = await getT();
     const parsed = Count.safeParse({
       taskId: formData.get("taskId"),
       delta: formData.get("delta"),
     });
-    if (!parsed.success) return { error: "Could not count that" };
+    if (!parsed.success) return { error: t("errors.couldNotCountThat") };
 
     const task = await prisma.task.findUnique({ where: { id: parsed.data.taskId } });
-    if (!task) return { error: "That task no longer exists" };
-    if (task.assigneeId !== user.id) return { error: "That is not your task" };
+    if (!task) return { error: t("errors.taskGone") };
+    if (task.assigneeId !== user.id) return { error: t("errors.notYourTask") };
 
     const next = Math.max(0, task.doneCount + parsed.data.delta);
 
@@ -116,9 +120,9 @@ export async function countOne(
       },
     });
 
-    revalidatePath("/my-day");
+    revalidatePath("/", "layout");
     return { ok: true };
   } catch (error) {
-    return { error: error instanceof Error ? error.message : "Could not count" };
+    return { error: await errorText(error, "errors.couldNotCount") };
   }
 }

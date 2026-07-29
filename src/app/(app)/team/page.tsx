@@ -2,9 +2,10 @@ import Link from "next/link";
 import { requireRole, hasRole } from "@/lib/auth/guards";
 import { prisma } from "@/lib/db";
 import { getTeamWeek, weekStart } from "@/lib/team/week";
-import { addDays, dateKey, formatDuration } from "@/lib/time";
+import { addDays, dateKey, formatDuration, today } from "@/lib/time";
 import { WeekGrid } from "./week-grid";
 import { getT } from "@/lib/i18n/server";
+import { formatDayMonth, fromDateKey } from "@/lib/i18n/dates";
 
 export const dynamic = "force-dynamic";
 
@@ -14,7 +15,7 @@ export default async function TeamPage({
   searchParams: Promise<{ week?: string; dept?: string }>;
 }) {
   const user = await requireRole("MANAGER");
-  const { t } = await getT();
+  const { t, locale } = await getT();
   const params = await searchParams;
 
   // Admins can look at any department; managers see their own.
@@ -25,13 +26,13 @@ export default async function TeamPage({
   const departmentId =
     hasRole(user, "ADMIN") && params.dept ? params.dept : user.departmentId;
 
-  const anchor = params.week ? new Date(`${params.week}T00:00:00Z`) : new Date();
+  const anchor = params.week ? fromDateKey(params.week) : today();
   const week = await getTeamWeek(departmentId, anchor);
 
-  const monday = new Date(`${week.weekStart}T00:00:00Z`);
+  const monday = fromDateKey(week.weekStart);
   const prev = dateKey(addDays(monday, -7));
   const next = dateKey(addDays(monday, 7));
-  const thisWeek = dateKey(weekStart(new Date()));
+  const thisWeek = dateKey(weekStart(today()));
 
   const href = (w: string) =>
     `/team?week=${w}${hasRole(user, "ADMIN") ? `&dept=${departmentId}` : ""}`;
@@ -44,15 +45,7 @@ export default async function TeamPage({
       <div className="mb-4 flex flex-wrap items-end justify-between gap-4">
         <div>
           <h1 className="page-title">
-            {t(
-              "team.weekOf",
-              week.departmentName,
-              monday.toLocaleDateString("en-GB", {
-                day: "numeric",
-                month: "long",
-                timeZone: "UTC",
-              }),
-            )}
+            {t("team.weekOf", week.departmentName, formatDayMonth(monday, locale))}
           </h1>
           <p className="page-sub num">
             {t(

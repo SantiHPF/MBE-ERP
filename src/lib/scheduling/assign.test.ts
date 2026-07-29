@@ -602,3 +602,167 @@ describe("must-do work is never dropped", () => {
     expect(result.unassigned[0].reason).toBe("no-slot-fits");
   });
 });
+
+/**
+ * A task done several times a shift is one person's routine -- you open, you
+ * close -- so the repetitions must not be spread the way a rotated chore is.
+ */
+describe("anchored routines", () => {
+  /** Someone on 09:00-18:00 with an hour off at 13:00, so two windows. */
+  function splitDay(userId: string, start = at(9), end = at(18)): CandidateInput {
+    return {
+      userId,
+      departmentId: "ops",
+      availability: computeAvailability({
+        date: MON,
+        patterns: [
+          {
+            weekday: 1,
+            startMinutes: start,
+            endMinutes: end,
+            breakMinutes: 60,
+            breakStartMinutes: at(13),
+          },
+        ],
+      }),
+      committedMinutes: 0,
+      busy: [],
+    };
+  }
+
+  const routine = (ids: string[], anchors: string[]) =>
+    ids.map((id, i) =>
+      task(id, {
+        estimatedMinutes: 10,
+        anchor: anchors[i] as TaskInput["anchor"],
+        groupKey: "rule-1:2026-07-27",
+      }),
+    );
+
+  it("gives every repetition to the same person", () => {
+    const result = assignDay({
+      date: MON,
+      tasks: routine(
+        ["a", "b", "c", "d"],
+        ["ARRIVAL", "BEFORE_BREAK", "AFTER_BREAK", "BEFORE_LEAVING"],
+      ),
+      candidates: [splitDay("ana"), splitDay("luis"), splitDay("marta")],
+    });
+
+    expect(result.assignments).toHaveLength(4);
+    expect(new Set(result.assignments.map((a) => a.userId)).size).toBe(1);
+  });
+
+  it("places each one at its point in that person's day", () => {
+    const result = assignDay({
+      date: MON,
+      tasks: routine(
+        ["a", "b", "c", "d"],
+        ["ARRIVAL", "BEFORE_BREAK", "AFTER_BREAK", "BEFORE_LEAVING"],
+      ),
+      candidates: [splitDay("ana")],
+    });
+
+    const startOf = (id: string) =>
+      result.assignments.find((a) => a.taskId === id)?.start;
+
+    expect(startOf("a")).toBe(at(9));
+    expect(startOf("b")).toBe(at(12, 50));
+    expect(startOf("c")).toBe(at(14));
+    expect(startOf("d")).toBe(at(17, 50));
+  });
+
+  it("follows each person's own shift, not a fixed clock time", () => {
+    // Only Luis has capacity, and he starts an hour earlier than the default.
+    const result = assignDay({
+      date: MON,
+      tasks: routine(["a"], ["ARRIVAL"]),
+      candidates: [splitDay("luis", at(8), at(16))],
+    });
+
+    expect(result.assignments[0].start).toBe(at(8));
+  });
+
+  it("counts the routine once for rotation, not once per repetition", () => {
+    // Ana has done this template twice; Luis once. Luis should take today's
+    // routine, and doing four of them must not credit him four times -- so
+    // tomorrow's identical routine goes back to Ana, who is now behind.
+    const rotation = [
+      { templateId: "tpl-stock", userId: "ana", assignedCount: 2, lastAssignedAt: null },
+      { templateId: "tpl-stock", userId: "luis", assignedCount: 1, lastAssignedAt: null },
+    ];
+
+    const day1 = assignDay({
+      date: MON,
+      tasks: routine(["a", "b", "c"], ["ARRIVAL", "AFTER_BREAK", "BEFORE_LEAVING"]),
+      candidates: [splitDay("ana"), splitDay("luis")],
+      rotation,
+    });
+
+    expect(new Set(day1.assignments.map((a) => a.userId))).toEqual(new Set(["luis"]));
+
+    // Luis is now on 2, level with Ana, who last had it longer ago.
+    const day2 = assignDay({
+      date: MON,
+      tasks: routine(["d", "e", "f"], ["ARRIVAL", "AFTER_BREAK", "BEFORE_LEAVING"]),
+      candidates: [splitDay("ana"), splitDay("luis")],
+      rotation: [
+        { templateId: "tpl-stock", userId: "ana", assignedCount: 2, lastAssignedAt: null },
+        { templateId: "tpl-stock", userId: "luis", assignedCount: 2, lastAssignedAt: MON },
+      ],
+    });
+
+    expect(new Set(day2.assignments.map((a) => a.userId))).toEqual(new Set(["ana"]));
+  });
+
+  it("still places the after-break one for somebody working straight through", () => {
+    // No break means no "after the break", but the check still has to happen.
+    const result = assignDay({
+      date: MON,
+      tasks: routine(["a", "b"], ["ARRIVAL", "AFTER_BREAK"]),
+      candidates: [candidate("ana")],
+    });
+
+    expect(result.assignments).toHaveLength(2);
+    expect(result.unassigned).toHaveLength(0);
+    expect(result.assignments.every((a) => a.start != null)).toBe(true);
+  });
+
+  it("keeps the routine together rather than splitting it across people", () => {
+    // Ana has room for only part of it; Luis has room for all of it.
+    const result = assignDay({
+      date: MON,
+      tasks: routine(["a", "b", "c"], ["ARRIVAL", "AFTER_BREAK", "BEFORE_LEAVING"]),
+      candidates: [
+        { ...splitDay("ana"), committedMinutes: at(7, 40) },
+        splitDay("luis"),
+      ],
+    });
+
+    expect(new Set(result.assignments.map((a) => a.userId))).toEqual(new Set(["luis"]));
+  });
+
+  it("leaves the whole routine unassigned when nobody can hold it", () => {
+    const result = assignDay({
+      date: MON,
+      tasks: routine(["a", "b"], ["ARRIVAL", "BEFORE_LEAVING"]),
+      candidates: [{ ...splitDay("ana"), committedMinutes: at(8) }],
+    });
+
+    expect(result.assignments).toHaveLength(0);
+    expect(result.unassigned.map((u) => u.taskId).sort()).toEqual(["a", "b"]);
+  });
+
+  it("does not group un-anchored repeats -- those still rotate", () => {
+    const result = assignDay({
+      date: MON,
+      tasks: [
+        task("a", { estimatedMinutes: 10 }),
+        task("b", { estimatedMinutes: 10 }),
+      ],
+      candidates: [splitDay("ana"), splitDay("luis")],
+    });
+
+    expect(new Set(result.assignments.map((a) => a.userId)).size).toBe(2);
+  });
+});

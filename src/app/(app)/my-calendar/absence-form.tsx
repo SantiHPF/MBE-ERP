@@ -13,11 +13,10 @@ const CATEGORY_IDS = ["SICK", "HOLIDAY", "PERSONAL", "OTHER"] as const;
  * approval. The tasks it displaces go to the manager's triage queue rather
  * than being reassigned automatically.
  */
-export function AbsenceForm() {
+export function AbsenceForm({ today }: { today: string }) {
   const { t } = useT();
   const [state, submit, pending] = useActionState(recordAbsence, initial);
   const [scope, setScope] = useState<"FULL_DAY" | "PARTIAL">("FULL_DAY");
-  const today = new Date().toISOString().slice(0, 10);
 
   return (
     <section className="card card-body">
@@ -138,7 +137,7 @@ export function AbsenceForm() {
             type="text"
             name="note"
             maxLength={500}
-            placeholder="e.g. back Thursday, phone is on"
+            placeholder={t("calendar.addNoteEg")}
             className="field"
           />
         </label>

@@ -1,8 +1,12 @@
 import { requireUser } from "@/lib/auth/guards";
-import { getProfileStats } from "@/lib/profile/stats";
+import { getProfileStats, type Span } from "@/lib/profile/stats";
 import { formatDuration } from "@/lib/time";
 import { getT } from "@/lib/i18n/server";
+import { localeTag } from "@/lib/i18n/dates";
+import { readTheme } from "@/lib/theme/read";
 import { LanguagePicker } from "./language-picker";
+import { ThemePicker } from "./theme-picker";
+import { AttendanceCard } from "./attendance-card";
 
 export const dynamic = "force-dynamic";
 
@@ -10,6 +14,7 @@ export default async function ProfilePage() {
   const user = await requireUser();
   const stats = await getProfileStats(user.id);
   const { t, locale } = await getT();
+  const theme = await readTheme();
 
   return (
     <div>
@@ -38,15 +43,17 @@ export default async function ProfilePage() {
         ) : (
           <div className="grid gap-px bg-line sm:grid-cols-3">
             <Figure
-              value={stats.tenure.daysHere.toLocaleString("en-GB")}
+              value={stats.tenure.daysHere.toLocaleString(localeTag(locale))}
               unit={t("profile.daysHere")}
-              note={stats.tenure.served ?? undefined}
+              note={
+                stats.tenure.served ? spanText(stats.tenure.served, t) : undefined
+              }
             />
             {stats.tenure.daysLeft === null ? (
               <Figure value="—" unit={t("profile.untilYouLeave")} note={t("profile.indefinite")} />
             ) : (
               <Figure
-                value={stats.tenure.daysLeft.toLocaleString("en-GB")}
+                value={stats.tenure.daysLeft.toLocaleString(localeTag(locale))}
                 unit={t("profile.daysLeft")}
                 note={t("profile.lastDay", stats.tenure.endDate ?? "")}
                 tone={stats.tenure.daysLeft <= 30 ? "warn" : undefined}
@@ -60,6 +67,12 @@ export default async function ProfilePage() {
           </div>
         )}
       </section>
+
+      {/* Full width: a table of dates and times does not read well squeezed
+          into half a column next to the summary cards. */}
+      <div className="mb-5">
+        <AttendanceCard userId={user.id} />
+      </div>
 
       <div className="grid gap-5 lg:grid-cols-2">
         {/* ------------------------------------------------------ the work */}
@@ -142,7 +155,9 @@ export default async function ProfilePage() {
                   key={stall.reason}
                   className="flex items-baseline justify-between gap-3 border-b border-line py-2.5 last:border-0"
                 >
-                  <span className="text-[13px]">{stall.reason}</span>
+                  <span className="text-[13px]">
+                    {t(`pause.reasons.${stall.reason}`)}
+                  </span>
                   <span className="num shrink-0 text-[12px] text-muted">
                     {stall.count}× · {formatDuration(stall.minutes)}
                   </span>
@@ -237,6 +252,8 @@ export default async function ProfilePage() {
 
         <LanguagePicker current={locale} />
 
+        <ThemePicker current={theme} />
+
         {/* -------------------------------------------- induction still due */}
         {stats.upcoming.length > 0 && (
           <section className="card">
@@ -261,6 +278,30 @@ export default async function ProfilePage() {
       </div>
     </div>
   );
+}
+
+/**
+ * "1 year, 7 months" was being written by stats.ts, in English, whatever the
+ * page was set to. The numbers come from there now and the words from here.
+ */
+function spanText(
+  span: Span,
+  t: (key: string, ...args: (string | number)[]) => string,
+): string {
+  switch (span.unit) {
+    case "days":
+      return span.days === 1 ? t("profile.spanDay") : t("profile.spanDays", span.days);
+    case "months":
+      return span.months === 1
+        ? t("profile.spanMonth")
+        : t("profile.spanMonths", span.months);
+    case "years":
+      return span.years === 1
+        ? t("profile.spanYear")
+        : t("profile.spanYears", span.years);
+    case "yearsMonths":
+      return t("profile.spanYearsMonths", span.years, span.months);
+  }
 }
 
 function Figure({

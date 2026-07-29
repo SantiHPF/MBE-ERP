@@ -1,6 +1,8 @@
 import { requireUser } from "@/lib/auth/guards";
+import { getT } from "@/lib/i18n/server";
+import { formatLongDate, fromDateKey } from "@/lib/i18n/dates";
 import { getDayView } from "@/lib/tasks/day";
-import { formatClock, formatDuration } from "@/lib/time";
+import { formatClock, formatDuration, scheduleZone } from "@/lib/time";
 import { recentTasksForP1n } from "@/lib/p1n/recent-tasks";
 import { FileP1nButton } from "../p1n/p1n-form";
 import { DayViewClient } from "./day-view";
@@ -9,16 +11,11 @@ export const dynamic = "force-dynamic";
 
 export default async function MyDayPage() {
   const user = await requireUser();
+  const { t, locale } = await getT();
   const view = await getDayView(user.id);
   const p1nTasks = await recentTasksForP1n(user.id);
 
-  const date = new Date(`${view.date}T00:00:00Z`);
-  const heading = date.toLocaleDateString("en-GB", {
-    weekday: "long",
-    day: "numeric",
-    month: "long",
-    timeZone: "UTC",
-  });
+  const heading = formatLongDate(fromDateKey(view.date), locale);
 
   return (
     <div>
@@ -29,7 +26,7 @@ export default async function MyDayPage() {
             <p className="page-sub num">
               {formatClock(view.windows[0].start)}–
               {formatClock(view.windows[view.windows.length - 1].end)} ·{" "}
-              {formatDuration(view.availableMinutes)} after breaks
+              {formatDuration(view.availableMinutes)} {t("myDay.afterBreaks")}
             </p>
           )}
         </div>
@@ -41,7 +38,9 @@ export default async function MyDayPage() {
         />
       </div>
 
-      <DayViewClient view={view} />
+      {/* The bar works out whether the day is on track, which means reading
+          the clock in the company's zone rather than the browser's. */}
+      <DayViewClient view={view} zone={scheduleZone()} />
     </div>
   );
 }

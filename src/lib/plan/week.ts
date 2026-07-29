@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/db";
-import { addDays, dateKey, toDateOnly } from "@/lib/time";
+import { addDays, dateKey, today, toDateOnly } from "@/lib/time";
 import { computeAvailability } from "@/lib/scheduling/availability";
 
 /**
@@ -51,8 +51,11 @@ export type PlanRow = {
 
 export type PlanDayHeader = {
   date: string;
-  label: string;
-  short: string;
+  /**
+   * No weekday name here on purpose. The name depends on who is reading, and
+   * this payload is built once on the server -- the board derives it from the
+   * date with weekdayLabel(), in whatever language the reader chose.
+   */
   rostered: boolean;
   /** Off because of an approved absence, rather than simply not a work day. */
   absent: boolean;
@@ -72,23 +75,13 @@ export type PlanWeek = {
   totalCapacity: number;
 };
 
-const LABELS = [
-  "Monday",
-  "Tuesday",
-  "Wednesday",
-  "Thursday",
-  "Friday",
-  "Saturday",
-  "Sunday",
-];
-
 export function mondayOf(date: Date): Date {
   const day = toDateOnly(date);
   return addDays(day, -((day.getUTCDay() + 6) % 7));
 }
 
 /** The week people are normally planning: the one after this one. */
-export function defaultPlanWeek(now: Date = new Date()): Date {
+export function defaultPlanWeek(now: Date = today()): Date {
   return addDays(mondayOf(now), 7);
 }
 
@@ -148,7 +141,7 @@ export async function getPlanWeek(
   let totalClaimed = 0;
   let totalCapacity = 0;
 
-  const headers: PlanDayHeader[] = allDays.map((date, i) => {
+  const headers: PlanDayHeader[] = allDays.map((date) => {
     const key = dateKey(date);
     const availability = computeAvailability({
       date,
@@ -167,8 +160,6 @@ export async function getPlanWeek(
 
     return {
       date: key,
-      label: LABELS[i],
-      short: LABELS[i].slice(0, 3),
       rostered,
       absent: absent && availability.availableMinutes === 0,
       capacityMinutes: availability.availableMinutes,
@@ -283,7 +274,7 @@ export async function getPlanWeek(
 
   return {
     weekStart: dateKey(monday),
-    isCurrentWeek: dateKey(monday) === dateKey(mondayOf(new Date())),
+    isCurrentWeek: dateKey(monday) === dateKey(mondayOf(today())),
     days,
     rows,
     totalClaimed,

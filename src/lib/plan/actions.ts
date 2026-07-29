@@ -4,6 +4,8 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { prisma } from "@/lib/db";
 import { requireUserOrThrow } from "@/lib/auth/guards";
+import { errorText, message } from "@/lib/i18n/errors";
+import { getT } from "@/lib/i18n/server";
 import { toDateOnly } from "@/lib/time";
 import { placeOnDay } from "./place";
 
@@ -18,13 +20,22 @@ import { placeOnDay } from "./place";
 export type PlanState = { error?: string; ok?: boolean; message?: string };
 
 const Toggle = z.object({
-  date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Pick a day"),
+  date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "errors.pickADay"),
   templateId: z.string().optional(),
   taskId: z.string().optional(),
   wanted: z.enum(["true", "false"]),
 });
 
 const STARTED = ["IN_PROGRESS", "PAUSED", "DONE"];
+
+/** Postgres unique-violation: one of the schema's claim guards fired. */
+function isUniqueViolation(error: unknown): boolean {
+  return (
+    typeof error === "object" &&
+    error !== null &&
+    (error as { code?: string }).code === "P2002"
+  );
+}
 
 function revalidate() {
   revalidatePath("/plan");
@@ -39,28 +50,29 @@ export async function toggleTaskDay(
 ): Promise<PlanState> {
   try {
     const user = await requireUserOrThrow();
+    const { t } = await getT();
     const parsed = Toggle.safeParse({
       date: formData.get("date"),
       templateId: formData.get("templateId") || undefined,
       taskId: formData.get("taskId") || undefined,
       wanted: formData.get("wanted"),
     });
-    if (!parsed.success) return { error: parsed.error.issues[0].message };
+    if (!parsed.success) return { error: t(parsed.error.issues[0].message) };
 
     const wanted = parsed.data.wanted === "true";
     const date = toDateOnly(new Date(`${parsed.data.date}T00:00:00Z`));
 
     // ------------------------------------------------------- giving it up
     if (!wanted) {
-      if (!parsed.data.taskId) return { error: "Nothing to give back" };
+      if (!parsed.data.taskId) return { error: t("errors.nothingToGiveBack") };
 
       const task = await prisma.task.findUnique({
         where: { id: parsed.data.taskId },
       });
-      if (!task) return { error: "That task no longer exists" };
-      if (task.assigneeId !== user.id) return { error: "That is not yours" };
+      if (!task) return { error: t("errors.taskGone") };
+      if (task.assigneeId !== user.id) return { error: t("errors.notYours") };
       if (STARTED.includes(task.status)) {
-        return { error: "You have already started this one" };
+        return { error: t("errors.alreadyStartedThis") };
       }
 
       // Work you added yourself disappears; work the rules or a meeting
@@ -100,8 +112,8 @@ export async function toggleTaskDay(
         if (now?.assigneeId === user.id) return { ok: true };
         return {
           error: now?.assignee
-            ? `${now.assignee.displayName} took that one first.`
-            : "That task is no longer available",
+            ? t("errors.tookItFirst", now.assignee.displayName)
+            : t("errors.taskUnavailable"),
         };
       }
 
@@ -110,14 +122,14 @@ export async function toggleTaskDay(
       return { ok: true };
     }
 
-    if (!parsed.data.templateId) return { error: "Nothing to add" };
+    if (!parsed.data.templateId) return { error: t("errors.nothingToAdd") };
 
     const template = await prisma.taskTemplate.findUnique({
       where: { id: parsed.data.templateId },
     });
-    if (!template) return { error: "That task is not in the catalogue" };
+    if (!template) return { error: t("errors.notInCatalogue") };
     if (template.departmentId !== user.departmentId) {
-      return { error: "That task belongs to another department" };
+      return { error: t("errors.taskOtherDepartment") };
     }
 
     // Somebody may have created the instance since the page loaded.
@@ -137,47 +149,74 @@ export async function toggleTaskDay(
           where: { id: existing.id, assigneeId: null },
           data: { assigneeId: user.id, status: "ASSIGNED" },
         });
-        if (count === 0) return { error: "Somebody just took that one." };
+        if (count === 0) return { error: t("errors.somebodyTookIt") };
         await placeOnDay(existing.id, user.id, date);
         revalidate();
         return { ok: true };
       }
       return {
-        error: `${existing.assignee?.displayName} already has ${template.name} that day.`,
+        error: t("errors.alreadyHasIt", existing.assignee?.displayName ?? "", template.name),
       };
     }
 
-    const created = await prisma.task.create({
-      data: {
-        title: template.name,
-        estimatedMinutes: template.estimatedMinutes,
-        dueDate: date,
-        departmentId: user.departmentId,
-        templateId: template.id,
-        origin: "CATALOGUE",
-        status: "ASSIGNED",
-        assigneeId: user.id,
-      },
-    });
+    // The findFirst above is not a guarantee: somebody can create the task in
+    // the gap before this runs. A partial unique index on
+    // (templateId, dueDate) for live CATALOGUE tasks makes that a collision
+    // rather than a duplicate, and losing the collision means they got there
+    // first.
+    let created;
+    try {
+      created = await prisma.task.create({
+        data: {
+          title: template.name,
+          estimatedMinutes: template.estimatedMinutes,
+          dueDate: date,
+          departmentId: user.departmentId,
+          templateId: template.id,
+          origin: "CATALOGUE",
+          status: "ASSIGNED",
+          assigneeId: user.id,
+        },
+      });
+    } catch (error) {
+      if (!isUniqueViolation(error)) throw error;
+
+      const winner = await prisma.task.findFirst({
+        where: {
+          templateId: template.id,
+          dueDate: date,
+          origin: "CATALOGUE",
+          status: { not: "CANCELLED" },
+        },
+        include: { assignee: { select: { id: true, displayName: true } } },
+      });
+
+      if (winner?.assigneeId === user.id) return { ok: true };
+      return {
+        error: winner?.assignee
+          ? t("errors.tookItFirst", winner.assignee.displayName)
+          : t("errors.somebodyTookIt"),
+      };
+    }
 
     await placeOnDay(created.id, user.id, date);
     revalidate();
     return { ok: true };
   } catch (error) {
     return {
-      error: error instanceof Error ? error.message : "Could not save that",
+      error: await errorText(error, "errors.couldNotSaveThat"),
     };
   }
 }
 
 const NewTask = z.object({
-  title: z.string().trim().min(1, "What needs doing?"),
+  title: z.string().trim().min(1, "errors.whatNeedsDoing"),
   estimatedMinutes: z.coerce
     .number()
     .int()
-    .min(1, "How long will it take?")
-    .max(12 * 60, "Longer than a working day — split it up"),
-  date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Pick a day"),
+    .min(1, "errors.howLong")
+    .max(12 * 60, "errors.longerThanADay"),
+  date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "errors.pickADay"),
 });
 
 /**
@@ -191,12 +230,13 @@ export async function createAdHocTask(
 ): Promise<PlanState> {
   try {
     const user = await requireUserOrThrow();
+    const { t } = await getT();
     const parsed = NewTask.safeParse({
       title: formData.get("title"),
       estimatedMinutes: formData.get("estimatedMinutes"),
       date: formData.get("date"),
     });
-    if (!parsed.success) return { error: parsed.error.issues[0].message };
+    if (!parsed.success) return { error: t(parsed.error.issues[0].message) };
 
     const day = toDateOnly(new Date(`${parsed.data.date}T00:00:00Z`));
     const task = await prisma.task.create({
@@ -213,9 +253,9 @@ export async function createAdHocTask(
 
     await placeOnDay(task.id, user.id, day);
     revalidate();
-    return { ok: true, message: `Added ${parsed.data.title}.` };
+    return { ok: true, message: t("errors.added", parsed.data.title) };
   } catch (error) {
-    return { error: error instanceof Error ? error.message : "Could not add it" };
+    return { error: await errorText(error, "errors.couldNotAddIt") };
   }
 }
 
@@ -261,9 +301,9 @@ export async function toggleTaskRow(
     return {
       ok: changed > 0,
       error: problems[0],
-      message: changed > 0 ? `${changed} day(s) updated.` : undefined,
+      message: changed > 0 ? await message("errors.daysUpdated", changed) : undefined,
     };
   }
 
-  return { ok: true, message: `${changed} day(s) updated.` };
+  return { ok: true, message: await message("errors.daysUpdated", changed) };
 }

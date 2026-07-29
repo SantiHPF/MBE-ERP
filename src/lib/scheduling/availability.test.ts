@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   computeAvailability,
   findSlot,
+  resolveAnchor,
   slotOverlapsAbsence,
   type PatternInput,
 } from "./availability";
@@ -277,5 +278,65 @@ describe("slotOverlapsAbsence", () => {
     };
 
     expect(slotOverlapsAbsence(morning, absence, MON)).toBe(false);
+  });
+});
+
+/**
+ * Anchors exist because "when I arrive" is a different clock time for every
+ * person, so a check done at the start of every shift cannot be a fixed time.
+ */
+describe("resolveAnchor", () => {
+  // 09:00-18:00 with an hour off at 13:00, so two windows.
+  const split = [
+    { start: at(9), end: at(13) },
+    { start: at(14), end: at(18) },
+  ];
+  // 09:00-17:00 straight through -- an unpositioned break comes off the end.
+  const straight = [{ start: at(9), end: at(17) }];
+
+  it("puts arrival at the start of the day", () => {
+    expect(resolveAnchor("ARRIVAL", split, 10)).toBe(at(9));
+  });
+
+  it("backs the before-break task off so it finishes by the break", () => {
+    expect(resolveAnchor("BEFORE_BREAK", split, 10)).toBe(at(12, 50));
+  });
+
+  it("puts the after-break task at the moment they are back", () => {
+    expect(resolveAnchor("AFTER_BREAK", split, 10)).toBe(at(14));
+  });
+
+  it("backs the leaving task off so it finishes by the end of the shift", () => {
+    expect(resolveAnchor("BEFORE_LEAVING", split, 10)).toBe(at(17, 50));
+  });
+
+  it("has no break anchors for somebody working straight through", () => {
+    // The caller places these flexibly rather than dropping the task.
+    expect(resolveAnchor("BEFORE_BREAK", straight, 10)).toBeNull();
+    expect(resolveAnchor("AFTER_BREAK", straight, 10)).toBeNull();
+  });
+
+  it("still has arrival and leaving on a single-window day", () => {
+    expect(resolveAnchor("ARRIVAL", straight, 10)).toBe(at(9));
+    expect(resolveAnchor("BEFORE_LEAVING", straight, 10)).toBe(at(16, 50));
+  });
+
+  it("never backs a task off past the start of its own window", () => {
+    // A two-hour task in a one-hour window starts when the window does and
+    // simply runs over, rather than being scheduled before they arrive.
+    expect(resolveAnchor("BEFORE_LEAVING", [{ start: at(9), end: at(10) }], 120))
+      .toBe(at(9));
+  });
+
+  it("resolves nothing on a day with no windows at all", () => {
+    expect(resolveAnchor("ARRIVAL", [], 10)).toBeNull();
+  });
+
+  it("gives two people on different shifts their own arrival", () => {
+    const early = [{ start: at(8), end: at(16) }];
+    const late = [{ start: at(10), end: at(18) }];
+
+    expect(resolveAnchor("ARRIVAL", early, 10)).toBe(at(8));
+    expect(resolveAnchor("ARRIVAL", late, 10)).toBe(at(10));
   });
 });

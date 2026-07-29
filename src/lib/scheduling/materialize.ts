@@ -1,4 +1,5 @@
 import { dateKey, eachDay, isoWeekday } from "@/lib/time";
+import type { DayAnchor } from "./availability";
 
 /**
  * Turns recurring rules into concrete, dated task instances.
@@ -18,6 +19,9 @@ export type RuleInput = {
   monthlyNth?: number | null;
   monthlyDay?: number | null;
   instancesPerOccurrence: number;
+  /// Points in the shift this fires at. When set, one task per anchor and the
+  /// instance count is ignored.
+  anchors?: DayAnchor[];
   fixedStartMinutes: number | null;
   fixedEndMinutes: number | null;
   active: boolean;
@@ -75,6 +79,13 @@ export type PlannedTask = {
   origin: "RECURRING";
   fixedStartMinutes: number | null;
   fixedEndMinutes: number | null;
+  /** Set for anchored work; its clock time depends on who ends up with it. */
+  anchor: DayAnchor | null;
+  /**
+   * Anchored repetitions of a rule are one person's routine, so they are
+   * assigned together. Null for everything else.
+   */
+  groupKey: string | null;
 };
 
 export function buildRecurringKey(
@@ -83,6 +94,41 @@ export function buildRecurringKey(
   instance: number,
 ): string {
   return `recurring:${ruleId}:${dateKey(date)}:${instance}`;
+}
+
+/**
+ * Anchored tasks are keyed on the anchor rather than a position in the list.
+ *
+ * With instance numbers, adding a midday check renumbers every later one, so
+ * the stale sweep in run.ts deletes and recreates tasks that had not changed --
+ * losing any that were already assigned. Keying on the anchor makes inserting
+ * and reordering no-ops, and moving a check to a different point in the day
+ * correctly re-keys only that one.
+ */
+export function buildAnchoredKey(
+  ruleId: string,
+  date: Date,
+  anchor: DayAnchor,
+): string {
+  return `recurring:${ruleId}:${dateKey(date)}:a${anchor}`;
+}
+
+/**
+ * These end up in the task's stored title, so they follow the same rule as
+ * ONBOARDING_LABELS: generated names are written in the company's language,
+ * not the interface's. An English "on arrival" in an otherwise Spanish day was
+ * the giveaway that this was machine-written.
+ */
+export const ANCHOR_LABEL: Record<DayAnchor, string> = {
+  ARRIVAL: "al llegar",
+  BEFORE_BREAK: "antes del descanso",
+  AFTER_BREAK: "al volver del descanso",
+  BEFORE_LEAVING: "antes de salir",
+};
+
+/** Keeps order, drops repeats -- two checks at the same anchor would collide. */
+function dedupe(anchors: DayAnchor[]): DayAnchor[] {
+  return anchors.filter((a, i) => anchors.indexOf(a) === i);
 }
 
 /**
@@ -108,22 +154,48 @@ export function planRecurringTasks(input: {
           : rule.weekdays.includes(weekday);
       if (!fires) continue;
 
+      const common = {
+        estimatedMinutes: rule.template.estimatedMinutes,
+        priority: rule.template.priority ?? "NORMAL",
+        dueDate: date,
+        departmentId: rule.departmentId,
+        templateId: rule.templateId,
+        origin: "RECURRING",
+      } as const;
+
+      // Anchored: one task per point in the shift, all belonging to one
+      // person's routine. The times themselves depend on whose shift it is,
+      // so they are resolved at assignment rather than here.
+      const anchors = dedupe(rule.anchors ?? []);
+      if (anchors.length > 0) {
+        for (const anchor of anchors) {
+          planned.push({
+            ...common,
+            externalKey: buildAnchoredKey(rule.id, date, anchor),
+            // Named rather than numbered: "1 of 4" does not say which one.
+            title: `${rule.template.name} · ${ANCHOR_LABEL[anchor]}`,
+            fixedStartMinutes: null,
+            fixedEndMinutes: null,
+            anchor,
+            groupKey: `${rule.id}:${dateKey(date)}`,
+          });
+        }
+        continue;
+      }
+
       const count = Math.max(1, rule.instancesPerOccurrence);
       for (let instance = 1; instance <= count; instance++) {
         planned.push({
+          ...common,
           externalKey: buildRecurringKey(rule.id, date, instance),
           title:
             count > 1
               ? `${rule.template.name} (${instance} of ${count})`
               : rule.template.name,
-          estimatedMinutes: rule.template.estimatedMinutes,
-          priority: rule.template.priority ?? "NORMAL",
-          dueDate: date,
-          departmentId: rule.departmentId,
-          templateId: rule.templateId,
-          origin: "RECURRING",
           fixedStartMinutes: rule.fixedStartMinutes,
           fixedEndMinutes: rule.fixedEndMinutes,
+          anchor: null,
+          groupKey: null,
         });
       }
     }

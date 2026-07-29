@@ -231,3 +231,145 @@ describe("monthly rules", () => {
     expect(planned.filter((t) => t.externalKey.startsWith("recurring:m"))).toHaveLength(1);
   });
 });
+
+/**
+ * Anchored rules: a task done at several points in the shift, e.g. a till
+ * check on arrival, either side of the break, and before leaving.
+ */
+describe("anchored rules", () => {
+  const anchored = rule({
+    weekdays: [1],
+    anchors: ["ARRIVAL", "AFTER_BREAK", "BEFORE_LEAVING"],
+  });
+
+  it("creates one task per anchor, not per instance count", () => {
+    const planned = planRecurringTasks({ rules: [anchored], from: MON, to: MON });
+
+    expect(planned).toHaveLength(3);
+    expect(planned.map((p) => p.anchor)).toEqual([
+      "ARRIVAL",
+      "AFTER_BREAK",
+      "BEFORE_LEAVING",
+    ]);
+  });
+
+  it("ignores instancesPerOccurrence once anchors are set", () => {
+    const planned = planRecurringTasks({
+      rules: [rule({ weekdays: [1], anchors: ["ARRIVAL"], instancesPerOccurrence: 9 })],
+      from: MON,
+      to: MON,
+    });
+
+    expect(planned).toHaveLength(1);
+  });
+
+  it("names each one rather than numbering it", () => {
+    const planned = planRecurringTasks({ rules: [anchored], from: MON, to: MON });
+
+    // Generated names are written in the company's language, as the onboarding
+    // interview titles already are.
+    expect(planned[0].title).toBe("Warehouse stock count · al llegar");
+    expect(planned[2].title).toBe("Warehouse stock count · antes de salir");
+  });
+
+  it("leaves the clock time open -- it depends on whose shift it is", () => {
+    const planned = planRecurringTasks({ rules: [anchored], from: MON, to: MON });
+
+    expect(planned.every((p) => p.fixedStartMinutes === null)).toBe(true);
+  });
+
+  it("groups a day's repetitions so one person gets all of them", () => {
+    const planned = planRecurringTasks({ rules: [anchored], from: MON, to: MON });
+    const keys = new Set(planned.map((p) => p.groupKey));
+
+    expect(keys.size).toBe(1);
+    expect([...keys][0]).not.toBeNull();
+  });
+
+  it("puts different days in different groups", () => {
+    const planned = planRecurringTasks({
+      rules: [rule({ weekdays: [1, 4], anchors: ["ARRIVAL", "BEFORE_LEAVING"] })],
+      from: MON,
+      to: FRI,
+    });
+
+    expect(new Set(planned.map((p) => p.groupKey)).size).toBe(2);
+  });
+
+  it("drops a repeated anchor rather than colliding on the key", () => {
+    const planned = planRecurringTasks({
+      rules: [rule({ weekdays: [1], anchors: ["ARRIVAL", "ARRIVAL"] })],
+      from: MON,
+      to: MON,
+    });
+
+    expect(planned).toHaveLength(1);
+  });
+
+  /**
+   * The reason keys are built from the anchor and not a position: inserting a
+   * midday check used to renumber every later one, so the stale sweep in
+   * run.ts deleted and recreated tasks that had not changed.
+   */
+  it("keeps existing keys stable when an anchor is inserted in the middle", () => {
+    const before = planRecurringTasks({
+      rules: [rule({ weekdays: [1], anchors: ["ARRIVAL", "BEFORE_LEAVING"] })],
+      from: MON,
+      to: MON,
+    });
+
+    const after = planRecurringTasks({
+      rules: [
+        rule({
+          weekdays: [1],
+          anchors: ["ARRIVAL", "AFTER_BREAK", "BEFORE_LEAVING"],
+        }),
+      ],
+      from: MON,
+      to: MON,
+    });
+
+    const existing = new Set(before.map((p) => p.externalKey));
+    const { toCreate } = diffAgainstExisting(after, existing);
+
+    expect(toCreate).toHaveLength(1);
+    expect(toCreate[0].anchor).toBe("AFTER_BREAK");
+  });
+
+  it("re-keys only the one that moved when an anchor changes", () => {
+    const before = planRecurringTasks({
+      rules: [rule({ weekdays: [1], anchors: ["ARRIVAL", "BEFORE_BREAK"] })],
+      from: MON,
+      to: MON,
+    });
+
+    const after = planRecurringTasks({
+      rules: [rule({ weekdays: [1], anchors: ["ARRIVAL", "AFTER_BREAK"] })],
+      from: MON,
+      to: MON,
+    });
+
+    const { toCreate } = diffAgainstExisting(
+      after,
+      new Set(before.map((p) => p.externalKey)),
+    );
+
+    expect(toCreate).toHaveLength(1);
+    expect(toCreate[0].anchor).toBe("AFTER_BREAK");
+  });
+
+  it("still numbers un-anchored repeats as before", () => {
+    const planned = planRecurringTasks({
+      rules: [rule({ weekdays: [1], instancesPerOccurrence: 2 })],
+      from: MON,
+      to: MON,
+    });
+
+    expect(planned.map((p) => p.title)).toEqual([
+      "Warehouse stock count (1 of 2)",
+      "Warehouse stock count (2 of 2)",
+    ]);
+    expect(planned.every((p) => p.anchor === null)).toBe(true);
+    expect(planned.every((p) => p.groupKey === null)).toBe(true);
+  });
+});

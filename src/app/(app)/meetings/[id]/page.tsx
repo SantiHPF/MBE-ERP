@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
 import { requireUser, hasRole } from "@/lib/auth/guards";
 import { prisma } from "@/lib/db";
-import { dateKey, formatDuration } from "@/lib/time";
+import { dateKey, formatDuration, todayKey } from "@/lib/time";
 import { LiveMeeting } from "./live-meeting";
 import { MeetingReport } from "./report";
 import { getT } from "@/lib/i18n/server";
@@ -90,6 +90,7 @@ export default async function MeetingPage({
         meetingId={meeting.id}
         notes={meeting.notes}
         colleagues={colleagues}
+        today={todayKey()}
         items={meeting.actionItems.map((i) => ({
           id: i.id,
           title: i.title,

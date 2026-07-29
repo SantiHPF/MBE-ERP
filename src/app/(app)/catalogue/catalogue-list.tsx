@@ -1,44 +1,47 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { formatClock, formatDuration, weekdayName } from "@/lib/time";
+import { formatClock, formatDuration } from "@/lib/time";
 import { CatalogueForm, type CatalogueEntry } from "./catalogue-form";
 import type { CatalogueState } from "@/lib/catalogue/actions";
 import { useT } from "@/lib/i18n/client";
+import { weekdayLabel } from "@/lib/i18n/dates";
+import type { Locale } from "@/lib/i18n/dictionary";
 
-/** Plain-English summary of a schedule, for the list. */
+type Translate = (key: string, ...args: (string | number)[]) => string;
+
+/**
+ * One-line summary of a schedule, for the list.
+ *
+ * Takes `t` and the locale rather than four pre-translated fragments, which is
+ * how it used to work and left half the sentence -- the "at", the ordinals,
+ * the weekday names -- stubbornly in English.
+ */
 export function describeRule(
   rule: CatalogueEntry["rule"],
-  everyWeekday = "every weekday",
-  onDemand = "on demand",
-  monthlyOnThe = "monthly on the",
-  monthlyNth = "monthly,",
+  t: Translate,
+  locale: Locale,
 ): string {
-  if (!rule) return onDemand;
+  if (!rule) return t("catalogue.ruleOnDemand");
 
   const at =
     rule.fixedStartMinutes != null
-      ? ` at ${formatClock(rule.fixedStartMinutes)}`
+      ? ` ${t("catalogue.ruleAt", formatClock(rule.fixedStartMinutes))}`
       : "";
   const times =
     rule.instancesPerOccurrence > 1 ? ` ×${rule.instancesPerOccurrence}` : "";
 
   if (rule.frequency === "MONTHLY") {
     if (rule.monthlyDay != null) {
-      return `${monthlyOnThe} ${rule.monthlyDay}${at}${times}`;
+      return `${t("catalogue.ruleMonthlyDay", rule.monthlyDay)}${at}${times}`;
     }
-    const nth =
-      rule.monthlyNth === -1
-        ? "last"
-        : rule.monthlyNth === 1
-          ? "first"
-          : rule.monthlyNth === 2
-            ? "second"
-            : rule.monthlyNth === 3
-              ? "third"
-              : "fourth";
-    const day = rule.weekdays[0] ? weekdayName(rule.weekdays[0]) : "day";
-    return `${monthlyNth} ${nth} ${day}${at}${times}`;
+    const nth = t(
+      rule.monthlyNth === -1 ? "catalogue.nthLast" : `catalogue.nth${rule.monthlyNth ?? 1}`,
+    );
+    const day = rule.weekdays[0]
+      ? weekdayLabel(locale, rule.weekdays[0])
+      : t("common.day").toLowerCase();
+    return `${t("catalogue.ruleMonthlyNth", nth, day)}${at}${times}`;
   }
 
   if (
@@ -46,11 +49,11 @@ export function describeRule(
     !rule.weekdays.includes(6) &&
     !rule.weekdays.includes(7)
   ) {
-    return `${everyWeekday}${at}${times}`;
+    return `${t("catalogue.ruleEveryWeekday")}${at}${times}`;
   }
   const days = [...rule.weekdays]
     .sort()
-    .map((d) => weekdayName(d).slice(0, 3))
+    .map((d) => weekdayLabel(locale, d, "short"))
     .join(" ");
   return `${days}${at}${times}`;
 }
@@ -64,7 +67,7 @@ export function CatalogueList({
   entries: CatalogueEntry[];
   canEdit: boolean;
 }) {
-  const { t } = useT();
+  const { t, locale } = useT();
   const [query, setQuery] = useState("");
   const [editing, setEditing] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
@@ -195,13 +198,7 @@ export function CatalogueList({
                   entry.rule ? "text-accent" : "text-muted"
                 }`}
               >
-                {describeRule(
-                  entry.rule,
-                  t("catalogue.everyWeekday").toLowerCase(),
-                  t("catalogue.onDemand").toLowerCase(),
-                  t("catalogue.monthly").toLowerCase() + " " + t("catalogue.dayOf").toLowerCase(),
-                  t("catalogue.monthly").toLowerCase() + ",",
-                )}
+                {describeRule(entry.rule, t, locale)}
               </span>
               {canEdit && (
                 <button

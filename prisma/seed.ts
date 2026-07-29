@@ -1,4 +1,5 @@
 import "dotenv/config";
+import { randomBytes } from "node:crypto";
 import { PrismaClient } from "@prisma/client";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { hashPassword } from "../src/lib/auth/password";
@@ -20,8 +21,19 @@ const prisma = new PrismaClient({
   adapter: new PrismaPg({ connectionString: process.env.DATABASE_URL }),
 });
 
-/** Change this on first sign-in. */
-const INITIAL_PASSWORD = "mbe-erp-2026";
+/**
+ * The founding accounts' first password.
+ *
+ * Read from the environment, with a random value when it is not set, so that
+ * no usable credential lives in this file or in the history of it. Set
+ * SEED_PASSWORD when you want a known one for local development; otherwise the
+ * generated one is printed once at the end of the run and never stored.
+ *
+ * The old hard-coded default is still in git history. It was never deployed,
+ * but it must not come back.
+ */
+const INITIAL_PASSWORD =
+  process.env.SEED_PASSWORD ?? randomBytes(9).toString("base64url");
 
 const DEPARTMENTS = [
   "HR (Human Resources)",
@@ -149,7 +161,11 @@ async function main() {
   }
 
   console.log(`\n  Password for both: ${INITIAL_PASSWORD}`);
-  console.log("  Change it in HR → People after signing in.\n");
+  console.log(
+    process.env.SEED_PASSWORD
+      ? "  From SEED_PASSWORD. Change it in HR → People after signing in.\n"
+      : "  Generated, and shown only here. Write it down, then change it in HR → People.\n",
+  );
   console.log("  The task catalogue is empty — add it once the lists arrive.");
   console.log("  Everyone else gets added through HR → People.\n");
 }

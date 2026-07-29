@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { requireUser, hasRole } from "@/lib/auth/guards";
 import { prisma } from "@/lib/db";
-import { dateKey } from "@/lib/time";
+import { dateKey, todayKey } from "@/lib/time";
 import { NewMeetingForm } from "./new-meeting-form";
 import { getT } from "@/lib/i18n/server";
 
@@ -30,7 +30,7 @@ export default async function MeetingsPage() {
             {t("meetings.intro")}
           </p>
         </div>
-        {hasRole(user, "MANAGER") && <NewMeetingForm />}
+        {hasRole(user, "MANAGER") && <NewMeetingForm today={todayKey()} />}
       </div>
 
       {meetings.length === 0 ? (

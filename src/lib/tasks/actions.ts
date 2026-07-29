@@ -4,10 +4,13 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { prisma } from "@/lib/db";
 import { requireUserOrThrow } from "@/lib/auth/guards";
+import { errorText, fail, message } from "@/lib/i18n/errors";
+import { getT } from "@/lib/i18n/server";
 import type { TaskStatus } from "@prisma/client";
 import { dateKey, toDateOnly } from "@/lib/time";
 import { placeOnDay } from "@/lib/plan/place";
 import { computeAvailability, findSlot } from "@/lib/scheduling/availability";
+import { markActivity, markArrival } from "@/lib/attendance/attendance-db";
 
 /** Work with tracked time attached: it keeps its slot. */
 const STARTED = ["IN_PROGRESS", "PAUSED", "DONE"];
@@ -31,7 +34,7 @@ const PauseInput = z.object({
   ]),
   // Required, and not satisfied by whitespace. This is the whole point of the
   // pause flow: a stalled task must say why.
-  reasonText: z.string().trim().min(3, "Say what is holding it up"),
+  reasonText: z.string().trim().min(3, "errors.sayWhatIsHoldingItUp"),
 });
 
 export type BlockingTask = {
@@ -91,17 +94,29 @@ async function blockingTask(
 
 async function ownedTask(taskId: string, userId: string) {
   const task = await prisma.task.findUnique({ where: { id: taskId } });
-  if (!task) throw new Error("That task no longer exists");
-  if (task.assigneeId !== userId) throw new Error("That is not your task");
+  if (!task) fail("errors.taskGone");
+  if (task.assigneeId !== userId) fail("errors.notYourTask");
   return task;
 }
 
+/** Prisma client or an interactive transaction -- both can run this query. */
+type Db = Pick<typeof prisma, "timeEntry">;
+
 /** The one open time entry for this person, if any. */
-function openEntry(userId: string) {
-  return prisma.timeEntry.findFirst({
+function openEntry(userId: string, db: Db = prisma) {
+  return db.timeEntry.findFirst({
     where: { userId, endedAt: null },
     include: { pauses: { where: { resumedAt: null } } },
   });
+}
+
+/** Postgres unique-violation, i.e. one of the guards in the schema fired. */
+function isUniqueViolation(error: unknown): boolean {
+  return (
+    typeof error === "object" &&
+    error !== null &&
+    (error as { code?: string }).code === "P2002"
+  );
 }
 
 export async function startTask(
@@ -110,10 +125,11 @@ export async function startTask(
 ): Promise<ActionState> {
   try {
     const user = await requireUserOrThrow();
+    const { t } = await getT();
     const { taskId } = TaskId.parse({ taskId: formData.get("taskId") });
     const task = await ownedTask(taskId, user.id);
 
-    if (task.status === "DONE") return { error: "That task is already done" };
+    if (task.status === "DONE") return { error: t("errors.taskAlreadyDone") };
 
     // Resuming your own paused task is always allowed -- it is the task you
     // were told to finish.
@@ -121,15 +137,18 @@ export async function startTask(
       const owed = await blockingTask(user.id, task);
       if (owed) {
         return {
-          error: `Finish ${owed.title} first, or say why you could not.`,
+          error: t("errors.blockedBy", owed.title),
           blockedBy: owed,
         };
       }
     }
 
-    const running = await openEntry(user.id);
-
     await prisma.$transaction(async (tx) => {
+      // Read what is running *inside* the transaction. Reading it outside let
+      // two concurrent starts both see nothing and both open an entry, which
+      // double-counted the elapsed time.
+      const running = await openEntry(user.id, tx);
+
       // Stand down whatever else was running, so two timers never overlap.
       if (running && running.taskId !== taskId) {
         await tx.timeEntry.update({
@@ -162,10 +181,22 @@ export async function startTask(
       });
     });
 
-    revalidatePath("/my-day");
+    // Starting work is a clock-in for anybody whose session survived from
+    // yesterday, so no login fired today. It also reopens a day that was
+    // closed -- see markArrival.
+    await markArrival(user.id, "TASK_START");
+
+    revalidatePath("/", "layout");
     return { ok: true };
   } catch (error) {
-    return { error: error instanceof Error ? error.message : "Could not start" };
+    // Under READ COMMITTED the in-transaction read is not enough on its own;
+    // the partial unique index on TimeEntry is what actually stops the second
+    // start, and this is how it surfaces.
+    // Expected under contention rather than a fault, so it is not logged.
+    if (isUniqueViolation(error)) {
+      return { error: await message("errors.somethingElseRunning") };
+    }
+    return { error: await errorText(error, "errors.couldNotStart") };
   }
 }
 
@@ -175,6 +206,7 @@ export async function pauseTask(
 ): Promise<ActionState> {
   try {
     const user = await requireUserOrThrow();
+    const { t } = await getT();
     const parsed = PauseInput.safeParse({
       taskId: formData.get("taskId"),
       reasonCode: formData.get("reasonCode"),
@@ -182,16 +214,16 @@ export async function pauseTask(
     });
 
     if (!parsed.success) {
-      return { error: parsed.error.issues[0].message };
+      return { error: t(parsed.error.issues[0].message) };
     }
 
     await ownedTask(parsed.data.taskId, user.id);
 
     const running = await openEntry(user.id);
     if (!running || running.taskId !== parsed.data.taskId) {
-      return { error: "That task is not running" };
+      return { error: t("errors.notRunning") };
     }
-    if (running.pauses.length > 0) return { error: "It is already paused" };
+    if (running.pauses.length > 0) return { error: t("errors.alreadyPaused") };
 
     await prisma.$transaction([
       prisma.pauseEvent.create({
@@ -207,10 +239,12 @@ export async function pauseTask(
       }),
     ]);
 
-    revalidatePath("/my-day");
+    await markActivity(user.id);
+
+    revalidatePath("/", "layout");
     return { ok: true };
   } catch (error) {
-    return { error: error instanceof Error ? error.message : "Could not pause" };
+    return { error: await errorText(error, "errors.couldNotPause") };
   }
 }
 
@@ -220,6 +254,7 @@ export async function completeTask(
 ): Promise<ActionState> {
   try {
     const user = await requireUserOrThrow();
+    const { t } = await getT();
     const { taskId } = TaskId.parse({ taskId: formData.get("taskId") });
     await ownedTask(taskId, user.id);
 
@@ -245,11 +280,15 @@ export async function completeTask(
       await tx.task.update({ where: { id: taskId }, data: { status: "DONE" } });
     });
 
-    revalidatePath("/my-day");
+    // Recorded, but deliberately not treated as leaving: there is usually
+    // another task after this one. Only signing out or closing the day ends it.
+    await markActivity(user.id, now, { taskEnded: true });
+
+    revalidatePath("/", "layout");
     return { ok: true };
   } catch (error) {
     return {
-      error: error instanceof Error ? error.message : "Could not complete",
+      error: await errorText(error, "errors.couldNotComplete"),
     };
   }
 }
@@ -257,8 +296,8 @@ export async function completeTask(
 
 const Defer = z.object({
   taskId: z.string().min(1),
-  reason: z.string().trim().min(3, "Say why you could not do it"),
-  date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Say when you will do it"),
+  reason: z.string().trim().min(3, "errors.sayWhyYouCouldNot"),
+  date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "errors.sayWhenYouWill"),
 });
 
 /**
@@ -272,15 +311,16 @@ export async function deferTask(
 ): Promise<ActionState> {
   try {
     const user = await requireUserOrThrow();
+    const { t } = await getT();
     const parsed = Defer.safeParse({
       taskId: formData.get("taskId"),
       reason: formData.get("reason"),
       date: formData.get("date"),
     });
-    if (!parsed.success) return { error: parsed.error.issues[0].message };
+    if (!parsed.success) return { error: t(parsed.error.issues[0].message) };
 
     const task = await ownedTask(parsed.data.taskId, user.id);
-    if (task.status === "DONE") return { error: "That one is already done" };
+    if (task.status === "DONE") return { error: t("errors.alreadyDone") };
 
     const from = task.scheduledDate ?? task.dueDate;
     const to = toDateOnly(new Date(`${parsed.data.date}T00:00:00Z`));
@@ -336,12 +376,14 @@ export async function deferTask(
         : 0;
     await placeOnDay(task.id, user.id, to, notBefore);
 
-    revalidatePath("/my-day");
+    await markActivity(user.id);
+
+    revalidatePath("/", "layout");
     revalidatePath("/plan");
     revalidatePath("/triage");
     return { ok: true };
   } catch (error) {
-    return { error: error instanceof Error ? error.message : "Could not move it" };
+    return { error: await errorText(error, "errors.couldNotMoveIt") };
   }
 }
 
@@ -368,11 +410,12 @@ export async function reorderDay(
 ): Promise<ActionState> {
   try {
     const user = await requireUserOrThrow();
+    const { t } = await getT();
     const parsed = Reorder.safeParse({
       date: formData.get("date"),
       taskIds: formData.getAll("taskIds").map(String),
     });
-    if (!parsed.success) return { error: "Could not read the new order" };
+    if (!parsed.success) return { error: t("errors.couldNotReadOrder") };
 
     const day = toDateOnly(new Date(`${parsed.data.date}T00:00:00Z`));
 
@@ -450,12 +493,12 @@ export async function reorderDay(
       ),
     );
 
-    revalidatePath("/my-day");
+    revalidatePath("/", "layout");
     revalidatePath("/my-calendar");
     return { ok: true };
   } catch (error) {
     return {
-      error: error instanceof Error ? error.message : "Could not reorder the day",
+      error: await errorText(error, "errors.couldNotReorder"),
     };
   }
 }

@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/db";
-import { addDays, dateKey, toDateOnly } from "@/lib/time";
+import { addDays, dateKey, today, toDateOnly } from "@/lib/time";
 import { computeAvailability, type Window } from "@/lib/scheduling/availability";
 
 /**
@@ -54,7 +54,7 @@ export function weekStart(date: Date): Date {
 
 export async function getTeamWeek(
   departmentId: string,
-  anchor: Date = new Date(),
+  anchor: Date = today(),
 ): Promise<TeamWeek> {
   const monday = weekStart(anchor);
   // The whole week is considered, not just Mon-Fri: split shifts and Saturday

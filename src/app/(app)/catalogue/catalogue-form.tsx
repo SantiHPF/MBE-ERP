@@ -29,6 +29,7 @@ export type CatalogueEntry = {
     monthlyDay: number | null;
     instancesPerOccurrence: number;
     fixedStartMinutes: number | null;
+    anchors: DayAnchor[];
   } | null;
 };
 
@@ -43,6 +44,24 @@ const DAYS = [
 ] as const;
 
 type Freq = "NONE" | "WEEKLY" | "MONTHLY";
+
+export type DayAnchor =
+  | "ARRIVAL"
+  | "BEFORE_BREAK"
+  | "AFTER_BREAK"
+  | "BEFORE_LEAVING";
+
+/** In the order they happen, which is the order they are stored and shown. */
+const ANCHORS = [
+  ["ARRIVAL", "catalogue.onArrival"],
+  ["BEFORE_BREAK", "catalogue.beforeBreak"],
+  ["AFTER_BREAK", "catalogue.afterBreak"],
+  ["BEFORE_LEAVING", "catalogue.beforeLeaving"],
+] as const satisfies readonly (readonly [DayAnchor, string])[];
+
+/** Where in the day the work sits: nowhere in particular, a clock time, or
+ *  points in whoever's shift it is. */
+type WhenInDay = "ANYWHERE" | "FIXED" | "ANCHORS";
 
 export function CatalogueForm({
   departmentId,
@@ -82,12 +101,31 @@ export function CatalogueForm({
   const [days, setDays] = useState<number[]>(
     entry?.rule?.frequency === "WEEKLY" ? entry.rule.weekdays : [],
   );
-  const [atTime, setAtTime] = useState(
-    entry?.rule?.fixedStartMinutes != null,
-  );
   const [priority, setPriority] = useState<"MUST" | "NORMAL" | "SPARE_TIME">(
     entry?.priority ?? "NORMAL",
   );
+
+  // Three ways a task can sit in the day, and only one applies at a time.
+  const [when, setWhen] = useState<WhenInDay>(
+    (entry?.rule?.anchors?.length ?? 0) > 0
+      ? "ANCHORS"
+      : entry?.rule?.fixedStartMinutes != null
+        ? "FIXED"
+        : "ANYWHERE",
+  );
+  const [anchors, setAnchors] = useState<DayAnchor[]>(
+    entry?.rule?.anchors ?? [],
+  );
+
+  /** Kept in the fixed order of the day, whatever order they were ticked in. */
+  const toggleAnchor = (anchor: DayAnchor) =>
+    setAnchors((current) =>
+      current.includes(anchor)
+        ? current.filter((a) => a !== anchor)
+        : ANCHORS.map(([id]) => id).filter(
+            (id) => id === anchor || current.includes(id),
+          ),
+    );
 
   const label = "mb-1 block text-[11px] font-semibold tracking-[0.07em] text-faint uppercase";
   const field = "w-full rounded border border-line-strong bg-surface-2 px-2.5 py-1.5 text-[13px]";
@@ -127,7 +165,7 @@ export function CatalogueForm({
           <input
             name="category"
             defaultValue={entry?.category ?? ""}
-            placeholder="e.g. Reporting"
+            placeholder={t("catalogue.categoryEg")}
             className={field}
           />
         </label>
@@ -140,7 +178,7 @@ export function CatalogueForm({
           <input
             name="notes"
             defaultValue={entry?.notes ?? ""}
-            placeholder="e.g. max 1 integrante por día"
+            placeholder={t("catalogue.warningsEg")}
             className={field}
           />
         </label>
@@ -149,7 +187,7 @@ export function CatalogueForm({
           <input
             name="instructions"
             defaultValue={entry?.instructions ?? ""}
-            placeholder="e.g. Ver Calendar"
+            placeholder={t("catalogue.procedureEg")}
             className={field}
           />
         </label>
@@ -369,45 +407,101 @@ export function CatalogueForm({
         )}
 
         {freq !== "NONE" && (
-          <div className="mt-3 flex flex-wrap items-center gap-3 border-t border-line pt-2.5">
-            <label className="flex items-center gap-1.5 text-[12.5px]">
-              <input
-                type="checkbox"
-                checked={atTime}
-                onChange={(e) => setAtTime(e.target.checked)}
-              />
-              {t("catalogue.atFixedTime")}
-            </label>
-            {atTime ? (
-              <input
-                type="time"
-                name="fixedStart"
-                defaultValue={
-                  entry?.rule?.fixedStartMinutes != null
-                    ? formatClock(entry.rule.fixedStartMinutes)
-                    : "09:00"
-                }
-                className="num rounded border border-line-strong bg-surface px-2 py-1 text-[13px]"
-              />
-            ) : (
-              <span className="text-[11.5px] text-muted">
+          <div className="mt-3 border-t border-line pt-2.5">
+            <p className={label}>{t("catalogue.whenInDay")}</p>
+
+            <div className="flex flex-wrap gap-1.5">
+              {(
+                [
+                  ["ANYWHERE", t("catalogue.anywhereInDay")],
+                  ["FIXED", t("catalogue.atFixedTime")],
+                  ["ANCHORS", t("catalogue.atPointsInShift")],
+                ] as const
+              ).map(([id, text]) => (
+                <button
+                  key={id}
+                  type="button"
+                  aria-pressed={when === id}
+                  onClick={() => setWhen(id)}
+                  className={
+                    when === id
+                      ? "rounded-md border border-accent bg-accent px-2.5 py-1.5 text-[12.5px] font-medium text-accent-ink"
+                      : "rounded-md border border-line-strong bg-surface px-2.5 py-1.5 text-[12.5px] text-muted transition-colors hover:border-accent hover:text-ink"
+                  }
+                >
+                  {text}
+                </button>
+              ))}
+            </div>
+
+            {when === "ANYWHERE" && (
+              <p className="mt-2 text-[11.5px] text-muted">
                 {t("catalogue.otherwiseFitted")}
-              </span>
+              </p>
             )}
 
-            <span className="flex-1" />
+            {when === "FIXED" && (
+              <div className="mt-2.5 flex flex-wrap items-center gap-3">
+                <input
+                  type="time"
+                  name="fixedStart"
+                  defaultValue={
+                    entry?.rule?.fixedStartMinutes != null
+                      ? formatClock(entry.rule.fixedStartMinutes)
+                      : "09:00"
+                  }
+                  className="num rounded border border-line-strong bg-surface px-2 py-1 text-[13px]"
+                />
+                <label className="flex items-center gap-1.5 text-[12.5px]">
+                  <span className="text-muted">{t("catalogue.timesPerDay")}</span>
+                  <input
+                    type="number"
+                    name="instancesPerOccurrence"
+                    defaultValue={entry?.rule?.instancesPerOccurrence ?? 1}
+                    min={1}
+                    max={20}
+                    className="num w-16 rounded border border-line-strong bg-surface px-2 py-1 text-[13px]"
+                  />
+                </label>
+              </div>
+            )}
 
-            <label className="flex items-center gap-1.5 text-[12.5px]">
-              <span className="text-muted">{t("catalogue.timesPerDay")}</span>
-              <input
-                type="number"
-                name="instancesPerOccurrence"
-                defaultValue={entry?.rule?.instancesPerOccurrence ?? 1}
-                min={1}
-                max={20}
-                className="num w-16 rounded border border-line-strong bg-surface px-2 py-1 text-[13px]"
-              />
-            </label>
+            {when === "ANCHORS" && (
+              <div className="mt-2.5">
+                <div className="flex flex-wrap gap-1.5">
+                  {ANCHORS.map(([id, key]) => {
+                    const on = anchors.includes(id);
+                    return (
+                      <button
+                        key={id}
+                        type="button"
+                        aria-pressed={on}
+                        onClick={() => toggleAnchor(id)}
+                        className={
+                          on
+                            ? "rounded-md border border-accent bg-accent px-2.5 py-1.5 text-[12.5px] font-medium text-accent-ink"
+                            : "rounded-md border border-line-strong bg-surface px-2.5 py-1.5 text-[12.5px] text-muted transition-colors hover:border-accent hover:text-ink"
+                        }
+                      >
+                        {t(key)}
+                      </button>
+                    );
+                  })}
+                </div>
+                {anchors.map((a) => (
+                  <input key={a} type="hidden" name="anchors" value={a} />
+                ))}
+                <p
+                  className={`mt-1.5 text-[11.5px] ${
+                    anchors.length === 0 ? "text-pause" : "text-muted"
+                  }`}
+                >
+                  {anchors.length === 0
+                    ? t("catalogue.pickOnePoint")
+                    : t("catalogue.anchorsHint", anchors.length)}
+                </p>
+              </div>
+            )}
           </div>
         )}
       </fieldset>
@@ -421,7 +515,11 @@ export function CatalogueForm({
       <div className="flex flex-wrap items-center gap-2">
         <button
           type="submit"
-          disabled={pending || (freq === "WEEKLY" && days.length === 0)}
+          disabled={
+            pending ||
+            (freq === "WEEKLY" && days.length === 0) ||
+            (freq !== "NONE" && when === "ANCHORS" && anchors.length === 0)
+          }
           className="btn btn-primary"
         >
           {pending

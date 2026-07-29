@@ -11,11 +11,12 @@ import {
 } from "@/lib/plan/actions";
 import { setTaskQuantity } from "@/lib/tasks/quantity";
 import { useT } from "@/lib/i18n/client";
+import { weekdayLabel, weekdayOfKey } from "@/lib/i18n/dates";
 
 type Filter = "all" | "mine" | "recurring" | "unclaimed";
 
 export function PlanBoard({ week }: { week: PlanWeek }) {
-  const { t } = useT();
+  const { t, locale } = useT();
   const [notice, setNotice] = useState<PlanState>({});
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState<Filter>("all");
@@ -169,7 +170,7 @@ export function PlanBoard({ week }: { week: PlanWeek }) {
                       day.rostered ? "text-ink" : "text-faint"
                     }`}
                   >
-                    {day.short}
+                    {weekdayLabel(locale, weekdayOfKey(day.date), "short")}
                   </span>
                   <span className="num block text-[10px] text-muted">
                     {day.date.slice(8)}/{day.date.slice(5, 7)}
@@ -189,7 +190,11 @@ export function PlanBoard({ week }: { week: PlanWeek }) {
                             ? "font-semibold text-pause"
                             : "text-muted"
                       }`}
-                      title={`${formatDuration(day.claimedMinutes)} taken of ${formatDuration(day.capacityMinutes)}`}
+                      title={t(
+                        "plan.takenOf",
+                        formatDuration(day.claimedMinutes),
+                        formatDuration(day.capacityMinutes),
+                      )}
                     >
                       {day.overBy > 0
                         ? `${formatDuration(day.overBy)} ${t("common.over")}`
@@ -246,7 +251,7 @@ export function PlanBoard({ week }: { week: PlanWeek }) {
                   <div className="flex justify-center gap-0.5 py-1">
                     <button
                       type="button"
-                      title={`Take ${row.name} on every day you work`}
+                      title={t("plan.takeEveryDay", row.name)}
                       onClick={() => toggleWholeRow(row, true)}
                       className="rounded border border-line-strong px-1.5 py-0.5 text-[10px] hover:border-accent hover:text-accent"
                     >
@@ -254,7 +259,7 @@ export function PlanBoard({ week }: { week: PlanWeek }) {
                     </button>
                     <button
                       type="button"
-                      title={`Give back every day of ${row.name}`}
+                      title={t("plan.giveBackEveryDay", row.name)}
                       onClick={() => toggleWholeRow(row, false)}
                       className="rounded border border-line-strong px-1.5 py-0.5 text-[10px] hover:border-stall hover:text-stall"
                     >
@@ -276,7 +281,7 @@ export function PlanBoard({ week }: { week: PlanWeek }) {
         <Key className="border-line-strong bg-surface-2 text-faint">–</Key>
         <span>{t("plan.someoneElse")}</span>
         <Key className="border-run bg-run-wash text-run">✓</Key>
-        <span>started or done — can&rsquo;t change</span>
+        <span>{t("plan.startedLocked")}</span>
       </div>
     </>
   );
@@ -289,7 +294,7 @@ function NewTaskForm({
   days: PlanWeek["days"];
   onDone: (s: PlanState) => void;
 }) {
-  const { t } = useT();
+  const { t, locale } = useT();
   const [state, submit, pending] = useActionState(
     async (p: PlanState, f: FormData) => {
       const r = await createAdHocTask(p, f);
@@ -346,7 +351,8 @@ function NewTaskForm({
         >
           {days.map((d) => (
             <option key={d.date} value={d.date}>
-              {d.label} {d.date.slice(8)}/{d.date.slice(5, 7)} ·{" "}
+              {weekdayLabel(locale, weekdayOfKey(d.date))}{" "}
+              {d.date.slice(8)}/{d.date.slice(5, 7)} ·{" "}
               {d.rostered
                 ? `${formatDuration(d.freeMinutes)} ${t("common.free")}`
                 : t("common.notWorking")}

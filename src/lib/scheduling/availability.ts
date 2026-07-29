@@ -184,6 +184,63 @@ export function slotOverlapsAbsence(
   return slot.start < absence.endMinutes && slot.end > absence.startMinutes;
 }
 
+export type DayAnchor =
+  | "ARRIVAL"
+  | "BEFORE_BREAK"
+  | "AFTER_BREAK"
+  | "BEFORE_LEAVING";
+
+/**
+ * The order anchors happen in, for sorting before anyone is chosen. Their real
+ * clock times are not known until a candidate's windows are in hand.
+ */
+export const ANCHOR_ORDER: Record<DayAnchor, number> = {
+  ARRIVAL: 0,
+  BEFORE_BREAK: 1,
+  AFTER_BREAK: 2,
+  BEFORE_LEAVING: 3,
+};
+
+/**
+ * Where an anchor lands in one person's day.
+ *
+ * The windows already have breaks and absences removed, so the first window is
+ * the morning and the second -- when there is one -- is the afternoon.
+ *
+ * "Before" anchors are backed off by the task's own length so the work finishes
+ * by the break or the end of the shift rather than starting then and running
+ * over. Returns null when the day has no such point: somebody whose break is
+ * unpositioned has one window and therefore no "after the break", and the
+ * caller places that task flexibly rather than dropping it.
+ */
+export function resolveAnchor(
+  anchor: DayAnchor,
+  windows: Window[],
+  minutes: number,
+): number | null {
+  if (windows.length === 0) return null;
+
+  const first = windows[0];
+  const last = windows[windows.length - 1];
+
+  switch (anchor) {
+    case "ARRIVAL":
+      return first.start;
+
+    case "BEFORE_BREAK": {
+      // With no break there is nothing to be before; that is what leaving is.
+      if (windows.length < 2) return null;
+      return Math.max(first.start, first.end - minutes);
+    }
+
+    case "AFTER_BREAK":
+      return windows.length < 2 ? null : windows[1].start;
+
+    case "BEFORE_LEAVING":
+      return Math.max(last.start, last.end - minutes);
+  }
+}
+
 /** First window that can hold `minutes`, or null if none can. */
 export function findSlot(
   windows: Window[],

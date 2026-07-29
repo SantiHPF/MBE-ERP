@@ -4,6 +4,8 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { prisma } from "@/lib/db";
 import { hasRole, requireUserOrThrow } from "@/lib/auth/guards";
+import { errorText } from "@/lib/i18n/errors";
+import { getT } from "@/lib/i18n/server";
 
 /**
  * P1N — "pasa 1 vez, no vuelve a pasar".
@@ -17,9 +19,9 @@ import { hasRole, requireUserOrThrow } from "@/lib/auth/guards";
 export type P1nState = { error?: string; ok?: boolean; message?: string };
 
 const NewP1n = z.object({
-  mistake: z.string().trim().min(10, "Describe what happened"),
+  mistake: z.string().trim().min(10, "errors.describeWhatHappened"),
   cause: z.enum(["ATTENTION", "PROCESS", "OTHER"]),
-  solution: z.string().trim().min(10, "What would stop it happening again?"),
+  solution: z.string().trim().min(10, "errors.whatWouldStopIt"),
   taskId: z.string().optional(),
 });
 
@@ -29,13 +31,14 @@ export async function fileP1n(
 ): Promise<P1nState> {
   try {
     const user = await requireUserOrThrow();
+    const { t } = await getT();
     const parsed = NewP1n.safeParse({
       mistake: formData.get("mistake"),
       cause: formData.get("cause"),
       solution: formData.get("solution"),
       taskId: formData.get("taskId") || undefined,
     });
-    if (!parsed.success) return { error: parsed.error.issues[0].message };
+    if (!parsed.success) return { error: t(parsed.error.issues[0].message) };
 
     // Only your own work can be attached, so a P1N cannot point at somebody
     // else's task.
@@ -63,7 +66,7 @@ export async function fileP1n(
     revalidatePath("/my-day");
     return { ok: true };
   } catch (error) {
-    return { error: error instanceof Error ? error.message : "Could not send it" };
+    return { error: await errorText(error, "errors.couldNotSendIt") };
   }
 }
 
@@ -82,16 +85,17 @@ export async function markApplied(
 ): Promise<P1nState> {
   try {
     const user = await requireUserOrThrow("MANAGER");
+    const { t } = await getT();
     const parsed = Applied.safeParse({
       p1nId: formData.get("p1nId"),
       note: formData.get("note") || undefined,
     });
-    if (!parsed.success) return { error: parsed.error.issues[0].message };
+    if (!parsed.success) return { error: t(parsed.error.issues[0].message) };
 
     const p1n = await prisma.p1n.findUnique({ where: { id: parsed.data.p1nId } });
-    if (!p1n) return { error: "That P1N no longer exists" };
+    if (!p1n) return { error: t("errors.p1nGone") };
     if (p1n.departmentId !== user.departmentId && !hasRole(user, "ADMIN")) {
-      return { error: "That belongs to another department" };
+      return { error: t("errors.otherDepartment") };
     }
 
     await prisma.p1n.update({
@@ -106,6 +110,6 @@ export async function markApplied(
     revalidatePath("/p1n");
     return { ok: true };
   } catch (error) {
-    return { error: error instanceof Error ? error.message : "Could not save" };
+    return { error: await errorText(error, "errors.couldNotSave") };
   }
 }

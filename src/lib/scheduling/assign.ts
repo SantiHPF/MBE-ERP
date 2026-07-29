@@ -1,5 +1,5 @@
-import type { Availability, Window } from "./availability";
-import { findSlot } from "./availability";
+import type { Availability, DayAnchor, Window } from "./availability";
+import { ANCHOR_ORDER, findSlot, resolveAnchor } from "./availability";
 import { dateKey } from "@/lib/time";
 
 /**
@@ -45,6 +45,18 @@ export type TaskInput = {
   pinnedAssigneeId?: string | null;
   fixedStartMinutes?: number | null;
   fixedEndMinutes?: number | null;
+  /**
+   * A point in the working day rather than a clock time. Resolved against
+   * whichever candidate is being considered, since "on arrival" is a different
+   * time for each of them.
+   */
+  anchor?: DayAnchor | null;
+  /**
+   * Tasks sharing a key are one person's routine for the day and are assigned
+   * together -- the four checks on a shift belong to whoever is on that shift,
+   * not to four different people.
+   */
+  groupKey?: string | null;
 };
 
 export type RotationInput = {
@@ -215,44 +227,163 @@ export function assignDay(input: {
     }
   };
 
-  const ordered = [...input.tasks].sort((a, b) => {
-    // A fixed window is a placement constraint, not a statement of
-    // importance, so those still go first -- otherwise a must-do flexible
-    // task eats the hour a fixed meeting needs.
-    const aFixed = a.fixedStartMinutes != null;
-    const bFixed = b.fixedStartMinutes != null;
-    if (aFixed !== bFixed) return aFixed ? -1 : 1;
-    if (aFixed && bFixed) {
-      return (a.fixedStartMinutes ?? 0) - (b.fixedStartMinutes ?? 0);
+  /**
+   * Where a task wants to start for this particular person. An anchor is a
+   * point in *their* day, so it cannot be resolved until the candidate is
+   * known; an anchor their day has no room for (no break, so no "after the
+   * break") falls through to flexible placement rather than dropping the task.
+   */
+  const wantedStart = (
+    task: TaskInput,
+    candidate: WorkingCandidate,
+  ): number | null => {
+    if (task.anchor) {
+      return resolveAnchor(
+        task.anchor,
+        candidate.availability.windows,
+        task.estimatedMinutes,
+      );
     }
+    return task.fixedStartMinutes ?? null;
+  };
 
-    const rankA = PRIORITY_RANK[a.priority ?? "NORMAL"];
-    const rankB = PRIORITY_RANK[b.priority ?? "NORMAL"];
-    if (rankA !== rankB) return rankA - rankB;
+  const placeFor = (
+    task: TaskInput,
+    candidate: WorkingCandidate,
+  ): Window | null => {
+    const from = wantedStart(task, candidate);
+    if (from == null) return findSlot(candidate.free, task.estimatedMinutes);
 
-    if (a.estimatedMinutes !== b.estimatedMinutes) {
-      return b.estimatedMinutes - a.estimatedMinutes;
-    }
-    return a.id < b.id ? -1 : 1;
-  });
+    const slot = findSlot(candidate.free, task.estimatedMinutes, from);
+    if (!slot) return null;
+    const limit = task.fixedEndMinutes ?? Infinity;
+    return slot.end <= limit ? slot : null;
+  };
 
-  for (const task of ordered) {
-    const place = (candidate: WorkingCandidate): Window | null => {
-      if (candidate.remaining < task.estimatedMinutes) return null;
-
-      if (task.fixedStartMinutes != null) {
-        // Must sit inside its declared window.
-        const slot = findSlot(
-          candidate.free,
-          task.estimatedMinutes,
-          task.fixedStartMinutes,
-        );
-        if (!slot) return null;
-        const limit = task.fixedEndMinutes ?? Infinity;
-        return slot.end <= limit ? slot : null;
+  const orderTasks = (tasks: TaskInput[]) =>
+    [...tasks].sort((a, b) => {
+      // A fixed window is a placement constraint, not a statement of
+      // importance, so those still go first -- otherwise a must-do flexible
+      // task eats the hour a fixed meeting needs.
+      const aFixed = a.fixedStartMinutes != null || a.anchor != null;
+      const bFixed = b.fixedStartMinutes != null || b.anchor != null;
+      if (aFixed !== bFixed) return aFixed ? -1 : 1;
+      if (aFixed && bFixed) {
+        // Anchors have no clock time yet, so they sort by where in the day
+        // they fall and ahead of nothing in particular.
+        const aAt = a.anchor ? ANCHOR_ORDER[a.anchor] * 1e4 : (a.fixedStartMinutes ?? 0);
+        const bAt = b.anchor ? ANCHOR_ORDER[b.anchor] * 1e4 : (b.fixedStartMinutes ?? 0);
+        if (aAt !== bAt) return aAt - bAt;
       }
 
-      return findSlot(candidate.free, task.estimatedMinutes);
+      const rankA = PRIORITY_RANK[a.priority ?? "NORMAL"];
+      const rankB = PRIORITY_RANK[b.priority ?? "NORMAL"];
+      if (rankA !== rankB) return rankA - rankB;
+
+      if (a.estimatedMinutes !== b.estimatedMinutes) {
+        return b.estimatedMinutes - a.estimatedMinutes;
+      }
+      return a.id < b.id ? -1 : 1;
+    });
+
+  /**
+   * A day's anchored repetitions go to one person, so they are offered as a
+   * unit. Everything else is its own unit of one, which is the old behaviour.
+   */
+  const groups = new Map<string, TaskInput[]>();
+  const singles: TaskInput[] = [];
+  for (const task of orderTasks(input.tasks)) {
+    if (!task.groupKey) {
+      singles.push(task);
+      continue;
+    }
+    const list = groups.get(task.groupKey);
+    if (list) list.push(task);
+    else groups.set(task.groupKey, [task]);
+  }
+
+  for (const members of groups.values()) {
+    assignGroup(members);
+  }
+
+  /**
+   * Give a whole routine to one person: the first, by the usual ranking, with
+   * room for all of it.
+   */
+  function assignGroup(members: TaskInput[]): void {
+    const first = members[0];
+    const totalMinutes = members.reduce((s, t) => s + t.estimatedMinutes, 0);
+
+    const inDepartment = working.filter(
+      (c) => c.departmentId === first.departmentId,
+    );
+    if (inDepartment.length === 0) {
+      for (const m of members) {
+        unassigned.push({ taskId: m.id, reason: "no-one-in-department" });
+      }
+      return;
+    }
+
+    const ranked = [...inDepartment]
+      .filter((c) => c.remaining >= totalMinutes)
+      .sort((a, b) => compareForTask(a, b, first, rotation, oneOffLoad));
+
+    const target = ranked[0];
+    if (!target) {
+      // Splitting the routine across people would defeat the point, so it
+      // stays together and either overloads a day visibly or waits.
+      if ((first.priority ?? "NORMAL") === "MUST") {
+        const fallback = [...inDepartment].sort((a, b) =>
+          compareForTask(a, b, first, rotation, oneOffLoad),
+        )[0];
+        if (fallback) {
+          placeAll(members, fallback, true);
+          return;
+        }
+      }
+      for (const m of members) {
+        unassigned.push({ taskId: m.id, reason: "no-capacity" });
+      }
+      return;
+    }
+
+    placeAll(members, target, false);
+  }
+
+  function placeAll(
+    members: TaskInput[],
+    candidate: WorkingCandidate,
+    overCapacity: boolean,
+  ): void {
+    for (const task of members) {
+      // Its own point in the day first, then anywhere that still fits -- a
+      // check that cannot sit exactly where it belongs is still worth doing.
+      const slot =
+        placeFor(task, candidate) ?? findSlot(candidate.free, task.estimatedMinutes);
+
+      if (slot) claim(candidate, slot);
+      else candidate.remaining -= task.estimatedMinutes;
+
+      assignments.push({
+        taskId: task.id,
+        userId: candidate.userId,
+        date: input.date,
+        start: slot?.start ?? null,
+        end: slot?.end ?? null,
+        ...(overCapacity ? { overCapacity: true } : {}),
+      });
+    }
+
+    // Credited once for the whole routine. Counting each repetition would make
+    // a four-times-daily task look four times as "owed" as a daily one and
+    // skew the rotation for every other task in the department.
+    creditRotation(members[0], candidate.userId);
+  }
+
+  for (const task of singles) {
+    const place = (candidate: WorkingCandidate): Window | null => {
+      if (candidate.remaining < task.estimatedMinutes) return null;
+      return placeFor(task, candidate);
     };
 
     // Pinned by a meeting: that person or nobody.

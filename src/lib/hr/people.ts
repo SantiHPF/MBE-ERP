@@ -4,6 +4,8 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { prisma } from "@/lib/db";
 import { canManagePeople, requireUserOrThrow } from "@/lib/auth/guards";
+import { errorText, fail } from "@/lib/i18n/errors";
+import { getT } from "@/lib/i18n/server";
 import { hashPassword } from "@/lib/auth/password";
 import { parseClock, toDateOnly } from "@/lib/time";
 import { syncOnboarding } from "@/lib/people/onboarding-db";
@@ -23,13 +25,13 @@ const NewPerson = z.object({
     .string()
     .trim()
     .toLowerCase()
-    .min(2, "Username is too short")
-    .regex(/^[a-z0-9._-]+$/, "Letters, numbers, dots, dashes and underscores only"),
-  displayName: z.string().trim().min(1, "Give their full name"),
-  departmentId: z.string().min(1, "Pick a department"),
+    .min(2, "errors.usernameTooShort")
+    .regex(/^[a-z0-9._-]+$/, "errors.usernameCharacters"),
+  displayName: z.string().trim().min(1, "errors.giveTheirName"),
+  departmentId: z.string().min(1, "errors.pickADepartment"),
   role: z.enum(["WORKER", "MANAGER", "HR", "ADMIN"]),
-  password: z.string().min(8, "At least 8 characters"),
-  startDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "When do they start?"),
+  password: z.string().min(8, "errors.atLeastEightCharacters"),
+  startDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "errors.whenDoTheyStart"),
   // Blank means indefinite, which is most people.
   endDate: z
     .string()
@@ -41,7 +43,7 @@ const NewPerson = z.object({
 async function assertPeopleAdmin() {
   const actor = await requireUserOrThrow();
   if (!canManagePeople(actor)) {
-    throw new Error("Only HR can manage accounts");
+    fail("errors.onlyHrManagesAccounts");
   }
   return actor;
 }
@@ -71,7 +73,7 @@ function patternsFromForm(formData: FormData, userId: string) {
     const startMinutes = parseClock(start);
     const endMinutes = parseClock(end);
     if (endMinutes <= startMinutes) {
-      throw new Error(`Finishing time must be after the start on day ${weekday}`);
+      fail("errors.finishAfterStart");
     }
 
     const breakMinutes = Number(formData.get(`break-${weekday}`) ?? 0) || 0;
@@ -95,6 +97,7 @@ export async function createPerson(
   formData: FormData,
 ): Promise<PeopleState> {
   try {
+    const { t } = await getT();
     await assertPeopleAdmin();
 
     const parsed = NewPerson.safeParse({
@@ -106,12 +109,12 @@ export async function createPerson(
       startDate: formData.get("startDate"),
       endDate: formData.get("endDate") || undefined,
     });
-    if (!parsed.success) return { error: parsed.error.issues[0].message };
+    if (!parsed.success) return { error: t(parsed.error.issues[0].message) };
 
     const clash = await prisma.user.findUnique({
       where: { username: parsed.data.username },
     });
-    if (clash) return { error: "That username is taken" };
+    if (clash) return { error: t("errors.usernameTaken") };
 
     const user = await prisma.user.create({
       data: {
@@ -140,14 +143,14 @@ export async function createPerson(
     return {
       ok: true,
       message:
-        `${user.displayName} can now sign in as ${user.username}.` +
+        t("errors.canNowSignIn", user.displayName, user.username) +
         (induction.created > 0
-          ? ` ${induction.created} induction interviews booked.`
+          ? " " + t("errors.inductionsBooked", induction.created)
           : ""),
     };
   } catch (error) {
     return {
-      error: error instanceof Error ? error.message : "Could not create them",
+      error: await errorText(error, "errors.couldNotCreateThem"),
     };
   }
 }
@@ -157,11 +160,12 @@ export async function updateWorkingPattern(
   formData: FormData,
 ): Promise<PeopleState> {
   try {
+    const { t } = await getT();
     await assertPeopleAdmin();
     const userId = String(formData.get("userId") ?? "");
 
     const user = await prisma.user.findUnique({ where: { id: userId } });
-    if (!user) return { error: "That person no longer exists" };
+    if (!user) return { error: t("errors.personGone") };
 
     const patterns = patternsFromForm(formData, userId);
 
@@ -176,24 +180,24 @@ export async function updateWorkingPattern(
 
     revalidatePath("/hr/people");
     revalidatePath("/team");
-    return { ok: true, message: `Updated ${user.displayName}'s hours.` };
+    return { ok: true, message: t("errors.updatedHours", user.displayName) };
   } catch (error) {
     return {
-      error: error instanceof Error ? error.message : "Could not save the hours",
+      error: await errorText(error, "errors.couldNotSaveHours"),
     };
   }
 }
 
 const Reassign = z.object({
   userId: z.string().min(1),
-  departmentId: z.string().min(1, "Pick a department"),
+  departmentId: z.string().min(1, "errors.pickADepartment"),
   role: z.enum(["WORKER", "MANAGER", "HR", "ADMIN"]).optional(),
 });
 
 const Dates = z
   .object({
     userId: z.string().min(1),
-    startDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "When did they start?"),
+    startDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "errors.whenDidTheyStart"),
     endDate: z
       .string()
       .regex(/^\d{4}-\d{2}-\d{2}$/)
@@ -201,7 +205,7 @@ const Dates = z
       .or(z.literal("")),
   })
   .refine((v) => !v.endDate || v.startDate <= v.endDate, {
-    message: "They cannot leave before they start",
+    message: "errors.leaveBeforeStart",
   });
 
 /**
@@ -217,13 +221,14 @@ export async function setEmploymentDates(
   formData: FormData,
 ): Promise<PeopleState> {
   try {
+    const { t } = await getT();
     await assertPeopleAdmin();
     const parsed = Dates.safeParse({
       userId: formData.get("userId"),
       startDate: formData.get("startDate"),
       endDate: formData.get("endDate") || undefined,
     });
-    if (!parsed.success) return { error: parsed.error.issues[0].message };
+    if (!parsed.success) return { error: t(parsed.error.issues[0].message) };
 
     const endDate = parsed.data.endDate
       ? toDateOnly(new Date(`${parsed.data.endDate}T00:00:00Z`))
@@ -259,12 +264,14 @@ export async function setEmploymentDates(
     return {
       ok: true,
       message:
-        `Updated ${user.displayName}.` +
-        (induction.created > 0 ? ` ${induction.created} interviews booked.` : "") +
-        (dropped > 0 ? ` ${dropped} tasks after their last day removed.` : ""),
+        t("errors.updatedPerson", user.displayName) +
+        (induction.created > 0
+          ? " " + t("errors.interviewsBooked", induction.created)
+          : "") +
+        (dropped > 0 ? " " + t("errors.tasksRemoved", dropped) : ""),
     };
   } catch (error) {
-    return { error: error instanceof Error ? error.message : "Could not save" };
+    return { error: await errorText(error, "errors.couldNotSave") };
   }
 }
 
@@ -283,24 +290,25 @@ export async function changeDepartment(
   formData: FormData,
 ): Promise<PeopleState> {
   try {
+    const { t } = await getT();
     const actor = await assertPeopleAdmin();
     const parsed = Reassign.safeParse({
       userId: formData.get("userId"),
       departmentId: formData.get("departmentId"),
       role: formData.get("role") || undefined,
     });
-    if (!parsed.success) return { error: parsed.error.issues[0].message };
+    if (!parsed.success) return { error: t(parsed.error.issues[0].message) };
 
     const user = await prisma.user.findUnique({
       where: { id: parsed.data.userId },
       include: { department: true },
     });
-    if (!user) return { error: "That person no longer exists" };
+    if (!user) return { error: t("errors.personGone") };
 
     const department = await prisma.department.findUnique({
       where: { id: parsed.data.departmentId },
     });
-    if (!department) return { error: "That department no longer exists" };
+    if (!department) return { error: t("errors.departmentGone") };
 
     const moving = user.departmentId !== department.id;
 
@@ -310,7 +318,7 @@ export async function changeDepartment(
       parsed.data.role !== "HR" &&
       parsed.data.role !== "ADMIN"
     ) {
-      return { error: "You would lock yourself out of People — ask another admin" };
+      return { error: t("errors.wouldLockYourselfOut") };
     }
 
     const released = moving
@@ -355,14 +363,14 @@ export async function changeDepartment(
     return {
       ok: true,
       message: moving
-        ? `${user.displayName} moved to ${department.name}.` +
+        ? t("errors.movedTo", user.displayName, department.name) +
           (released > 0
-            ? ` ${released} unstarted task${released === 1 ? "" : "s"} went back to ${user.department.name}.`
+            ? " " + t("errors.wentBackTo", released, user.department.name)
             : "")
-        : `Updated ${user.displayName}.`,
+        : t("errors.updatedPerson", user.displayName),
     };
   } catch (error) {
-    return { error: error instanceof Error ? error.message : "Could not move them" };
+    return { error: await errorText(error, "errors.couldNotMoveThem") };
   }
 }
 
@@ -371,12 +379,13 @@ export async function setPersonActive(
   formData: FormData,
 ): Promise<PeopleState> {
   try {
+    const { t } = await getT();
     const actor = await assertPeopleAdmin();
     const userId = String(formData.get("userId") ?? "");
     const active = formData.get("active") === "true";
 
     if (userId === actor.id && !active) {
-      return { error: "You cannot deactivate your own account" };
+      return { error: t("errors.cannotDeactivateSelf") };
     }
 
     const user = await prisma.user.update({
@@ -393,11 +402,11 @@ export async function setPersonActive(
     return {
       ok: true,
       message: active
-        ? `${user.displayName} is active again.`
-        : `${user.displayName} has been deactivated and signed out.`,
+        ? t("errors.activeAgain", user.displayName)
+        : t("errors.deactivated", user.displayName),
     };
   } catch (error) {
-    return { error: error instanceof Error ? error.message : "Could not save" };
+    return { error: await errorText(error, "errors.couldNotSave") };
   }
 }
 
@@ -406,11 +415,12 @@ export async function resetPassword(
   formData: FormData,
 ): Promise<PeopleState> {
   try {
+    const { t } = await getT();
     await assertPeopleAdmin();
     const userId = String(formData.get("userId") ?? "");
     const password = String(formData.get("password") ?? "");
 
-    if (password.length < 8) return { error: "At least 8 characters" };
+    if (password.length < 8) return { error: t("errors.atLeastEightCharacters") };
 
     const user = await prisma.user.update({
       where: { id: userId },
@@ -421,9 +431,9 @@ export async function resetPassword(
     await prisma.session.deleteMany({ where: { userId } });
 
     revalidatePath("/hr/people");
-    return { ok: true, message: `Password reset for ${user.displayName}.` };
+    return { ok: true, message: t("errors.passwordReset", user.displayName) };
   } catch (error) {
-    return { error: error instanceof Error ? error.message : "Could not reset" };
+    return { error: await errorText(error, "errors.couldNotReset") };
   }
 }
 
@@ -432,17 +442,18 @@ export async function createDepartment(
   formData: FormData,
 ): Promise<PeopleState> {
   try {
+    const { t } = await getT();
     await assertPeopleAdmin();
     const name = String(formData.get("name") ?? "").trim();
-    if (!name) return { error: "Give the department a name" };
+    if (!name) return { error: t("errors.giveDepartmentAName") };
 
     const clash = await prisma.department.findUnique({ where: { name } });
-    if (clash) return { error: "That department already exists" };
+    if (clash) return { error: t("errors.departmentExists") };
 
     await prisma.department.create({ data: { name } });
     revalidatePath("/hr/people");
-    return { ok: true, message: `Created ${name}.` };
+    return { ok: true, message: t("errors.createdDepartment", name) };
   } catch (error) {
-    return { error: error instanceof Error ? error.message : "Could not create" };
+    return { error: await errorText(error, "errors.couldNotCreate") };
   }
 }

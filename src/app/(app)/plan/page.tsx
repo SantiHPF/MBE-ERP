@@ -1,9 +1,10 @@
 import Link from "next/link";
 import { requireUser } from "@/lib/auth/guards";
 import { defaultPlanWeek, getPlanWeek, mondayOf } from "@/lib/plan/week";
-import { addDays, dateKey, formatDuration } from "@/lib/time";
+import { addDays, dateKey, formatDuration, today } from "@/lib/time";
 import { PlanBoard } from "./plan-board";
 import { getT } from "@/lib/i18n/server";
+import { formatDayMonth, fromDateKey } from "@/lib/i18n/dates";
 
 export const dynamic = "force-dynamic";
 
@@ -13,15 +14,13 @@ export default async function PlanPage({
   searchParams: Promise<{ week?: string }>;
 }) {
   const user = await requireUser();
-  const { t } = await getT();
+  const { t, locale } = await getT();
   const params = await searchParams;
 
-  const anchor = params.week
-    ? new Date(`${params.week}T00:00:00Z`)
-    : defaultPlanWeek();
+  const anchor = params.week ? fromDateKey(params.week) : defaultPlanWeek();
 
   const week = await getPlanWeek(user.id, anchor);
-  const monday = new Date(`${week.weekStart}T00:00:00Z`);
+  const monday = fromDateKey(week.weekStart);
 
   const spare = week.totalCapacity - week.totalClaimed;
 
@@ -30,14 +29,7 @@ export default async function PlanPage({
       <div className="mb-4 flex flex-wrap items-end justify-between gap-4">
         <div>
           <h1 className="page-title">
-            {t(
-              "plan.title",
-              monday.toLocaleDateString("en-GB", {
-                day: "numeric",
-                month: "long",
-                timeZone: "UTC",
-              }),
-            )}
+            {t("plan.title", formatDayMonth(monday, locale))}
             {week.isCurrentWeek && (
               <span className="ml-2 text-[13px] font-normal text-pause">
                 {t("plan.thisWeekTag")}
@@ -87,7 +79,7 @@ export default async function PlanPage({
             {t("common.previous")}
           </Link>
           <Link
-            href={`/plan?week=${dateKey(mondayOf(new Date()))}`}
+            href={`/plan?week=${dateKey(mondayOf(today()))}`}
             className="btn btn-sm"
           >
             {t("common.thisWeek")}
@@ -108,9 +100,7 @@ export default async function PlanPage({
       </div>
 
       <p className="mb-4 max-w-[72ch] text-[13px] text-muted">
-        Find a task and tick the days you will do it. Whatever nobody takes
-        gets handed out automatically when the week starts, so nothing is
-        forgotten &mdash; and a task only goes to one person per day.
+        {t("plan.intro")}
       </p>
 
       <PlanBoard week={week} />

@@ -3,13 +3,8 @@
 import { useActionState } from "react";
 import type { DayTask } from "@/lib/tasks/day";
 import { formatClock, formatDuration } from "@/lib/time";
-import {
-  completeTask,
-  startTask,
-  type ActionState,
-  type BlockingTask,
-} from "@/lib/tasks/actions";
-import { startMeetingForTask } from "@/lib/meetings/live";
+import { completeTask, type ActionState, type BlockingTask } from "@/lib/tasks/actions";
+import { startTaskFor } from "./start-task";
 import { countOne, setTaskQuantity } from "@/lib/tasks/quantity";
 import { useT } from "@/lib/i18n/client";
 
@@ -32,22 +27,32 @@ export function TaskButton({
   task,
   onPause,
   onBlocked,
+  onCompleted,
   onMove,
 }: {
   task: DayTask;
   onPause: () => void;
   onBlocked: (blocked: BlockingTask) => void;
+  onCompleted?: (taskId: string) => void;
   onMove?: (direction: "up" | "down") => void;
 }) {
   const { t } = useT();
   const movable = onMove && task.status !== "DONE";
   const done = task.status === "DONE";
+  const live = task.status === "IN_PROGRESS" || task.status === "PAUSED";
 
   return (
     <div
-      className={`group flex items-center gap-3 border-b border-line px-4 py-3 transition-colors last:border-0 hover:bg-surface-2/70 ${
-        movable ? "cursor-grab active:cursor-grabbing" : ""
-      } ${ROW_TINT[task.status] ?? ""}`}
+      /* The task in hand should be findable in a list of twelve without
+         reading it. A wash alone was too quiet, so the row also gets more
+         room, a heavier left edge and a larger title. No animation: a
+         permanent pulse in the middle of a work screen is a distraction. */
+      aria-current={live ? "step" : undefined}
+      className={`group flex items-center gap-3 border-b border-line px-4 transition-colors last:border-0 hover:bg-surface-2/70 ${
+        live ? "py-4" : "py-3"
+      } ${movable ? "cursor-grab active:cursor-grabbing" : ""} ${
+        ROW_TINT[task.status] ?? ""
+      }`}
     >
       {/* Reorder handle. Hidden until hover so the row stays quiet, but the
           buttons are always focusable for keyboard use. */}
@@ -90,7 +95,7 @@ export function TaskButton({
       </span>
 
       <span
-        className={`h-9 w-[3px] shrink-0 rounded-full ${
+        className={`shrink-0 rounded-full ${live ? "h-11 w-[5px]" : "h-9 w-[3px]"} ${
           EDGE[task.status] ?? "bg-line-strong"
         }`}
       />
@@ -98,9 +103,9 @@ export function TaskButton({
       <div className="min-w-0 flex-1">
         <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
           <span
-            className={`text-[14px] font-medium tracking-[-0.006em] ${
-              done ? "text-muted line-through decoration-faint" : ""
-            }`}
+            className={`tracking-[-0.006em] ${
+              live ? "text-[15px] font-semibold" : "text-[14px] font-medium"
+            } ${done ? "text-muted line-through decoration-faint" : ""}`}
           >
             {task.title}
           </span>
@@ -115,19 +120,27 @@ export function TaskButton({
           </span>
           {task.notes && (
             <span title={task.notes} className="badge badge-warn cursor-help">
-              note
+              {t("catalogue.note")}
             </span>
           )}
         </div>
         <div className="mt-1 flex flex-wrap items-center gap-2 text-[12px] text-muted">
-          <span className="badge">{task.origin}</span>
+          {/* The raw enum used to be printed here, so a Spanish day was
+              labelled RECURRING and CATALOGUE. */}
+          <span className="badge">{t(`origin.${task.origin}`)}</span>
           <StateLabel task={task} />
           {task.repeatable && <Counter task={task} />}
         </div>
       </div>
 
       <div className="shrink-0">
-        <Controls task={task} onPause={onPause} onBlocked={onBlocked} compact />
+        <Controls
+          task={task}
+          onPause={onPause}
+          onBlocked={onBlocked}
+          onCompleted={onCompleted}
+          compact
+        />
       </div>
     </div>
   );
@@ -164,17 +177,19 @@ function Controls({
   task,
   onPause,
   onBlocked,
+  onCompleted,
   compact = false,
 }: {
   task: DayTask;
   onPause: () => void;
   onBlocked?: (blocked: BlockingTask) => void;
+  onCompleted?: (taskId: string) => void;
   compact?: boolean;
 }) {
   const { t } = useT();
   const [startState, start, starting] = useActionState(
-    async (prev: ActionState, formData: FormData) => {
-      const result = await startTask(prev, formData);
+    async (prev: ActionState) => {
+      const result = await startTaskFor(task, prev);
       // The day runs in order; hand the blocker up so the page can ask why.
       if (result.blockedBy) onBlocked?.(result.blockedBy);
       return result;
@@ -182,7 +197,12 @@ function Controls({
     initial,
   );
   const [doneState, complete, completing] = useActionState(
-    completeTask,
+    async (prev: ActionState, formData: FormData) => {
+      const result = await completeTask(prev, formData);
+      // Offer the next one straight away rather than leaving them to find it.
+      if (result.ok) onCompleted?.(task.id);
+      return result;
+    },
     initial,
   );
 
@@ -206,19 +226,7 @@ function Controls({
           {t("myDay.pause")}
         </button>
       ) : (
-        <form
-          action={async (formData: FormData) => {
-            await start(formData);
-            // A meeting task opens its notes as part of starting, so nobody
-            // has to remember to go and write it up somewhere else.
-            if (task.isMeeting && !task.meetingId) {
-              const open = new FormData();
-              open.set("taskId", task.id);
-              await startMeetingForTask({}, open);
-            }
-          }}
-        >
-          <input type="hidden" name="taskId" value={task.id} />
+        <form action={start}>
           <button type="submit" disabled={starting} className={`btn ${size}`}>
             {task.status === "PAUSED"
               ? t("myDay.resume")
@@ -246,6 +254,8 @@ function Controls({
 }
 
 TaskButton.Controls = Controls;
+// The single-task card on My Day reuses the tally as well as the buttons.
+TaskButton.Counter = Counter;
 
 
 /**

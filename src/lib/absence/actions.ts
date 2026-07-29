@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { prisma } from "@/lib/db";
 import { requireUserOrThrow } from "@/lib/auth/guards";
+import { getT } from "@/lib/i18n/server";
 import { slotOverlapsAbsence } from "@/lib/scheduling/availability";
 import { isEffective } from "./effective";
 import { eachDay, parseClock, toDateOnly } from "@/lib/time";
@@ -21,8 +22,8 @@ import { eachDay, parseClock, toDateOnly } from "@/lib/time";
 
 const AbsenceInput = z
   .object({
-    startDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Pick a start date"),
-    endDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Pick an end date"),
+    startDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "errors.pickAStartDate"),
+    endDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "errors.pickAnEndDate"),
     scope: z.enum(["FULL_DAY", "PARTIAL"]),
     category: z.enum(["SICK", "HOLIDAY", "PERSONAL", "OTHER"]),
     startTime: z.string().optional(),
@@ -31,11 +32,11 @@ const AbsenceInput = z
     userId: z.string().optional(),
   })
   .refine((v) => v.startDate <= v.endDate, {
-    message: "The end date cannot be before the start date",
+    message: "errors.endBeforeStart",
   })
   .refine(
     (v) => v.scope === "FULL_DAY" || (v.startTime && v.endTime),
-    { message: "Give the hours you will be away" },
+    { message: "errors.giveTheHours" },
   );
 
 export type AbsenceState = { error?: string; ok?: boolean; orphaned?: number };
@@ -46,6 +47,7 @@ export async function recordAbsence(
 ): Promise<AbsenceState> {
   try {
     const actor = await requireUserOrThrow();
+    const { t } = await getT();
 
     const parsed = AbsenceInput.safeParse({
       startDate: formData.get("startDate"),
@@ -58,19 +60,19 @@ export async function recordAbsence(
       userId: formData.get("userId") || undefined,
     });
 
-    if (!parsed.success) return { error: parsed.error.issues[0].message };
+    if (!parsed.success) return { error: t(parsed.error.issues[0].message) };
     const input = parsed.data;
 
     // Workers may only record their own; managers may record for their team.
     const subjectId = input.userId ?? actor.id;
     if (subjectId !== actor.id) {
       const subject = await prisma.user.findUnique({ where: { id: subjectId } });
-      if (!subject) return { error: "That person no longer exists" };
+      if (!subject) return { error: t("errors.personGone") };
       if (
         actor.role === "WORKER" ||
         (actor.role === "MANAGER" && subject.departmentId !== actor.departmentId)
       ) {
-        return { error: "You cannot record an absence for that person" };
+        return { error: t("errors.cannotRecordForThatPerson") };
       }
     }
 
@@ -89,7 +91,7 @@ export async function recordAbsence(
       endMinutes != null &&
       endMinutes <= startMinutes
     ) {
-      return { error: "The end time must be after the start time" };
+      return { error: t("errors.endTimeBeforeStart") };
     }
 
     // Everything starts as a request for HR. Sickness still takes effect
@@ -191,8 +193,8 @@ export async function orphanAffectedTasks(
 const EditInput = z
   .object({
     absenceId: z.string().min(1),
-    startDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Pick a start date"),
-    endDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Pick an end date"),
+    startDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "errors.pickAStartDate"),
+    endDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "errors.pickAnEndDate"),
     scope: z.enum(["FULL_DAY", "PARTIAL"]),
     category: z.enum(["SICK", "HOLIDAY", "PERSONAL", "OTHER"]),
     startTime: z.string().optional(),
@@ -200,10 +202,10 @@ const EditInput = z
     note: z.string().trim().max(500).optional(),
   })
   .refine((v) => v.startDate <= v.endDate, {
-    message: "The end date cannot be before the start date",
+    message: "errors.endBeforeStart",
   })
   .refine((v) => v.scope === "FULL_DAY" || (v.startTime && v.endTime), {
-    message: "Give the hours you will be away",
+    message: "errors.giveTheHours",
   });
 
 /** Who may touch this request at all. */
@@ -242,6 +244,7 @@ export async function updateAbsence(
 ): Promise<AbsenceState> {
   try {
     const actor = await requireUserOrThrow();
+    const { t } = await getT();
     const parsed = EditInput.safeParse({
       absenceId: formData.get("absenceId"),
       startDate: formData.get("startDate"),
@@ -252,7 +255,7 @@ export async function updateAbsence(
       endTime: formData.get("endTime") || undefined,
       note: formData.get("note") || undefined,
     });
-    if (!parsed.success) return { error: parsed.error.issues[0].message };
+    if (!parsed.success) return { error: t(parsed.error.issues[0].message) };
 
     const absence = await absenceForEdit(parsed.data.absenceId, actor);
     const input = parsed.data;
@@ -265,7 +268,7 @@ export async function updateAbsence(
       input.scope === "PARTIAL" && input.endTime ? parseClock(input.endTime) : null;
 
     if (startMinutes != null && endMinutes != null && endMinutes <= startMinutes) {
-      return { error: "The end time must be after the start time" };
+      return { error: t("errors.endTimeBeforeStart") };
     }
 
     // Hand back work the old dates had flagged; the new dates re-flag below.
@@ -335,6 +338,7 @@ export async function cancelAbsence(
 ): Promise<AbsenceState> {
   try {
     const actor = await requireUserOrThrow();
+    const { t } = await getT();
     const absence = await absenceForEdit(
       String(formData.get("absenceId") ?? ""),
       actor,

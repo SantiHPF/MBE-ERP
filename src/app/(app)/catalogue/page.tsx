@@ -89,6 +89,7 @@ export default async function CataloguePage({
                   monthlyNth: rule.monthlyNth,
                   monthlyDay: rule.monthlyDay,
                   instancesPerOccurrence: rule.instancesPerOccurrence,
+                  anchors: rule.anchors,
                   fixedStartMinutes: rule.fixedStartMinutes,
                 }
               : null,

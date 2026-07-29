@@ -1,6 +1,10 @@
 import { prisma } from "@/lib/db";
 import { toDateOnly } from "@/lib/time";
-import { computeAvailability, findSlot } from "@/lib/scheduling/availability";
+import {
+  computeAvailability,
+  findSlot,
+  resolveAnchor,
+} from "@/lib/scheduling/availability";
 
 /**
  * Give a task a time slot on the day somebody just took it.
@@ -32,12 +36,6 @@ export async function placeOnDay(
   });
   if (!task) return { placed: false };
 
-  // A task whose rule pins it to an hour keeps that hour here too. Without
-  // this, claiming "Sucesos at 09:00" from the plan board dropped it wherever
-  // there happened to be room, which is not what the catalogue says.
-  const pinnedStart =
-    task.template?.recurringRules[0]?.fixedStartMinutes ?? null;
-
   const [patterns, overrides, absences, sameDay] = await Promise.all([
     prisma.workingPattern.findMany({ where: { userId } }),
     prisma.dayOverride.findMany({ where: { userId, date: day } }),
@@ -56,6 +54,20 @@ export async function placeOnDay(
   ]);
 
   const availability = computeAvailability({ date: day, patterns, overrides, absences });
+
+  /**
+   * A task that belongs somewhere particular in the day keeps that place here
+   * too. Without this, claiming "Sucesos at 09:00" from the plan board dropped
+   * it wherever there happened to be room, which is not what the catalogue says.
+   *
+   * The task's own anchor wins over the rule's fixed time: an anchored task
+   * belongs at a point in *this person's* shift, which the rule cannot know.
+   * Resolved against the full day, not the free time left in it, so "before
+   * leaving" still means the end of the shift.
+   */
+  const pinnedStart = task.anchor
+    ? resolveAnchor(task.anchor, availability.windows, task.estimatedMinutes)
+    : (task.template?.recurringRules[0]?.fixedStartMinutes ?? null);
 
   // Carve out what is already booked, so the new task lands after it.
   let free = availability.windows;

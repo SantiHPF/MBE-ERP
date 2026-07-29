@@ -1,16 +1,17 @@
 import { requirePeopleAdmin } from "@/lib/auth/guards";
 import { prisma } from "@/lib/db";
-import { formatClock, formatDuration, weekdayName } from "@/lib/time";
+import { formatClock, formatDuration, todayKey } from "@/lib/time";
 import { NewDepartmentForm } from "./new-person-form";
 import { AddPersonPanel } from "./add-person-panel";
 import { getT } from "@/lib/i18n/server";
+import { weekdayLabel } from "@/lib/i18n/dates";
 import { PersonRow } from "./person-row";
 
 export const dynamic = "force-dynamic";
 
 export default async function HrPeoplePage() {
   await requirePeopleAdmin();
-  const { t } = await getT();
+  const { t, locale } = await getT();
 
   const [departments, people] = await Promise.all([
     prisma.department.findMany({ orderBy: { name: "asc" } }),
@@ -32,7 +33,7 @@ export default async function HrPeoplePage() {
             {t("people.intro")}
           </p>
         </div>
-        <AddPersonPanel departments={departments} />
+        <AddPersonPanel departments={departments} today={todayKey()} />
       </div>
 
       <div className="flex flex-col gap-5">
@@ -72,7 +73,7 @@ export default async function HrPeoplePage() {
                       : t("people.noHours"),
                     patternSummary: person.workingPatterns.map((p) => ({
                       weekday: p.weekday,
-                      label: weekdayName(p.weekday).slice(0, 3),
+                      label: weekdayLabel(locale, p.weekday, "short"),
                       hours: `${formatClock(p.startMinutes)}–${formatClock(p.endMinutes)}`,
                       breakMinutes: p.breakMinutes,
                       breakStart:

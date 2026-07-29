@@ -2,16 +2,10 @@
 
 import { useState } from "react";
 import { useT } from "@/lib/i18n/client";
+import { weekdayLabel } from "@/lib/i18n/dates";
 
-const DAYS = [
-  { weekday: 1, label: "Monday", short: "Mon" },
-  { weekday: 2, label: "Tuesday", short: "Tue" },
-  { weekday: 3, label: "Wednesday", short: "Wed" },
-  { weekday: 4, label: "Thursday", short: "Thu" },
-  { weekday: 5, label: "Friday", short: "Fri" },
-  { weekday: 6, label: "Saturday", short: "Sat" },
-  { weekday: 7, label: "Sunday", short: "Sun" },
-];
+/** Monday to Sunday. The names come from the dictionary at render time. */
+const WEEKDAYS = [1, 2, 3, 4, 5, 6, 7];
 
 type Existing = {
   weekday: number;
@@ -30,14 +24,14 @@ type Existing = {
  * table layout.
  */
 export function WeekdayFields({ existing = [] }: { existing?: Existing[] }) {
-  const { t } = useT();
+  const { t, locale } = useT();
   const byWeekday = new Map(existing.map((e) => [e.weekday, e]));
 
   const [checked, setChecked] = useState<Record<number, boolean>>(() =>
     Object.fromEntries(
-      DAYS.map((d) => [
-        d.weekday,
-        byWeekday.has(d.weekday) || (existing.length === 0 && d.weekday <= 5),
+      WEEKDAYS.map((weekday) => [
+        weekday,
+        byWeekday.has(weekday) || (existing.length === 0 && weekday <= 5),
       ]),
     ),
   );
@@ -55,7 +49,12 @@ export function WeekdayFields({ existing = [] }: { existing?: Existing[] }) {
         <span className="eyebrow">{t("people.breakAt")}</span>
       </div>
 
-      {DAYS.map((day) => {
+      {WEEKDAYS.map((weekday) => {
+        const day = {
+          weekday,
+          label: weekdayLabel(locale, weekday),
+          short: weekdayLabel(locale, weekday, "short"),
+        };
         const row = byWeekday.get(day.weekday);
         const [start, end] = row ? row.hours.split("–") : ["09:00", "17:00"];
         const on = checked[day.weekday];

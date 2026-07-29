@@ -50,6 +50,9 @@ model Department {
   sheetSources   SheetSource[]
   actionItems    ActionItem[]
   p1ns           P1n[]
+  crmSources     CrmSource[]
+  candidates     Candidate[]
+  crmInteractions CrmInteraction[]
 }
 
 model User {
@@ -81,6 +84,7 @@ model User {
   timeEntries     TimeEntry[]
   rotation        RotationLedger[]
   sessions        Session[]
+  attendance      AttendanceDay[]
   triageActions   TriageAction[]
   deferrals       TaskDeferral[]
   p1ns            P1n[]
@@ -88,6 +92,7 @@ model User {
   meetingsCreated Meeting[]        @relation("MeetingAuthor")
   meetingsAttended Meeting[]       @relation("MeetingAttendees")
   pinnedItems     ActionItem[]     @relation("ActionItemPin")
+  crmCalls        CrmInteraction[] @relation("CrmCaller")
 
   @@index([departmentId])
 }
@@ -101,6 +106,75 @@ model Session {
   createdAt DateTime @default(now())
 
   @@index([userId])
+}
+
+// ------------------------------------------------------------ attendance
+
+/// Which signal produced a clock-in or clock-out.
+///
+/// Kept on the record rather than thrown away, because "they pressed the
+/// button" and "we guessed from the last thing they did" are not the same
+/// claim, and only one of them should be trusted without asking.
+enum AttendanceSource {
+  LOGIN
+  TASK_START
+  TASK_END
+  LOGOUT
+  /// They pressed "close the day".
+  DAY_CLOSED
+  /// Nobody closed it, so the sweep did -- see sweepOpenDays().
+  AUTO_CLOSE
+  /// Corrected by hand afterwards.
+  MANUAL
+}
+
+enum AttendanceStatus {
+  OPEN
+  CLOSED
+  /// Inferred rather than recorded. Shown to the person to confirm.
+  NEEDS_REVIEW
+}
+
+/// When somebody was actually here.
+///
+/// Every signal is stored separately and the pair that counts is derived from
+/// them, so "arrived at 08:00 but did not start work until 10:30" stays an
+/// answerable question. Collapsing them into one in/out on the way in is
+/// exactly what would lose it.
+///
+/// This is an operational record, not a legal registro de jornada -- it is
+/// editable after the fact and has no retention guarantee. See the README.
+model AttendanceDay {
+  id     String   @id @default(cuid())
+  userId String
+  user   User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  /// Calendar day in SCHEDULE_TIMEZONE, like every other date here.
+  date   DateTime @db.Date
+
+  /// The earliest signal of the day, and which one it was.
+  startedAt   DateTime?
+  startSource AttendanceSource?
+  /// The latest. Null while the day is still open.
+  endedAt   DateTime?
+  endSource AttendanceSource?
+
+  firstLoginAt     DateTime?
+  firstTaskStartAt DateTime?
+  lastTaskEndAt    DateTime?
+  logoutAt         DateTime?
+  /// Last proof of life: any start, pause, resume or completion. What the
+  /// fallback sweep closes an abandoned day at.
+  lastActivityAt DateTime?
+
+  status AttendanceStatus @default(OPEN)
+  note   String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  /// Makes every write an upsert, and a duplicate day impossible.
+  @@unique([userId, date])
+  @@index([status, date])
 }
 
 // ------------------------------------------------------------ time model
@@ -246,6 +320,19 @@ enum Frequency {
   MONTHLY
 }
 
+/// A point in somebody's working day, rather than a time on the clock.
+///
+/// "When I arrive" is 09:00 for one person and 08:00 for another, so a task
+/// done at the start of every shift cannot be expressed as a fixed time. These
+/// resolve per person against the windows computeAvailability() returns, which
+/// already have the break carved out.
+enum DayAnchor {
+  ARRIVAL
+  BEFORE_BREAK
+  AFTER_BREAK
+  BEFORE_LEAVING
+}
+
 /// "This catalogue task happens every Monday and Thursday", or "the last
 /// Monday of the month". Modelled on the subset of iCalendar recurrence the
 /// company's calendar actually uses -- weekly by weekday, and monthly by
@@ -268,6 +355,11 @@ model RecurringRule {
   monthlyDay            Int?
 
   instancesPerOccurrence Int    @default(1)
+  /// Points in the shift this fires at, in order. When set, its length replaces
+  /// instancesPerOccurrence and every repetition of a day goes to one person --
+  /// opening and closing checks are one person's routine, not a rota.
+  /// Each anchor appears at most once: the task's external key is built from it.
+  anchors               DayAnchor[]
   /// Optional fixed slot. When set, the task must land in this window and is
   /// placed before flexible work. Only genuine appointments get one -- most
   /// calendar times are reminders, and pinning them all makes the schedule
@@ -287,6 +379,9 @@ enum TaskOrigin {
   SHEET
   MEETING
   MANUAL
+  /// A batch of calls the CRM raised: one task holding a list of people, not
+  /// one task per person.
+  CRM
 }
 
 enum TaskStatus {
@@ -340,10 +435,16 @@ model Task {
   scheduledStart Int?
   scheduledEnd   Int?
 
+  /// Which point in the shift this instance belongs to, copied from the rule
+  /// when it was generated. Stored on the task so re-placing it later --
+  /// placeOnDay after a deferral, a manual reorder -- can still honour it.
+  anchor DayAnchor?
+
   orphanedAt   DateTime?
   orphanReason String?
 
   timeEntries   TimeEntry[]
+  crmInteractions CrmInteraction[]
   triageActions TriageAction[]
   deferrals     TaskDeferral[]
   p1ns          P1n[]
@@ -354,6 +455,12 @@ model Task {
   @@index([departmentId, dueDate])
   @@index([assigneeId, scheduledDate])
   @@index([status])
+  /// Also has a partial unique index that Prisma cannot express, added by hand
+  /// in 20260728140000_concurrency_guards:
+  ///   ("templateId", "dueDate") WHERE origin = 'CATALOGUE' AND status <> 'CANCELLED'
+  /// It stops two people claiming the same plan-board cell at once. Scoped to
+  /// CATALOGUE because a rule with instancesPerOccurrence > 1 legitimately
+  /// creates several RECURRING tasks for one template on one day.
 }
 
 model TimeEntry {
@@ -369,6 +476,11 @@ model TimeEntry {
 
   @@index([taskId])
   @@index([userId, startedAt])
+  /// Also has a partial unique index that Prisma cannot express, added by hand
+  /// in 20260728140000_concurrency_guards:
+  ///   ("userId") WHERE "endedAt" IS NULL
+  /// One running clock per person, enforced by the database rather than only
+  /// by startTask().
 }
 
 enum PauseReason {
@@ -578,4 +690,168 @@ model SheetSource {
 
   departmentId String
   department   Department @relation(fields: [departmentId], references: [id])
+}
+
+// ------------------------------------------------------------------- CRM
+
+/// Relationship management, department by department. HR runs two: the
+/// universities and job portals that supply interns, and the candidates coming
+/// through selection.
+///
+/// The shape here is deliberately concrete rather than a configurable
+/// entity/field builder. A second CRM later means new tables reusing the same
+/// interaction log and the same call-due machinery, not a runtime schema.
+
+enum CrmSourceType {
+  UNIVERSITY
+  JOB_PORTAL
+}
+
+/// A university or a job portal: somewhere interns come from.
+model CrmSource {
+  id   String        @id @default(cuid())
+  name String
+  type CrmSourceType @default(UNIVERSITY)
+
+  departmentId String
+  department   Department @relation(fields: [departmentId], references: [id])
+
+  /// When the intern offers on their board were last refreshed.
+  offersUpdatedAt DateTime?
+  /// Derived from the interaction log, stored so "who is due a call" is a
+  /// query rather than an aggregate over every conversation ever had.
+  lastContactedAt DateTime?
+  notes           String?
+  active          Boolean   @default(true)
+  createdAt       DateTime  @default(now())
+
+  contacts     CrmContact[]
+  candidates   Candidate[]
+  interactions CrmInteraction[]
+
+  @@unique([departmentId, name])
+  @@index([departmentId, lastContactedAt])
+}
+
+/// A person inside one of those.
+model CrmContact {
+  id       String  @id @default(cuid())
+  sourceId String
+  source   CrmSource @relation(fields: [sourceId], references: [id], onDelete: Cascade)
+
+  name     String
+  jobTitle String?
+  phone    String?
+  email    String?
+  /// Anything worth remembering about this person before ringing them --
+  /// "prefers email", "only Tuesdays", "left in September". Free text, and
+  /// separate from the conversation log, which is what was actually said.
+  notes    String?
+
+  /// Drives the rotation: each cycle rings whoever was contacted longest ago,
+  /// so a university hears from us through a different person each time.
+  lastContactedAt DateTime?
+  active          Boolean   @default(true)
+  createdAt       DateTime  @default(now())
+
+  interactions CrmInteraction[]
+
+  @@index([sourceId, lastContactedAt])
+}
+
+/// Where somebody is in selection. Only CALL raises work -- see crm/due.ts.
+enum CandidateStage {
+  APPLIED
+  CALL
+  PROCESS
+  TEST
+  OFFER
+  HIRED
+}
+
+/// Why somebody dropped out. A fixed list so the reasons can be counted, with
+/// a free note alongside for the detail that never fits a list.
+enum CandidateDropReason {
+  NOT_INTERESTED
+  NO_REPLY
+  REJECTED
+  TOOK_ANOTHER_OFFER
+  NOT_AVAILABLE
+  OTHER
+}
+
+model Candidate {
+  id    String @id @default(cuid())
+  name  String
+  phone String?
+  email String?
+  notes String?
+
+  departmentId String
+  department   Department @relation(fields: [departmentId], references: [id])
+
+  stage CandidateStage @default(APPLIED)
+
+  /// Which university or portal they came from, when it is known.
+  sourceId String?
+  source   CrmSource? @relation(fields: [sourceId], references: [id], onDelete: SetNull)
+
+  active     Boolean              @default(true)
+  dropReason CandidateDropReason?
+  dropNote   String?
+
+  /// One attempt is the rule: reaching for them at all clears them from the
+  /// call list, whether or not they picked up.
+  lastAttemptedAt DateTime?
+  createdAt       DateTime  @default(now())
+
+  interactions CrmInteraction[]
+
+  @@index([departmentId, stage, active])
+  @@index([sourceId])
+}
+
+enum CrmOutcome {
+  TALKED
+  NO_ANSWER
+  LEFT_MESSAGE
+}
+
+/// Every conversation, whoever it was with.
+///
+/// One table rather than one per entity, so "everything we have ever said to
+/// this university, including to its people" is a single query. Exactly one of
+/// sourceId / contactId / candidateId is set, enforced by a check constraint
+/// that Prisma cannot express (see the migration).
+model CrmInteraction {
+  id String @id @default(cuid())
+
+  departmentId String
+  department   Department @relation(fields: [departmentId], references: [id])
+
+  sourceId String?
+  source   CrmSource? @relation(fields: [sourceId], references: [id], onDelete: Cascade)
+
+  contactId String?
+  contact   CrmContact? @relation(fields: [contactId], references: [id], onDelete: Cascade)
+
+  candidateId String?
+  candidate   Candidate? @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+
+  /// Who made the call.
+  userId String
+  user   User   @relation("CrmCaller", fields: [userId], references: [id])
+
+  happenedAt DateTime   @default(now())
+  outcome    CrmOutcome
+  notes      String
+
+  /// The batched call task it came from, when it came from one.
+  taskId String?
+  task   Task?   @relation(fields: [taskId], references: [id], onDelete: SetNull)
+
+  @@index([sourceId, happenedAt])
+  @@index([contactId, happenedAt])
+  @@index([candidateId, happenedAt])
+  @@index([departmentId, happenedAt])
 }

@@ -2,7 +2,8 @@ import "dotenv/config";
 import { readFileSync } from "node:fs";
 import { PrismaClient } from "@prisma/client";
 import { PrismaPg } from "@prisma/adapter-pg";
-import { formatClock, weekdayName } from "../src/lib/time";
+import { formatClock } from "../src/lib/time";
+import { weekdayLabel } from "../src/lib/i18n/dates";
 
 /**
  * Loads recurring rules from a fixture extracted from the department's
@@ -34,9 +35,9 @@ function describe(rule: RuleSpec): string {
   if (rule.frequency === "MONTHLY") {
     if (rule.monthlyDay != null) return `monthly on day ${rule.monthlyDay}`;
     const nth = rule.monthlyNth === -1 ? "last" : `#${rule.monthlyNth}`;
-    return `monthly, ${nth} ${weekdayName(rule.weekdays[0])}`;
+    return `monthly, ${nth} ${weekdayLabel("EN", rule.weekdays[0])}`;
   }
-  const days = rule.weekdays.map((d) => weekdayName(d).slice(0, 3)).join(" ");
+  const days = rule.weekdays.map((d) => weekdayLabel("EN", d, "short")).join(" ");
   return rule.weekdays.length === 5 ? "every weekday" : days;
 }
 

@@ -4,7 +4,9 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { prisma } from "@/lib/db";
 import { requireUserOrThrow, hasRole } from "@/lib/auth/guards";
-import { parseClock, toDateOnly } from "@/lib/time";
+import { errorText, fail } from "@/lib/i18n/errors";
+import { getT } from "@/lib/i18n/server";
+import { parseClock, today, toDateOnly } from "@/lib/time";
 
 /**
  * Editing the task catalogue and its schedule.
@@ -23,7 +25,7 @@ const Recurrence = z.discriminatedUnion("frequency", [
   z.object({ frequency: z.literal("NONE") }),
   z.object({
     frequency: z.literal("WEEKLY"),
-    weekdays: z.array(z.number().int().min(1).max(7)).min(1, "Pick at least one day"),
+    weekdays: z.array(z.number().int().min(1).max(7)).min(1, "errors.pickAtLeastOneDay"),
   }),
   z.object({
     frequency: z.literal("MONTHLY"),
@@ -37,14 +39,14 @@ const Recurrence = z.discriminatedUnion("frequency", [
 
 const Entry = z.object({
   templateId: z.string().optional(),
-  departmentId: z.string().min(1, "Pick a department"),
-  name: z.string().trim().min(1, "Give the task a name"),
+  departmentId: z.string().min(1, "errors.pickADepartment"),
+  name: z.string().trim().min(1, "errors.giveTaskAName"),
   category: z.string().trim().max(60).optional(),
   estimatedMinutes: z.coerce
     .number()
     .int()
-    .min(1, "How long does it take?")
-    .max(12 * 60, "Longer than a working day — split it up"),
+    .min(1, "errors.howLongDoesItTake")
+    .max(12 * 60, "errors.longerThanADay"),
   notes: z.string().trim().max(2000).optional(),
   instructions: z.string().trim().max(500).optional(),
   isMeeting: z.boolean().optional(),
@@ -52,12 +54,18 @@ const Entry = z.object({
   priority: z.enum(["MUST", "NORMAL", "SPARE_TIME"]).default("NORMAL"),
   instancesPerOccurrence: z.coerce.number().int().min(1).max(20).optional(),
   fixedStart: z.string().optional(),
+  /// Points in the shift, when the task is done several times a day. Kept
+  /// separate from the recurrence union because it is orthogonal to it: a
+  /// weekly or a monthly rule can both be anchored.
+  anchors: z
+    .array(z.enum(["ARRIVAL", "BEFORE_BREAK", "AFTER_BREAK", "BEFORE_LEAVING"]))
+    .optional(),
 });
 
 async function assertCanEdit(departmentId: string) {
   const actor = await requireUserOrThrow("MANAGER");
   if (!hasRole(actor, "ADMIN") && actor.departmentId !== departmentId) {
-    throw new Error("That department is not yours to edit");
+    fail("errors.departmentNotYours");
   }
   return actor;
 }
@@ -95,6 +103,7 @@ export async function saveCatalogueEntry(
   formData: FormData,
 ): Promise<CatalogueState> {
   try {
+    const { t } = await getT();
     const parsed = Entry.safeParse({
       templateId: formData.get("templateId") || undefined,
       departmentId: formData.get("departmentId"),
@@ -108,8 +117,9 @@ export async function saveCatalogueEntry(
       priority: formData.get("priority") || "NORMAL",
       instancesPerOccurrence: formData.get("instancesPerOccurrence") || 1,
       fixedStart: formData.get("fixedStart") || undefined,
+      anchors: formData.getAll("anchors").map(String),
     });
-    if (!parsed.success) return { error: parsed.error.issues[0].message };
+    if (!parsed.success) return { error: t(parsed.error.issues[0].message) };
 
     let recurrence;
     try {
@@ -117,7 +127,7 @@ export async function saveCatalogueEntry(
     } catch (error) {
       const issue =
         error instanceof z.ZodError ? error.issues[0]?.message : undefined;
-      return { error: issue ?? "Check the repeat settings" };
+      return { error: t(issue ?? "errors.checkRepeatSettings") };
     }
 
     await assertCanEdit(parsed.data.departmentId);
@@ -130,7 +140,7 @@ export async function saveCatalogueEntry(
         ...(input.templateId ? { id: { not: input.templateId } } : {}),
       },
     });
-    if (clash) return { error: `${input.name} is already in this catalogue` };
+    if (clash) return { error: t("errors.alreadyInCatalogue", input.name) };
 
     const data = {
       departmentId: input.departmentId,
@@ -173,13 +183,21 @@ export async function saveCatalogueEntry(
             templateId: template.id,
             origin: "RECURRING",
             status: { in: ["UNASSIGNED", "ASSIGNED"] },
-            dueDate: { gte: toDateOnly(new Date()) },
+            dueDate: { gte: today() },
           },
         });
         await prisma.recurringRule.delete({ where: { id: existingRule.id } });
       }
     } else {
-      const fixedStart = input.fixedStart ? parseClock(input.fixedStart) : null;
+      // Anchors and a fixed clock time are alternatives: the whole point of an
+      // anchor is that the time is not fixed. Anchors win.
+      const anchors = (input.anchors ?? []).filter(
+        (a, i, all) => all.indexOf(a) === i,
+      );
+      const fixedStart =
+        anchors.length === 0 && input.fixedStart
+          ? parseClock(input.fixedStart)
+          : null;
 
       const ruleData = {
           departmentId: input.departmentId,
@@ -201,6 +219,7 @@ export async function saveCatalogueEntry(
               ? (recurrence.monthlyDay ?? null)
               : null,
           instancesPerOccurrence: input.instancesPerOccurrence ?? 1,
+          anchors,
           fixedStartMinutes: fixedStart,
           fixedEndMinutes:
             fixedStart != null ? fixedStart + input.estimatedMinutes : null,
@@ -220,7 +239,7 @@ export async function saveCatalogueEntry(
             templateId: template.id,
             origin: "RECURRING",
             status: "UNASSIGNED",
-            dueDate: { gte: toDateOnly(new Date()) },
+            dueDate: { gte: today() },
           },
         });
       } else {
@@ -239,7 +258,7 @@ export async function saveCatalogueEntry(
         : `Added ${template.name}.`,
     };
   } catch (error) {
-    return { error: error instanceof Error ? error.message : "Could not save it" };
+    return { error: await errorText(error, "errors.couldNotSaveIt") };
   }
 }
 
@@ -252,13 +271,14 @@ export async function setCatalogueActive(
   formData: FormData,
 ): Promise<CatalogueState> {
   try {
+    const { t } = await getT();
     const templateId = String(formData.get("templateId") ?? "");
     const active = formData.get("active") === "true";
 
     const template = await prisma.taskTemplate.findUnique({
       where: { id: templateId },
     });
-    if (!template) return { error: "That task no longer exists" };
+    if (!template) return { error: t("errors.taskGone") };
     await assertCanEdit(template.departmentId);
 
     await prisma.$transaction([
@@ -281,6 +301,6 @@ export async function setCatalogueActive(
         : `${template.name} retired — it will not be scheduled again.`,
     };
   } catch (error) {
-    return { error: error instanceof Error ? error.message : "Could not save" };
+    return { error: await errorText(error, "errors.couldNotSave") };
   }
 }

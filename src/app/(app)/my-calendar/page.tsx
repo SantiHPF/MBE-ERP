@@ -2,12 +2,13 @@ import Link from "next/link";
 import { requireUser } from "@/lib/auth/guards";
 import { prisma } from "@/lib/db";
 import { getTeamWeek, weekStart } from "@/lib/team/week";
-import { addDays, dateKey, formatDuration } from "@/lib/time";
+import { addDays, dateKey, formatDuration, today, todayKey } from "@/lib/time";
 import { effectiveLabel } from "@/lib/absence/effective";
 import { canDecideAbsences } from "@/lib/auth/guards";
 import { formatClock } from "@/lib/time";
 import { AbsenceRow } from "./absence-row";
 import { getT } from "@/lib/i18n/server";
+import { formatDayMonth, fromDateKey } from "@/lib/i18n/dates";
 import { WeekGrid } from "../team/week-grid";
 import { AbsenceForm } from "./absence-form";
 
@@ -20,19 +21,19 @@ export default async function MyCalendarPage({
 }) {
   const user = await requireUser();
   const params = await searchParams;
-  const { t } = await getT();
+  const { t, locale } = await getT();
 
-  const anchor = params.week ? new Date(`${params.week}T00:00:00Z`) : new Date();
+  const anchor = params.week ? fromDateKey(params.week) : today();
   const week = await getTeamWeek(user.departmentId, anchor);
 
   // Same grid as the team view, narrowed to just this person.
   const mine = { ...week, people: week.people.filter((p) => p.id === user.id) };
 
-  const monday = new Date(`${week.weekStart}T00:00:00Z`);
+  const monday = fromDateKey(week.weekStart);
   const me = mine.people[0];
 
   const upcoming = await prisma.absence.findMany({
-    where: { userId: user.id, endDate: { gte: addDays(new Date(), -7) } },
+    where: { userId: user.id, endDate: { gte: addDays(today(), -7) } },
     orderBy: { startDate: "asc" },
   });
 
@@ -41,14 +42,7 @@ export default async function MyCalendarPage({
       <div className="mb-4 flex flex-wrap items-end justify-between gap-4">
         <div>
           <h1 className="page-title">
-            {t(
-              "calendar.myWeekOf",
-              monday.toLocaleDateString("en-GB", {
-                day: "numeric",
-                month: "long",
-                timeZone: "UTC",
-              }),
-            )}
+            {t("calendar.myWeekOf", formatDayMonth(monday, locale))}
           </h1>
           {me && (
             <p className="page-sub num">
@@ -69,7 +63,7 @@ export default async function MyCalendarPage({
             {t("common.previous")}
           </Link>
           <Link
-            href={`/my-calendar?week=${dateKey(weekStart(new Date()))}`}
+            href={`/my-calendar?week=${dateKey(weekStart(today()))}`}
             className="btn btn-sm"
           >
             {t("common.thisWeek")}
@@ -122,7 +116,7 @@ export default async function MyCalendarPage({
           )}
         </section>
 
-        <AbsenceForm />
+        <AbsenceForm today={todayKey()} />
       </div>
     </div>
   );

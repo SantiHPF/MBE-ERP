@@ -25,6 +25,8 @@ async function main() {
   console.log(`  already existed    ${summary.alreadyPresent}`);
   console.log(`  stale, removed     ${summary.removedStale}`);
   console.log(`  induction created  ${summary.onboardingCreated}`);
+  console.log(`  workdays closed    ${summary.attendanceClosed}`);
+  console.log(`  stale timers ended ${summary.timersClosed}`);
   console.log(`  assigned           ${summary.assigned}`);
   console.log(`  left unassigned    ${summary.unassigned}`);
   console.log(`  in flight, skipped ${summary.skippedInFlight}`);

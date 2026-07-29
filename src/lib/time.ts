@@ -51,6 +51,86 @@ export function dateKey(date: Date): string {
   return toDateOnly(date).toISOString().slice(0, 10);
 }
 
+/**
+ * The zone the company works in. Calendar days are decided here, not by
+ * whatever the server happens to be set to -- a shift finishing at 01:00 in
+ * Madrid belongs to the day it started, and UTC would file it under the next.
+ */
+export function scheduleZone(): string {
+  return process.env.SCHEDULE_TIMEZONE ?? "Europe/Madrid";
+}
+
+/** Today as a calendar day in the schedule's zone. "en-CA" formats as YYYY-MM-DD. */
+export function todayKey(now: Date = new Date(), zone = scheduleZone()): string {
+  return new Intl.DateTimeFormat("en-CA", { timeZone: zone }).format(now);
+}
+
+/**
+ * Today as a date-only Date, matching how days are stored. Use this rather
+ * than toDateOnly(new Date()), which asks the server what day it is.
+ */
+export function today(now: Date = new Date(), zone = scheduleZone()): Date {
+  return new Date(`${todayKey(now, zone)}T00:00:00Z`);
+}
+
+/**
+ * How far ahead of UTC `zone` is at a given instant, in milliseconds.
+ *
+ * Formatting the instant as if it were in the zone and reading it back as UTC
+ * gives the offset, DST included, without a timezone library.
+ */
+function zoneOffsetMs(at: Date, zone: string): number {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: zone,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hour12: false,
+  }).formatToParts(at);
+
+  const get = (type: string) => Number(parts.find((p) => p.type === type)?.value ?? 0);
+  const asUtc = Date.UTC(
+    get("year"),
+    get("month") - 1,
+    get("day"),
+    get("hour") % 24,
+    get("minute"),
+    get("second"),
+  );
+  return asUtc - at.getTime();
+}
+
+/**
+ * The instant at which the clock in `zone` reads `minutes` on calendar day
+ * `date`.
+ *
+ * Everywhere else in this system, minutes-from-midnight are compared against
+ * other minutes-from-midnight and never become a timestamp -- which is the
+ * whole reason the schedule is free of DST arithmetic. Attendance is the first
+ * thing that has to cross over: capping an abandoned day at "the end of their
+ * shift" means turning 18:00 into a real instant.
+ *
+ * Doing that naively -- Date.UTC(y, m, d) + minutes -- reads the shift end as
+ * 18:00 UTC, which is 20:00 in Madrid, so the cap lands two hours after the
+ * shift it was supposed to enforce.
+ */
+export function instantAt(
+  date: Date,
+  minutes: number,
+  zone: string = scheduleZone(),
+): Date {
+  const naive =
+    Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()) +
+    minutes * 60_000;
+  // One correction is enough: the offset is read at roughly the right instant,
+  // and only the ambiguous hour at a DST change could want a second pass --
+  // immaterial for a shift boundary.
+  return new Date(naive - zoneOffsetMs(new Date(naive), zone));
+}
+
 export function addDays(date: Date, days: number): Date {
   const next = toDateOnly(date);
   next.setUTCDate(next.getUTCDate() + days);
@@ -68,16 +148,5 @@ export function eachDay(start: Date, end: Date): Date[] {
   return days;
 }
 
-export const WEEKDAY_NAMES = [
-  "Monday",
-  "Tuesday",
-  "Wednesday",
-  "Thursday",
-  "Friday",
-  "Saturday",
-  "Sunday",
-] as const;
-
-export function weekdayName(weekday: number): string {
-  return WEEKDAY_NAMES[weekday - 1] ?? `Day ${weekday}`;
-}
+// Weekday names used to live here, in English. They are interface text, not a
+// scheduling primitive, so they moved to lib/i18n/dates.ts -- see weekdayLabel().

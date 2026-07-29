@@ -4,7 +4,9 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { prisma } from "@/lib/db";
 import { requireUserOrThrow } from "@/lib/auth/guards";
-import { toDateOnly } from "@/lib/time";
+import { errorText } from "@/lib/i18n/errors";
+import { getT } from "@/lib/i18n/server";
+import { today, toDateOnly } from "@/lib/time";
 
 /**
  * Meeting mode, started from My Day.
@@ -35,14 +37,15 @@ export async function startMeetingForTask(
 ): Promise<LiveState> {
   try {
     const user = await requireUserOrThrow();
+    const { t } = await getT();
     const taskId = String(formData.get("taskId") ?? "");
 
     const task = await prisma.task.findUnique({
       where: { id: taskId },
       include: { hostedMeeting: true },
     });
-    if (!task) return { error: "That task no longer exists" };
-    if (task.assigneeId !== user.id) return { error: "That is not your task" };
+    if (!task) return { error: t("errors.taskGone") };
+    if (task.assigneeId !== user.id) return { error: t("errors.notYourTask") };
 
     // Already minuting it -- just reopen.
     if (task.hostedMeeting) {
@@ -64,13 +67,13 @@ export async function startMeetingForTask(
     return { ok: true, meetingId: meeting.id };
   } catch (error) {
     return {
-      error: error instanceof Error ? error.message : "Could not open notes",
+      error: await errorText(error, "errors.couldNotOpenNotes"),
     };
   }
 }
 
 const AdHoc = z.object({
-  title: z.string().trim().min(1, "What is the meeting about?"),
+  title: z.string().trim().min(1, "errors.whatIsTheMeetingAbout"),
 });
 
 export async function startAdHocMeeting(
@@ -79,8 +82,9 @@ export async function startAdHocMeeting(
 ): Promise<LiveState> {
   try {
     const user = await requireUserOrThrow();
+    const { t } = await getT();
     const parsed = AdHoc.safeParse({ title: formData.get("title") });
-    if (!parsed.success) return { error: parsed.error.issues[0].message };
+    if (!parsed.success) return { error: t(parsed.error.issues[0].message) };
 
     // Being pulled into a meeting stops whatever was running. The reason
     // writes itself -- there is no point making somebody type "meeting".
@@ -108,7 +112,7 @@ export async function startAdHocMeeting(
     const meeting = await prisma.meeting.create({
       data: {
         title: parsed.data.title,
-        date: toDateOnly(new Date()),
+        date: today(),
         departmentId: user.departmentId,
         createdById: user.id,
         attendees: { connect: await departmentAttendees(user.departmentId) },
@@ -119,7 +123,7 @@ export async function startAdHocMeeting(
     return { ok: true, meetingId: meeting.id };
   } catch (error) {
     return {
-      error: error instanceof Error ? error.message : "Could not start it",
+      error: await errorText(error, "errors.couldNotStartIt"),
     };
   }
 }
@@ -136,19 +140,20 @@ export async function saveLiveNotes(
 ): Promise<LiveState> {
   try {
     const user = await requireUserOrThrow();
+    const { t } = await getT();
     const parsed = Notes.safeParse({
       meetingId: formData.get("meetingId"),
       notes: formData.get("notes"),
     });
-    if (!parsed.success) return { error: parsed.error.issues[0].message };
+    if (!parsed.success) return { error: t(parsed.error.issues[0].message) };
 
     const meeting = await prisma.meeting.findUnique({
       where: { id: parsed.data.meetingId },
     });
-    if (!meeting) return { error: "That meeting no longer exists" };
-    if (meeting.status === "FINALISED") return { error: "It is already closed" };
+    if (!meeting) return { error: t("errors.meetingGone") };
+    if (meeting.status === "FINALISED") return { error: t("errors.alreadyClosed") };
     if (meeting.createdById !== user.id && user.role === "WORKER") {
-      return { error: "Only whoever is running the meeting can edit the notes" };
+      return { error: t("errors.onlyHostEditsNotes") };
     }
 
     await prisma.meeting.update({
@@ -157,15 +162,15 @@ export async function saveLiveNotes(
     });
     return { ok: true };
   } catch (error) {
-    return { error: error instanceof Error ? error.message : "Could not save" };
+    return { error: await errorText(error, "errors.couldNotSave") };
   }
 }
 
 const Item = z.object({
   meetingId: z.string().min(1),
-  title: z.string().trim().min(1, "What needs doing?"),
+  title: z.string().trim().min(1, "errors.whatNeedsDoing"),
   estimatedMinutes: z.coerce.number().int().min(1).max(12 * 60),
-  dueDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Pick a due date"),
+  dueDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "errors.pickADueDate"),
   pinnedAssigneeId: z.string().optional(),
 });
 
@@ -175,6 +180,7 @@ export async function addLiveActionItem(
 ): Promise<LiveState> {
   try {
     const user = await requireUserOrThrow();
+    const { t } = await getT();
     const parsed = Item.safeParse({
       meetingId: formData.get("meetingId"),
       title: formData.get("title"),
@@ -182,13 +188,13 @@ export async function addLiveActionItem(
       dueDate: formData.get("dueDate"),
       pinnedAssigneeId: formData.get("pinnedAssigneeId") || undefined,
     });
-    if (!parsed.success) return { error: parsed.error.issues[0].message };
+    if (!parsed.success) return { error: t(parsed.error.issues[0].message) };
 
     const meeting = await prisma.meeting.findUnique({
       where: { id: parsed.data.meetingId },
     });
-    if (!meeting) return { error: "That meeting no longer exists" };
-    if (meeting.status === "FINALISED") return { error: "It is already closed" };
+    if (!meeting) return { error: t("errors.meetingGone") };
+    if (meeting.status === "FINALISED") return { error: t("errors.alreadyClosed") };
 
     await prisma.actionItem.create({
       data: {
@@ -204,7 +210,7 @@ export async function addLiveActionItem(
     revalidatePath("/my-day");
     return { ok: true, meetingId: meeting.id };
   } catch (error) {
-    return { error: error instanceof Error ? error.message : "Could not add it" };
+    return { error: await errorText(error, "errors.couldNotAddIt") };
   }
 }
 
@@ -214,21 +220,22 @@ export async function removeLiveActionItem(
 ): Promise<LiveState> {
   try {
     await requireUserOrThrow();
+    const { t } = await getT();
     const id = String(formData.get("itemId") ?? "");
     const item = await prisma.actionItem.findUnique({
       where: { id },
       include: { meeting: true },
     });
-    if (!item) return { error: "That item no longer exists" };
+    if (!item) return { error: t("errors.itemGone") };
     if (item.meeting.status === "FINALISED") {
-      return { error: "The meeting is closed" };
+      return { error: t("errors.meetingClosed") };
     }
 
     await prisma.actionItem.delete({ where: { id } });
     revalidatePath("/my-day");
     return { ok: true, meetingId: item.meetingId };
   } catch (error) {
-    return { error: error instanceof Error ? error.message : "Could not remove" };
+    return { error: await errorText(error, "errors.couldNotRemove") };
   }
 }
 
@@ -243,13 +250,14 @@ export async function endMeeting(
 ): Promise<LiveState> {
   try {
     const user = await requireUserOrThrow();
+    const { t } = await getT();
     const meetingId = String(formData.get("meetingId") ?? "");
 
     const meeting = await prisma.meeting.findUnique({
       where: { id: meetingId },
       include: { actionItems: true, sourceTask: true },
     });
-    if (!meeting) return { error: "That meeting no longer exists" };
+    if (!meeting) return { error: t("errors.meetingGone") };
     if (meeting.status === "FINALISED") return { ok: true, meetingId };
 
     await prisma.$transaction(async (tx) => {
@@ -308,6 +316,6 @@ export async function endMeeting(
     revalidatePath("/plan");
     return { ok: true, meetingId };
   } catch (error) {
-    return { error: error instanceof Error ? error.message : "Could not close it" };
+    return { error: await errorText(error, "errors.couldNotCloseIt") };
   }
 }

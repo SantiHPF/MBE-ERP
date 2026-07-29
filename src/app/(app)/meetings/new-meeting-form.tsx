@@ -6,10 +6,9 @@ import { useT } from "@/lib/i18n/client";
 
 const initial: MeetingState = {};
 
-export function NewMeetingForm() {
+export function NewMeetingForm({ today }: { today: string }) {
   const { t } = useT();
   const [state, submit, pending] = useActionState(createMeeting, initial);
-  const today = new Date().toISOString().slice(0, 10);
 
   return (
     <form action={submit} className="flex flex-wrap items-end gap-1.5">

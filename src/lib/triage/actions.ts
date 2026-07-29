@@ -4,6 +4,8 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { prisma } from "@/lib/db";
 import { requireUserOrThrow } from "@/lib/auth/guards";
+import { errorText, fail } from "@/lib/i18n/errors";
+import { getT } from "@/lib/i18n/server";
 import { getAvailability } from "@/lib/scheduling/availability-db";
 import { findSlot } from "@/lib/scheduling/availability";
 import { toDateOnly } from "@/lib/time";
@@ -19,15 +21,15 @@ const Reassign = z.object({
 
 const Push = z.object({
   taskId: z.string().min(1),
-  date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Pick a date"),
+  date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "errors.pickADate"),
 });
 
 async function orphanForManager(taskId: string, departmentId: string) {
   const task = await prisma.task.findUnique({ where: { id: taskId } });
-  if (!task) throw new Error("That task no longer exists");
-  if (task.status !== "ORPHANED") throw new Error("That task is no longer in triage");
+  if (!task) fail("errors.taskGone");
+  if (task.status !== "ORPHANED") fail("errors.noLongerInTriage");
   if (task.departmentId !== departmentId) {
-    throw new Error("That task belongs to another department");
+    fail("errors.taskOtherDepartment");
   }
   return task;
 }
@@ -38,11 +40,12 @@ export async function reassignTask(
 ): Promise<TriageState> {
   try {
     const actor = await requireUserOrThrow("MANAGER");
+    const { t } = await getT();
     const parsed = Reassign.safeParse({
       taskId: formData.get("taskId"),
       userId: formData.get("userId"),
     });
-    if (!parsed.success) return { error: parsed.error.issues[0].message };
+    if (!parsed.success) return { error: t(parsed.error.issues[0].message) };
 
     const task = await orphanForManager(parsed.data.taskId, actor.departmentId);
     const date = task.scheduledDate ?? task.dueDate;
@@ -52,7 +55,7 @@ export async function reassignTask(
     const availability = await getAvailability(parsed.data.userId, date);
     const slot = findSlot(availability.windows, task.estimatedMinutes);
     if (!slot) {
-      return { error: "They no longer have room that day. Reload to see who does." };
+      return { error: t("errors.noRoomReload") };
     }
 
     const newAssignee = await prisma.user.findUnique({
@@ -99,20 +102,21 @@ export async function pushTask(
 ): Promise<TriageState> {
   try {
     const actor = await requireUserOrThrow("MANAGER");
+    const { t } = await getT();
     const parsed = Push.safeParse({
       taskId: formData.get("taskId"),
       date: formData.get("date"),
     });
-    if (!parsed.success) return { error: parsed.error.issues[0].message };
+    if (!parsed.success) return { error: t(parsed.error.issues[0].message) };
 
     const task = await orphanForManager(parsed.data.taskId, actor.departmentId);
-    if (!task.assigneeId) return { error: "That task has nobody to push it to" };
+    if (!task.assigneeId) return { error: t("errors.nobodyToPushTo") };
 
     const target = toDateOnly(new Date(`${parsed.data.date}T00:00:00Z`));
     const availability = await getAvailability(task.assigneeId, target);
     const slot = findSlot(availability.windows, task.estimatedMinutes);
     if (!slot) {
-      return { error: "They have no room that day either. Try another date." };
+      return { error: t("errors.noRoomEither") };
     }
 
     await prisma.$transaction([
@@ -144,7 +148,7 @@ export async function pushTask(
     revalidatePath("/team");
     return { ok: true };
   } catch (error) {
-    return { error: error instanceof Error ? error.message : "Could not push" };
+    return { error: await errorText(error, "errors.couldNotPush") };
   }
 }
 
@@ -154,6 +158,7 @@ export async function cancelTask(
 ): Promise<TriageState> {
   try {
     const actor = await requireUserOrThrow("MANAGER");
+    const { t } = await getT();
     const taskId = String(formData.get("taskId") ?? "");
     const task = await orphanForManager(taskId, actor.departmentId);
 
@@ -176,6 +181,6 @@ export async function cancelTask(
     revalidatePath("/team");
     return { ok: true };
   } catch (error) {
-    return { error: error instanceof Error ? error.message : "Could not cancel" };
+    return { error: await errorText(error, "errors.couldNotCancel") };
   }
 }

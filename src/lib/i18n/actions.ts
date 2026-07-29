@@ -4,6 +4,8 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { prisma } from "@/lib/db";
 import { requireUserOrThrow } from "@/lib/auth/guards";
+import { errorText } from "@/lib/i18n/errors";
+import { getT } from "@/lib/i18n/server";
 
 const Choice = z.object({ locale: z.enum(["EN", "ES"]) });
 
@@ -14,8 +16,9 @@ export async function setLocale(
 ): Promise<{ error?: string }> {
   try {
     const user = await requireUserOrThrow();
+    const { t } = await getT();
     const parsed = Choice.safeParse({ locale: formData.get("locale") });
-    if (!parsed.success) return { error: "Unknown language" };
+    if (!parsed.success) return { error: t("errors.unknownLanguage") };
 
     await prisma.user.update({
       where: { id: user.id },
@@ -25,6 +28,6 @@ export async function setLocale(
     revalidatePath("/", "layout");
     return {};
   } catch (error) {
-    return { error: error instanceof Error ? error.message : "Could not save" };
+    return { error: await errorText(error, "errors.couldNotSave") };
   }
 }

@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/db";
-import { addDays, toDateOnly } from "@/lib/time";
+import { addDays, today } from "@/lib/time";
 import {
   ONBOARDING_LABELS,
   ONBOARDING_MINUTES,
@@ -65,7 +65,7 @@ export async function syncOnboarding(userId?: string): Promise<OnboardingSync> {
 
   if (people.length === 0) return { created: 0, removed: 0 };
 
-  const horizon = addDays(toDateOnly(new Date()), HORIZON_DAYS);
+  const horizon = addDays(today(), HORIZON_DAYS);
   const departmentId = await hrDepartmentId(people[0].departmentId);
   const minutes = await catalogueMinutes(departmentId);
 

@@ -4,6 +4,8 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { prisma } from "@/lib/db";
 import { requireUserOrThrow } from "@/lib/auth/guards";
+import { errorText, fail } from "@/lib/i18n/errors";
+import { getT } from "@/lib/i18n/server";
 import { canDecideAbsences } from "@/lib/auth/guards";
 import { orphanAffectedTasks } from "@/lib/absence/actions";
 import { isEffective } from "@/lib/absence/effective";
@@ -27,9 +29,9 @@ const Decision = z.object({
 
 async function loadForDecision(absenceId: string) {
   const absence = await prisma.absence.findUnique({ where: { id: absenceId } });
-  if (!absence) throw new Error("That request no longer exists");
+  if (!absence) fail("errors.requestGone");
   if (absence.status !== "PENDING") {
-    throw new Error("Somebody has already decided this one");
+    fail("errors.alreadyDecided");
   }
   return absence;
 }
@@ -40,15 +42,16 @@ export async function approveAbsence(
 ): Promise<DecisionState> {
   try {
     const actor = await requireUserOrThrow();
+    const { t } = await getT();
     if (!canDecideAbsences(actor)) {
-      return { error: "Only HR can decide absence requests" };
+      return { error: t("errors.onlyHrDecides") };
     }
 
     const parsed = Decision.safeParse({
       absenceId: formData.get("absenceId"),
       note: formData.get("note") || undefined,
     });
-    if (!parsed.success) return { error: parsed.error.issues[0].message };
+    if (!parsed.success) return { error: t(parsed.error.issues[0].message) };
 
     const absence = await loadForDecision(parsed.data.absenceId);
     const wasAlreadyCounting = isEffective(absence);
@@ -81,7 +84,7 @@ export async function approveAbsence(
     return { ok: true, orphaned };
   } catch (error) {
     return {
-      error: error instanceof Error ? error.message : "Could not approve it",
+      error: await errorText(error, "errors.couldNotApprove"),
     };
   }
 }
@@ -92,20 +95,21 @@ export async function rejectAbsence(
 ): Promise<DecisionState> {
   try {
     const actor = await requireUserOrThrow();
+    const { t } = await getT();
     if (!canDecideAbsences(actor)) {
-      return { error: "Only HR can decide absence requests" };
+      return { error: t("errors.onlyHrDecides") };
     }
 
     const parsed = Decision.safeParse({
       absenceId: formData.get("absenceId"),
       note: formData.get("note") || undefined,
     });
-    if (!parsed.success) return { error: parsed.error.issues[0].message };
+    if (!parsed.success) return { error: t(parsed.error.issues[0].message) };
 
     // Rejecting somebody's sick day is a consequential thing to do silently,
     // so it needs a written reason.
     if (!parsed.data.note) {
-      return { error: "Give a reason — the person will see it" };
+      return { error: t("errors.giveAReason") };
     }
 
     const absence = await loadForDecision(parsed.data.absenceId);
@@ -138,7 +142,7 @@ export async function rejectAbsence(
     return { ok: true };
   } catch (error) {
     return {
-      error: error instanceof Error ? error.message : "Could not reject it",
+      error: await errorText(error, "errors.couldNotReject"),
     };
   }
 }

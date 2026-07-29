@@ -1,22 +1,18 @@
 "use client";
 
-import { useEffect, useState, useTransition } from "react";
+import { useState, useTransition } from "react";
 import type { DayTask, DayView } from "@/lib/tasks/day";
 import { reorderDay, type BlockingTask } from "@/lib/tasks/actions";
 import { formatClock, formatDuration } from "@/lib/time";
 import { useT } from "@/lib/i18n/client";
-import { PauseDialog } from "./pause-dialog";
 import { DeferDialog } from "./defer-dialog";
 import { MeetingPanel, StartMeetingButton } from "./meeting-panel";
 import { TaskButton } from "./task-button";
-
-function stopwatch(totalSeconds: number): string {
-  const h = Math.floor(totalSeconds / 3600);
-  const m = Math.floor((totalSeconds % 3600) / 60);
-  const s = totalSeconds % 60;
-  return [h, m, s].map((n) => String(n).padStart(2, "0")).join(":");
-}
-
+import { CallPanel } from "./call-panel";
+import { CurrentTask } from "./current-task";
+import { ReviewDay } from "./review-day";
+import { currentTask, stillOwed } from "@/lib/tasks/now";
+import { useNow } from "../now-provider";
 
 type DayRow =
   | { kind: "task"; task: DayTask; start: number }
@@ -76,25 +72,22 @@ function buildDayRows(view: DayView, dayStart: number, dayEnd: number): DayRow[]
   return rows;
 }
 
-export function DayViewClient({ view }: { view: DayView }) {
+export function DayViewClient({
+  view,
+  zone,
+}: {
+  view: DayView;
+  zone: string;
+}) {
   const { t } = useT();
-  const active = view.tasks.find((x) => x.id === view.activeTaskId);
-  const [pausing, setPausing] = useState<string | null>(null);
+  // Pausing, finishing and closing the day are the bar's business now, so
+  // they are driven from one place whichever page you are on.
+  const { pause, completed } = useNow();
   const [blocked, setBlocked] = useState<BlockingTask | null>(null);
   const [dragging, setDragging] = useState<string | null>(null);
   const [order, setOrder] = useState<string[] | null>(null);
   const [reordering, startReorder] = useTransition();
-
-  // The stopwatch ticks locally; the server holds the truth. On any action the
-  // page revalidates and the count re-syncs, so drift never accumulates.
-  const [tick, setTick] = useState(0);
-  useEffect(() => {
-    if (active?.status !== "IN_PROGRESS") return;
-    const id = setInterval(() => setTick((t) => t + 1), 1000);
-    return () => clearInterval(id);
-  }, [active?.status, active?.id]);
-
-  useEffect(() => setTick(0), [active?.id, active?.status]);
+  const [showRest, setShowRest] = useState(false);
 
   if (!view.rostered) {
     return (
@@ -120,8 +113,11 @@ export function DayViewClient({ view }: { view: DayView }) {
     .filter((t) => t.status === "DONE")
     .reduce((s, t) => s + t.estimatedMinutes, 0);
 
-  const elapsed = active ? active.elapsedSeconds + tick : 0;
-  const over = active ? elapsed > active.estimatedMinutes * 60 : false;
+  const current = currentTask(view.tasks);
+  const owed = stillOwed(view.tasks);
+  // What is left once the task in hand is set aside.
+  const rest = owed.filter((task) => task.id !== current?.id);
+  const restMinutes = rest.reduce((sum, task) => sum + task.estimatedMinutes, 0);
 
   // The day is a list, not a proportional timeline. Six five-minute tasks in
   // an afternoon are only pixels apart on a real time axis, which buried the
@@ -131,6 +127,7 @@ export function DayViewClient({ view }: { view: DayView }) {
 
   // Tasks in the order shown: the server's, unless a drag is in flight.
   const taskRows = rows.filter((r) => r.kind === "task");
+
   const shown = order
     ? order
         .map((id) => taskRows.find((r) => r.kind === "task" && r.task.id === id))
@@ -162,6 +159,22 @@ export function DayViewClient({ view }: { view: DayView }) {
 
   return (
     <>
+      {/* Asked once, the morning after, where the person who knows the answer
+          will actually see it. */}
+      {view.attendance.review && (
+        <ReviewDay
+          review={view.attendance.review}
+          clockGuess={view.attendance.review.endClock}
+        />
+      )}
+
+      {view.callList && (
+        <CallPanel
+          taskId={view.callList.taskId}
+          list={view.callList.list}
+        />
+      )}
+
       {view.liveMeeting && (
         <MeetingPanel
           meeting={view.liveMeeting}
@@ -171,14 +184,63 @@ export function DayViewClient({ view }: { view: DayView }) {
       )}
 
       <div className="grid items-start gap-5 lg:grid-cols-[minmax(0,1fr)_316px]">
-        {/* ------------------------------------------------------ the rota */}
+        <div className="flex flex-col gap-3">
+          {/* ------------------------------------------- the task in hand */}
+          {current ? (
+            <CurrentTask
+              task={current}
+              onPause={() => pause(current.id)}
+              onBlocked={setBlocked}
+              onCompleted={completed}
+            />
+          ) : (
+            <section className="card card-body text-center">
+              <p className="text-[14px] font-medium">{t("now.allCaughtUp")}</p>
+              <p className="mt-1 text-[13px] text-muted">
+                {t("now.allCaughtUpHint")}
+              </p>
+            </section>
+          )}
+
+          {/*
+            The rest of the day, shut by default.
+
+            Not deleted: dragging rows in this list is the only way to reorder
+            a day, so cutting it would have removed the feature in silence.
+          */}
+          {rest.length > 0 && (
+            <div>
+              <button
+                type="button"
+                onClick={() => setShowRest((v) => !v)}
+                aria-expanded={showRest}
+                className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-[12.5px] text-muted transition-colors hover:bg-surface-2 hover:text-ink"
+              >
+                <span
+                  aria-hidden
+                  className={`text-[10px] text-faint transition-transform ${showRest ? "rotate-90" : ""}`}
+                >
+                  ▶
+                </span>
+                <span className="num">
+                  {t("now.stillToDo", rest.length, formatDuration(restMinutes))}
+                </span>
+                <span className="flex-1" />
+                {reordering && (
+                  <span className="text-[12px] text-faint">
+                    {t("myDay.savingOrder")}
+                  </span>
+                )}
+              </button>
+            </div>
+          )}
+
+          {showRest && (
         <section className="card">
           <header className="card-head">
             <span className="eyebrow">{t("myDay.today")}</span>
             <span className="num text-[12px] text-muted">
-              {reordering
-                ? t("myDay.savingOrder")
-                : `${view.tasks.length} ${view.tasks.length === 1 ? t("common.task") : t("common.tasks")}`}
+              {`${view.tasks.length} ${view.tasks.length === 1 ? t("common.task") : t("common.tasks")}`}
             </span>
           </header>
 
@@ -202,8 +264,9 @@ export function DayViewClient({ view }: { view: DayView }) {
                 >
                   <TaskButton
                     task={row.task}
-                    onPause={() => setPausing(row.task.id)}
+                    onPause={() => pause(row.task.id)}
                     onBlocked={setBlocked}
+                    onCompleted={completed}
                     onMove={(dir: "up" | "down") => {
                       const ids = (shown ?? taskRows).map((r) =>
                         r.kind === "task" ? r.task.id : "",
@@ -248,94 +311,16 @@ export function DayViewClient({ view }: { view: DayView }) {
             )}
           </ul>
         </section>
+          )}
+        </div>
 
         {/* ------------------------------------------------------- the rail */}
         <aside className="flex flex-col gap-3.5 lg:sticky lg:top-5">
-          {active ? (
-            <section
-              className={`card card-body border-l-[3px] ${
-                active.status === "IN_PROGRESS"
-                  ? "border-l-run"
-                  : "border-l-pause"
-              }`}
-            >
-              <p
-                className={`eyebrow ${
-                  active.status === "IN_PROGRESS" ? "text-run" : "text-pause"
-                }`}
-              >
-                {active.status === "IN_PROGRESS"
-                  ? t("myDay.runningNow")
-                  : t("myDay.paused")}
-              </p>
-              <p className="mt-1.5 text-[15px] font-semibold text-balance">
-                {active.title}
-              </p>
-
-              <p
-                className={`num mt-3 text-[38px] leading-none font-medium tracking-[-0.03em] ${
-                  over ? "text-pause" : ""
-                }`}
-              >
-                {stopwatch(elapsed)}
-              </p>
-              <p className="num mt-1.5 text-[12px] text-muted">
-                {over
-                  ? t("myDay.overEstimate", formatDuration(active.estimatedMinutes))
-                  : `${formatDuration(
-                      Math.max(
-                        0,
-                        active.estimatedMinutes - Math.floor(elapsed / 60),
-                      ),
-                    )} ${t("myDay.leftOf")} ${formatDuration(active.estimatedMinutes)}`}
-              </p>
-
-              <div className="my-3.5 h-1.5 overflow-hidden rounded-full bg-line">
-                <div
-                  className={`h-full rounded-full transition-[width] duration-500 ${over ? "bg-pause" : "bg-run"}`}
-                  style={{
-                    width: `${Math.min(
-                      100,
-                      (elapsed / (active.estimatedMinutes * 60)) * 100,
-                    )}%`,
-                  }}
-                />
-              </div>
-
-              {active.status === "PAUSED" && active.pauseText && (
-                <p className="notice notice-warn mb-3">
-                  <span className="eyebrow mb-0.5 block text-pause">{t("myDay.paused")}</span>
-                  {active.pauseText}
-                </p>
-              )}
-
-              {/* Catalogue warnings belong in front of you while you work,
-                  not in a spreadsheet nobody reopens. */}
-              {active.notes && (
-                <p className="mb-3 rounded-md border border-line bg-surface-2 px-3 py-2 text-[12.5px] leading-relaxed">
-                  {active.notes}
-                </p>
-              )}
-              {active.instructions && (
-                <p className="mb-3 text-[12px] text-muted">
-                  {t("myDay.howTo")} {active.instructions}
-                </p>
-              )}
-
-              <TaskButton.Controls
-                task={active}
-                onPause={() => setPausing(active.id)}
-              />
-            </section>
-          ) : (
-            <section className="card card-body text-center">
-              <p className="text-[13px] font-medium">{t("myDay.nothingRunning")}</p>
-              <p className="mt-0.5 text-[12.5px] text-muted">
-                {t("myDay.startFromList")}
-              </p>
-            </section>
-          )}
-
+          {/*
+            The running panel that used to sit here has become the card on the
+            left -- one place saying what you are doing, not two. What is left
+            is the day's arithmetic, which is not a list of what is coming.
+          */}
           {!view.liveMeeting && (
             <div className="flex justify-center">
               <StartMeetingButton />
@@ -348,7 +333,7 @@ export function DayViewClient({ view }: { view: DayView }) {
             </header>
             <dl className="px-4 py-1.5">
               <Stat label={t("myDay.booked")}>
-                {formatDuration(booked)} of {formatDuration(view.availableMinutes)}
+                {formatDuration(booked)} {t("common.of")} {formatDuration(view.availableMinutes)}
               </Stat>
               <Stat label={t("myDay.finished")}>{formatDuration(done)}</Stat>
               <Stat label={t("myDay.leftToDo")}>{formatDuration(booked - done)}</Stat>
@@ -369,13 +354,7 @@ export function DayViewClient({ view }: { view: DayView }) {
         />
       )}
 
-      {pausing && (
-        <PauseDialog
-          taskId={pausing}
-          title={view.tasks.find((t) => t.id === pausing)?.title ?? ""}
-          onClose={() => setPausing(null)}
-        />
-      )}
+      {/* Nothing left to do means nothing to offer, so no dialog at all. */}
     </>
   );
 }

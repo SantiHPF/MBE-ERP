@@ -9,9 +9,11 @@ const initial: PeopleState = {};
 
 export function NewPersonForm({
   departments,
+  today,
   onDone,
 }: {
   departments: { id: string; name: string }[];
+  today: string;
   onDone?: () => void;
 }) {
   const { t } = useT();
@@ -20,8 +22,6 @@ export function NewPersonForm({
   useEffect(() => {
     if (state.ok) onDone?.();
   }, [state.ok, onDone]);
-
-  const today = new Date().toISOString().slice(0, 10);
 
   return (
     <form action={submit} className="flex flex-col gap-4">
@@ -115,7 +115,7 @@ export function NewDepartmentForm() {
       <form action={submit} className="flex gap-2">
         <input
           name="name"
-          placeholder="e.g. Logistics"
+          placeholder={t("people.departmentEg")}
           required
           className="field flex-1"
         />

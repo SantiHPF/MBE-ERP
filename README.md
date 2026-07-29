@@ -4,7 +4,11 @@ Internal ERP that turns recurring work, a task catalogue, a job spreadsheet and
 the weekly meeting into a scheduled day for each person — and tracks the time
 they actually spend on it.
 
-Interface in Spanish or English, chosen per person.
+Interface in Spanish or English, chosen per person; light or dark, per device.
+
+> **Replacing the ERP already in use?** Read [CUTOVER.md](CUTOVER.md) — the
+> data migration, the runbook, and the two things most likely to go wrong on
+> the first morning.
 
 ## What it does
 
@@ -35,6 +39,17 @@ Interface in Spanish or English, chosen per person.
   happens; the report writes itself and the actions become real tasks.
 - **Records mistakes as P1Ns.** "Pasa 1 vez, no vuelve a pasar" — what went
   wrong, why, and the fix that would stop it recurring.
+- **Records attendance.** Login, first task, last task and logout are kept
+  separately and resolved into an arrival and a departure. The day ends with a
+  deliberate *Cerrar el día*; a day nobody closes is inferred conservatively
+  and flagged for confirmation rather than assumed. Operational record, not a
+  legal *registro de jornada* — see MERGE.md.
+- **Runs two CRMs for HR.** Universities and job portals with their contacts,
+  and candidates through selection. The system works out who is owed a call and
+  raises one batched call task holding the list, rather than a task per person.
+- **Keeps the current task in front of you.** A bar fixed to the bottom of
+  every page: what is running, whether the day is still reachable, and the
+  controls to pause, finish, start the next one or close the day.
 
 ## Running it locally
 
@@ -44,7 +59,7 @@ Requires Node 22+ and PostgreSQL 17.
 cp .env.example .env      # defaults work for local development
 npm install
 npm run db:start          # creates and starts a local Postgres cluster
-npx prisma migrate dev
+npx prisma migrate deploy   # several migrations are hand-written; see MERGE.md
 npm run seed              # departments + founding accounts
 npm run import:catalogue  # 134 tasks from fixtures/catalogue.json
 npm run import:recurring  # HR's schedule from fixtures/recurring-hr.json
@@ -52,8 +67,10 @@ npm run schedule          # materialize and assign the next two weeks
 npm run dev               # http://localhost:3000
 ```
 
-Sign in as `santi` / `mbe-erp-2026` (that is what a fresh seed creates; an
-existing database keeps whatever password it already had).
+Sign in as `santi`. The seed prints the password once at the end of its run —
+it is generated randomly unless you set `SEED_PASSWORD`, so that no usable
+credential lives in this repository. An existing database keeps whatever
+password it already had.
 
 The seed creates the founding accounts without employment dates, so no
 induction interviews are generated for them. Set the dates in **HR → People**;
@@ -87,7 +104,7 @@ not at `/Library/PostgreSQL/17/bin`.
 | Command | What it does |
 | --- | --- |
 | `npm run dev` | Development server |
-| `npm test` | 120 unit tests |
+| `npm test` | 290 unit tests |
 | `npm run schedule [YYYY-MM-DD]` | Materialize + assign a two-week window. Safe to re-run |
 | `npm run ingest [-- --csv path]` | Pull sheet sources into tasks |
 | `npm run import:catalogue` | Load `fixtures/catalogue.json` |
@@ -95,6 +112,10 @@ not at `/Library/PostgreSQL/17/bin`.
 | `npm run seed` / `seed:demo` | Real founding data / throwaway sample data |
 | `npm run db:start` / `db:stop` / `db:status` | Local Postgres cluster |
 | `npm run db:studio` | Prisma Studio, to inspect data |
+| `npm run verify:attendance` | End-to-end: abandoned timers, the sweep, the caps |
+| `npm run verify:crm` | End-to-end: call generation and contact rotation |
+| `npm run verify:anchors` | End-to-end: shift-anchored repetitions |
+| `npm run verify:concurrency` | Two concurrent starts, against the real DB guards |
 | `npx tsx scripts/show-availability.ts` | Print a week's real capacity per person |
 
 ## Screens
@@ -112,6 +133,8 @@ not at `/Library/PostgreSQL/17/bin`.
 | `/catalogue` | manager+ | Task catalogue and schedules, any department |
 | `/hr/people` | HR, admin | Accounts, hours, employment dates |
 | `/hr/absences` | HR, admin | Approve or reject absence requests |
+| `/crm/sources` | HR, admin | Universities and portals, their contacts, call logging |
+| `/crm/candidates` | HR, admin | The selection pipeline |
 
 ## Roles
 
@@ -123,6 +146,67 @@ not rungs on the ladder.
 
 Any manager can *view* every department's catalogue; only that department's
 managers, or an admin, can change it.
+
+## How it works, step by step
+
+The system answers one question all the way through: *what should this person
+be doing right now, and did it happen?* Each step feeds the next.
+
+**1 · Who works when.** `WorkingPattern` holds one row per person per weekday;
+`DayOverride` replaces a single day; `Absence` subtracts from whatever those
+produced. `computeAvailability()` resolves the three in that order and returns
+**free windows**, not a minute total. Everything else asks this function rather
+than reading the tables, so there is exactly one answer to "can this person take
+work on Thursday". Times are minutes from midnight in `SCHEDULE_TIMEZONE`, which
+is what keeps the scheduler free of DST arithmetic.
+
+**2 · What work exists.** `TaskTemplate` is the catalogue — name, estimate,
+priority, warnings shown while doing it. `RecurringRule` says when a template
+happens: weekly by weekday, monthly by nth-weekday or day-of-month, or at
+**shift anchors** (on arrival, before the break, after the break, before
+leaving) for jobs done several times a day at points in the shift.
+
+**3 · Rules become dated tasks.** `materialize.ts` expands them over a window.
+Every generated task carries an `externalKey` of rule + date + instance, so
+running it twice creates nothing the second time — which matters because it runs
+nightly *and* by hand. Three other things create tasks: the Google Sheet ingest,
+meeting action items on finalisation, and a joiner's induction interviews.
+
+**4 · Tasks are handed out.** `assign.ts`. Capacity is a hard constraint, fair
+rotation the ranking rule within it. `MUST` work is the exception — assigned
+even when everyone is full, so the overload is visible rather than the task
+vanishing. Anchored repetitions go to one person as a group, and credit the
+rotation once rather than four times.
+
+**5 · The working day.** `/my-day` shows **one task**: the one running, or the
+earliest still owed — deliberately the same one the ordering rule would let you
+start. The rest is folded behind a "quedan 7 · 4h 20m" line that still holds
+drag-to-reorder. One timer per person, enforced by a database index rather than
+only by code. A bar fixed to the bottom of *every* page carries what is running,
+whether the day is still reachable, and the controls to pause, finish, start the
+next or close the day.
+
+**6 · Attendance.** `AttendanceDay` keeps four signals apart — first login,
+first task, last task, logout — and derives the in/out pair from them, so the
+record can say "arrived 08:00, started work 09:40". The day ends with a
+deliberate *Cerrar el día* that offers to reschedule what is left; a day nobody
+closes is inferred at `min(last activity, end of shift)` and flagged for
+confirmation rather than assumed.
+
+**7 · When things go wrong.** Sickness takes effect immediately, leave waits for
+HR. Displaced work becomes `ORPHANED` and goes to `/triage` with the colleagues
+who genuinely have room already worked out — **nothing is reassigned
+automatically**. Mistakes are recorded as P1Ns, with the cause split into "the
+person" and "the process" because they need opposite fixes.
+
+**8 · Meetings.** Notes captured live, the report writes itself. A draft creates
+nothing; action items become tasks only on finalisation, so an abandoned meeting
+leaves no phantom work.
+
+**9 · The CRM.** Universities and portals get a call every two months, rotating
+through their contacts. Candidates in the *Call* stage get one attempt. Calls
+become **one batched task** holding the list of who to ring, resolved live when
+the panel renders — who is due next Tuesday is not knowable today.
 
 ## How the scheduling works
 
@@ -187,8 +271,9 @@ A standard Next.js app plus a Postgres database.
   to warn about something. Several migrations here were produced with
   `prisma migrate diff`, applied with `psql`, and recorded with
   `prisma migrate resolve --applied`. They are normal migrations in the folder.
-- **The seeded password is in git history.** Change it before this reaches a
-  real machine.
+- **A hard-coded seed password is in git history**, up to commit `1627779`. It
+  was never deployed and the seed now generates one instead, but it must not
+  come back.
 
 ## Translation
 
@@ -229,8 +314,10 @@ quality the whole system depends on.
   what would let the catalogue durations get better.
 - **Notifications.** Nothing tells a manager that work landed in triage, or HR
   that a request is waiting, beyond a badge they have to look at.
-- **Dark mode verification.** The tokens exist and the app is usable dark, but
-  it has not been checked screen by screen.
+- **Mobile.** The one real blocker is the missing viewport meta tag in
+  `src/app/layout.tsx`; after that, touch targets and turning the sidebar into
+  a drawer.
+- **Manager and HR views of attendance.** Deliberately personal-only for now.
 
 ## Decisions on record
 

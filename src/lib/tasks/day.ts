@@ -1,7 +1,11 @@
 import { prisma } from "@/lib/db";
-import { toDateOnly } from "@/lib/time";
+import { scheduleZone, today, toDateOnly } from "@/lib/time";
 import { computeAvailability, type Window } from "@/lib/scheduling/availability";
 import { elapsedSeconds } from "./elapsed";
+import { callListFor, type CallList } from "@/lib/crm/sync";
+import { dayNeedingReview, todayAttendance } from "@/lib/attendance/attendance-db";
+
+export type { CallList };
 
 export type DayTask = {
   id: string;
@@ -12,6 +16,13 @@ export type DayTask = {
   scheduledStart: number | null;
   scheduledEnd: number | null;
   elapsedSeconds: number;
+  /**
+   * When the clock started, for a task running right now. The bar derives its
+   * stopwatch from this rather than from elapsedSeconds, which is only true
+   * at the instant it was rendered -- and the bar can sit unrendered on
+   * another page for an hour.
+   */
+  runningSince: string | null;
   /** Set while the task is paused, so the reason is visible in the list. */
   pauseReason: string | null;
   pauseText: string | null;
@@ -39,7 +50,24 @@ export type DayView = {
   activeTaskId: string | null;
   /** A meeting in progress, whether or not it came from a task. */
   liveMeeting: LiveMeeting | null;
+  /**
+   * Who to ring, when the task in hand is a batched CRM call. Resolved live
+   * rather than snapshotted -- see callListFor().
+   */
+  callList: { taskId: string; list: CallList } | null;
   colleagues: { id: string; displayName: string }[];
+  /** Attendance, for the bar and the morning review prompt. */
+  attendance: {
+    /** Set once the day has been closed on purpose. */
+    closedAt: string | null;
+    /**
+     * A past day the sweep guessed at, still waiting to be confirmed. The
+     * clock time is formatted here, in the company's zone -- letting the
+     * browser do it would show a different hour to anybody travelling, and
+     * mismatch what the server rendered.
+     */
+    review: { id: string; date: string; endClock: string } | null;
+  };
 };
 
 export type LiveMeeting = {
@@ -56,17 +84,14 @@ export type LiveMeeting = {
   }[];
 };
 
-const ORIGIN_LABEL: Record<string, string> = {
-  RECURRING: "Recurring",
-  CATALOGUE: "Catalogue",
-  SHEET: "Sheet",
-  MEETING: "Meeting",
-  MANUAL: "Added by hand",
-};
+// The English ORIGIN_LABEL map that used to live here has moved into the
+// dictionary as origin.*. It was invisible because the badge is uppercased in
+// CSS, so "Recurring" and the raw RECURRING looked identical -- and it had no
+// entry for CRM, which only passed because the enum name reads as a word.
 
 export async function getDayView(
   userId: string,
-  date: Date = new Date(),
+  date: Date = today(),
 ): Promise<DayView> {
   const day = toDateOnly(date);
 
@@ -119,12 +144,19 @@ export async function getDayView(
     return {
       id: task.id,
       title: task.title,
-      origin: ORIGIN_LABEL[task.origin] ?? task.origin,
+      // The raw TaskOrigin. The view translates it with origin.*.
+      origin: task.origin,
       status: task.status,
       estimatedMinutes: task.estimatedMinutes,
       scheduledStart: task.scheduledStart,
       scheduledEnd: task.scheduledEnd,
       elapsedSeconds: elapsedSeconds(task.timeEntries, now),
+      runningSince:
+        task.timeEntries.find((e) => e.endedAt === null) && !openPause
+          ? task.timeEntries
+              .find((e) => e.endedAt === null)!
+              .startedAt.toISOString()
+          : null,
       pauseReason: openPause?.reasonCode ?? null,
       pauseText: openPause?.reasonText ?? null,
       notes: task.template?.notes ?? null,
@@ -144,6 +176,18 @@ export async function getDayView(
   const active = dayTasks.find(
     (t) => t.status === "IN_PROGRESS" || t.status === "PAUSED",
   );
+
+  // The list belongs to whichever call task is in hand. Falling back to one
+  // that is merely assigned means the panel is there before they start, which
+  // is when people actually look at who they have to ring.
+  const callTask =
+    tasks.find((t) => t.origin === "CRM" && t.id === active?.id) ??
+    tasks.find((t) => t.origin === "CRM" && t.status !== "DONE");
+  const callList = callTask
+    ? await callListFor(callTask.id).then((list) =>
+        list ? { taskId: callTask.id, list } : null,
+      )
+    : null;
 
   // Any meeting this person is currently running -- one started from a task,
   // or an unplanned one that interrupted them.
@@ -168,7 +212,32 @@ export async function getDayView(
     orderBy: { displayName: "asc" },
   });
 
+  const [attendanceToday, review] = await Promise.all([
+    todayAttendance(userId),
+    dayNeedingReview(userId),
+  ]);
+
   return {
+    attendance: {
+      closedAt:
+        attendanceToday?.status === "CLOSED" && attendanceToday.endedAt
+          ? attendanceToday.endedAt.toISOString()
+          : null,
+      review:
+        review?.endedAt != null
+          ? {
+              id: review.id,
+              date: review.date.toISOString().slice(0, 10),
+              endClock: new Intl.DateTimeFormat("en-GB", {
+                timeZone: scheduleZone(),
+                hour: "2-digit",
+                minute: "2-digit",
+                hour12: false,
+              }).format(review.endedAt),
+            }
+          : null,
+    },
+    callList,
     liveMeeting: draft
       ? {
           id: draft.id,

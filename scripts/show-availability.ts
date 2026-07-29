@@ -2,7 +2,8 @@ import "dotenv/config";
 import { PrismaClient } from "@prisma/client";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { computeAvailability } from "../src/lib/scheduling/availability";
-import { formatClock, formatDuration, toDateOnly, addDays, weekdayName } from "../src/lib/time";
+import { formatClock, formatDuration, toDateOnly, addDays } from "../src/lib/time";
+import { weekdayLabel } from "../src/lib/i18n/dates";
 
 /**
  * Prints everyone's real capacity for a week, with breaks and absences
@@ -84,7 +85,7 @@ async function main() {
   console.log(
     `\n  ${"".padEnd(nameWidth)}${days
       .map((d) =>
-        weekdayName(((d.getUTCDay() + 6) % 7) + 1)
+        weekdayLabel("EN", ((d.getUTCDay() + 6) % 7) + 1)
           .slice(0, 3)
           .padStart(8),
       )

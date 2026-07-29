@@ -17,9 +17,13 @@
     "seed": "tsx prisma/seed.ts",
     "seed:demo": "tsx prisma/seed-demo.ts",
     "schedule": "tsx scripts/run-schedule.ts",
+    "verify:concurrency": "tsx scripts/verify-concurrency.ts",
+    "verify:anchors": "tsx scripts/verify-anchors.ts",
+    "verify:crm": "tsx scripts/verify-crm.ts",
     "ingest": "tsx scripts/ingest-sheet.ts",
     "import:catalogue": "tsx scripts/import-catalogue.ts",
-    "import:recurring": "tsx scripts/import-recurring.ts"
+    "import:recurring": "tsx scripts/import-recurring.ts",
+    "verify:attendance": "tsx scripts/verify-attendance.ts"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"

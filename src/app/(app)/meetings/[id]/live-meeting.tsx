@@ -26,11 +26,13 @@ export function LiveMeeting({
   notes,
   items,
   colleagues,
+  today,
 }: {
   meetingId: string;
   notes: string;
   items: Item[];
   colleagues: { id: string; displayName: string }[];
+  today: string;
 }) {
   const { t } = useT();
   const [notesState, save, saving] = useActionState(saveNotes, initial);
@@ -41,7 +43,6 @@ export function LiveMeeting({
     initial,
   );
 
-  const today = new Date().toISOString().slice(0, 10);
   const total = items.reduce((s, i) => s + i.estimatedMinutes, 0);
 
   return (

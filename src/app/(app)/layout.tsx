@@ -9,6 +9,11 @@ import { logout } from "@/app/login/actions";
 import { NavLink } from "./nav-link";
 import { LocaleProvider } from "@/lib/i18n/client";
 import { getT } from "@/lib/i18n/server";
+import { readTheme } from "@/lib/theme/read";
+import { ThemeToggle } from "./theme-toggle";
+import { getNowState } from "@/lib/tasks/now-db";
+import { scheduleZone } from "@/lib/time";
+import { NowProvider } from "./now-provider";
 
 export default async function AppLayout({
   children,
@@ -18,7 +23,12 @@ export default async function AppLayout({
   const user = await requireUser();
   const isManager = hasRole(user, "MANAGER");
   const isHr = canDecideAbsences(user);
+  const isPeopleAdmin = canManagePeople(user);
   const { t, locale } = await getT();
+  const theme = await readTheme();
+  // The running-task bar is part of the shell, not of My Day -- see now.ts
+  // for why this is a slimmer query than getDayView().
+  const now = await getNowState(user.id);
 
   // Badge the queue so HR does not have to go looking for new requests.
   const waiting = isHr
@@ -31,64 +41,183 @@ export default async function AppLayout({
     .map((part) => part[0])
     .join("");
 
-  return (
-    <LocaleProvider locale={locale}>
-    <div className="min-h-screen">
-      <header className="sticky top-0 z-40 border-b border-line bg-surface/95 backdrop-blur">
-        <div className="mx-auto flex max-w-[1180px] items-center gap-6 px-6">
-          <span className="py-3.5 text-[15px] font-semibold tracking-tight">
-            MBE <span className="text-accent">ERP</span>
-          </span>
-
-          <nav className="flex flex-1 flex-wrap gap-0.5 py-3.5" aria-label="Main">
-            <NavLink href="/my-day">{t("nav.myDay")}</NavLink>
-            <NavLink href="/plan">{t("nav.planWeek")}</NavLink>
-            <NavLink href="/my-calendar">{t("nav.myCalendar")}</NavLink>
-            <NavLink href="/meetings">{t("nav.meetings")}</NavLink>
-            <NavLink href="/p1n">{t("nav.p1n")}</NavLink>
-            {isManager && <NavLink href="/team">{t("nav.team")}</NavLink>}
-            {isManager && <NavLink href="/triage">{t("nav.triage")}</NavLink>}
-            {isManager && <NavLink href="/catalogue">{t("nav.catalogue")}</NavLink>}
-            {isHr && (
-              <NavLink href="/hr/absences">
+  /**
+   * Grouped rather than one flat list: there are ten destinations now, and a
+   * run of ten is something you search rather than read.
+   *
+   * A group with nothing in it does not render, so a WORKER sees only "Work"
+   * without any special-casing here.
+   */
+  const groups: { label: string; links: React.ReactNode[] }[] = [
+    {
+      label: t("nav.groupWork"),
+      links: [
+        <NavLink key="my-day" href="/my-day">{t("nav.myDay")}</NavLink>,
+        <NavLink key="plan" href="/plan">{t("nav.planWeek")}</NavLink>,
+        <NavLink key="cal" href="/my-calendar">{t("nav.myCalendar")}</NavLink>,
+        <NavLink key="meet" href="/meetings">{t("nav.meetings")}</NavLink>,
+        <NavLink key="p1n" href="/p1n">{t("nav.p1n")}</NavLink>,
+      ],
+    },
+    {
+      label: t("nav.groupTeam"),
+      links: isManager
+        ? [
+            <NavLink key="team" href="/team">{t("nav.team")}</NavLink>,
+            <NavLink key="triage" href="/triage">{t("nav.triage")}</NavLink>,
+            <NavLink key="cat" href="/catalogue">{t("nav.catalogue")}</NavLink>,
+          ]
+        : [],
+    },
+    {
+      label: t("nav.groupHr"),
+      links: [
+        ...(isHr
+          ? [
+              <NavLink key="req" href="/hr/absences">
                 {t("nav.requests")}
                 {waiting > 0 && (
-                  <span className="num ml-1.5 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-pause px-1 text-[10px] font-semibold text-white">
+                  <span className="num inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-pause px-1 text-[10px] font-semibold text-white">
                     {waiting}
                   </span>
                 )}
-              </NavLink>
-            )}
-            {canManagePeople(user) && <NavLink href="/hr/people">{t("nav.people")}</NavLink>}
-          </nav>
+              </NavLink>,
+            ]
+          : []),
+        ...(isPeopleAdmin
+          ? [
+              <NavLink key="people" href="/hr/people">{t("nav.people")}</NavLink>,
+              <NavLink key="crm" href="/crm/sources">{t("nav.crm")}</NavLink>,
+            ]
+          : []),
+      ],
+    },
+  ].filter((group) => group.links.length > 0);
 
-          <div className="flex items-center gap-2.5 py-3.5">
-            <div className="hidden text-right leading-tight sm:block">
-              <a href="/me" className="block text-[13px] font-medium hover:text-accent">
-                {user.displayName}
-              </a>
-              <span className="block text-[11px] text-faint">
-                {user.departmentName.replace(/\s*\(.*\)$/, "")}
+  return (
+    <LocaleProvider locale={locale}>
+      <NowProvider state={now} zone={scheduleZone()}>
+      <div className="lg:flex lg:min-h-screen">
+        {/*
+          A sidebar from `lg` up. Below that it stays the horizontal bar it has
+          always been -- a fixed 208px column on a phone leaves nothing for the
+          page, and the mobile pass that turns this into a drawer is separate
+          work.
+        */}
+        <aside
+          className="sticky top-0 z-40 border-b border-line bg-surface/95 backdrop-blur
+                     lg:top-0 lg:h-screen lg:w-[208px] lg:shrink-0 lg:overflow-y-auto
+                     lg:border-r lg:border-b-0"
+        >
+          <div className="mx-auto flex max-w-[1180px] items-center gap-6 px-6 lg:mx-0 lg:h-full lg:max-w-none lg:flex-col lg:items-stretch lg:gap-0 lg:px-3 lg:py-4">
+            {/*
+              Built like the stamp lockup in the brand book -- "MBE" over a
+              small tracked descriptor -- rather than an approximation of the
+              shield and owl, which would be a worse counterfeit than no mark
+              at all. Drop the real SVG in here when there is one.
+            */}
+            <span className="flex shrink-0 items-baseline gap-1.5 py-3.5 lg:flex-col lg:items-start lg:gap-0 lg:px-2.5 lg:pt-0 lg:pb-5">
+              <span className="text-[17px] leading-none font-bold tracking-[-0.02em] text-accent">
+                MBE
               </span>
-            </div>
-            <a
-              href="/me"
-              title={t("common.yourRecord")}
-              className="flex h-8 w-8 items-center justify-center rounded-full bg-accent-wash text-[12px] font-semibold text-accent transition-colors hover:bg-accent hover:text-accent-ink"
-            >
-              {initials}
-            </a>
-            <form action={logout}>
-              <button type="submit" className="btn btn-sm">
-                {t("common.signOut")}
-              </button>
-            </form>
-          </div>
-        </div>
-      </header>
+              <span className="text-[10px] leading-none font-semibold tracking-[0.18em] text-faint uppercase lg:mt-1.5">
+                ERP
+              </span>
+            </span>
 
-      <main className="mx-auto max-w-[1180px] px-6 py-7">{children}</main>
-    </div>
+            <nav
+              /* The spacing between groups is on the groups themselves now,
+                 so that the dividing rule sits inside it rather than beside
+                 a gap the flex container also contributes to. */
+              className="flex flex-1 flex-wrap gap-0.5 py-3.5 lg:flex-none lg:flex-col lg:flex-nowrap lg:gap-0 lg:py-0"
+              aria-label="Main"
+            >
+              {groups.map((group, i) => (
+                <div
+                  key={group.label}
+                  /*
+                    A rule and real space above each group after the first.
+                    Uppercase alone was doing all the work of separating a
+                    heading from a link, and at a glance it lost -- thirteen
+                    things that all looked like destinations.
+
+                    With the sections visibly apart, the heading can stop
+                    competing: it gets smaller and fainter while the links get
+                    bigger and darker, so the two now differ in size, weight,
+                    colour, tracking and position rather than in case alone.
+                  */
+                  className={`flex flex-wrap gap-0.5 lg:flex-col lg:gap-0.5 ${
+                    i > 0 ? "lg:mt-5 lg:border-t lg:border-line lg:pt-4" : ""
+                  }`}
+                >
+                  {/* The headings are what makes ten links readable, but they
+                      would double the height of the bar on a narrow screen. */}
+                  <p className="nav-group hidden px-2.5 pb-1.5 lg:block">
+                    {group.label}
+                  </p>
+                  {group.links}
+                </div>
+              ))}
+            </nav>
+
+            {/* Pinned to the bottom of the column, where it stops competing
+                with the navigation for the top corner.
+
+                In the column the name and the sign-out button cannot share a
+                row -- 208px truncated "Santiago Hernandez" to "Sa…" -- so they
+                stack, and sign-out becomes a quiet full-width action rather
+                than a button squeezed against the edge. */}
+            <div className="flex items-center gap-2.5 py-3.5 lg:mt-auto lg:flex-col lg:items-stretch lg:gap-2 lg:border-t lg:border-line lg:px-1 lg:pt-3 lg:pb-0">
+              <a
+                href="/me"
+                title={t("common.yourRecord")}
+                className="flex items-center gap-2.5 rounded-md lg:px-1.5 lg:py-1.5 lg:transition-colors lg:hover:bg-surface-2"
+              >
+                <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-accent-wash text-[12px] font-semibold text-accent">
+                  {initials}
+                </span>
+                <span className="hidden min-w-0 leading-tight sm:block">
+                  <span className="block truncate text-[13px] font-medium">
+                    {user.displayName}
+                  </span>
+                  <span className="block truncate text-[11px] text-faint">
+                    {user.departmentName.replace(/\s*\(.*\)$/, "")}
+                  </span>
+                </span>
+              </a>
+              {/* Sign-out and the theme toggle share the bottom row: one is
+                  the thing you almost never press, the other the thing you
+                  want within reach, and neither deserves a line of its own. */}
+              <div className="flex items-center gap-1 lg:w-full">
+                <form action={logout} className="lg:min-w-0 lg:flex-1">
+                  <button
+                    type="submit"
+                    className="btn btn-sm lg:w-full lg:justify-start lg:border-transparent lg:bg-transparent lg:px-2.5 lg:text-muted lg:hover:bg-surface-2 lg:hover:text-ink"
+                  >
+                    {t("common.signOut")}
+                  </button>
+                </form>
+                <ThemeToggle current={theme} />
+              </div>
+            </div>
+          </div>
+        </aside>
+
+        {/*
+          The cap belongs on the content, not on `main`.
+
+          It used to sit on both, and `lg:mx-0` removed the auto margins that
+          were centring it -- so past about 1450px every extra pixel piled up
+          as dead space on the right while the week grids next to it stayed
+          cramped. Now `main` takes the column it is given, and the cap that
+          keeps a line of prose readable on a very wide monitor is applied
+          once, with `mx-auto` so any leftover reads as a margin.
+        */}
+        <main className="w-full px-6 py-7 lg:min-w-0 lg:flex-1 lg:px-8">
+          <div className="mx-auto w-full max-w-[1600px]">{children}</div>
+        </main>
+      </div>
+      </NowProvider>
     </LocaleProvider>
   );
 }

@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/db";
-import { addDays, toDateOnly } from "@/lib/time";
+import { addDays, today as todayInZone, toDateOnly } from "@/lib/time";
 import { elapsedSeconds } from "@/lib/tasks/elapsed";
 
 /**
@@ -17,8 +17,8 @@ export type ProfileStats = {
     endDate: string | null;
     daysHere: number | null;
     daysLeft: number | null;
-    /** "2 years, 3 months" — friendlier than a day count on its own. */
-    served: string | null;
+    /** Friendlier than a day count on its own; worded by the page. */
+    served: Span | null;
   };
   tracked: { week: number; month: number; total: number };
   completed: { week: number; month: number; total: number };
@@ -30,6 +30,7 @@ export type ProfileStats = {
     /** Positive means work takes longer than the catalogue says. */
     driftPercent: number | null;
   };
+  /** `reason` is the PauseLog code -- translate with pause.reasons.*. */
   stalls: { reason: string; count: number; minutes: number }[];
   favourites: { title: string; count: number }[];
   timeOff: { category: string; days: number }[];
@@ -39,30 +40,31 @@ export type ProfileStats = {
   upcoming: { title: string; dueDate: string }[];
 };
 
-const REASON_LABELS: Record<string, string> = {
-  BREAK: "Break",
-  WAITING_CLIENT: "Waiting on a client",
-  WAITING_INTERNAL: "Waiting on someone here",
-  MEETING: "Pulled into a meeting",
-  INTERRUPTION: "Interrupted",
-  OTHER: "Something else",
-};
+/**
+ * How long somebody has been here, as numbers rather than as a sentence.
+ *
+ * This used to return "1 year, 7 months" already written out, which meant the
+ * profile page said it in English however the rest of the page was set. The
+ * words are the page's job now -- see profile.span* in the dictionary.
+ */
+export type Span =
+  | { unit: "days"; days: number }
+  | { unit: "months"; months: number }
+  | { unit: "years"; years: number }
+  | { unit: "yearsMonths"; years: number; months: number };
 
-/** Whole months and leftover days, in words. */
-function describeSpan(days: number): string {
-  if (days < 31) return `${days} day${days === 1 ? "" : "s"}`;
+function describeSpan(days: number): Span {
+  if (days < 31) return { unit: "days", days };
   const months = Math.floor(days / 30.44);
   const years = Math.floor(months / 12);
   const restMonths = months % 12;
-  if (years === 0) return `${months} month${months === 1 ? "" : "s"}`;
-  if (restMonths === 0) return `${years} year${years === 1 ? "" : "s"}`;
-  return `${years} year${years === 1 ? "" : "s"}, ${restMonths} month${
-    restMonths === 1 ? "" : "s"
-  }`;
+  if (years === 0) return { unit: "months", months };
+  if (restMonths === 0) return { unit: "years", years };
+  return { unit: "yearsMonths", years, months: restMonths };
 }
 
 export async function getProfileStats(userId: string): Promise<ProfileStats> {
-  const today = toDateOnly(new Date());
+  const today = todayInZone();
   const weekStart = addDays(today, -((today.getUTCDay() + 6) % 7));
   const monthStart = toDateOnly(
     new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), 1)),
@@ -121,7 +123,9 @@ export async function getProfileStats(userId: string): Promise<ProfileStats> {
         0,
         (end.getTime() - pause.pausedAt.getTime()) / 60000,
       );
-      const key = REASON_LABELS[pause.reasonCode] ?? pause.reasonCode;
+      // Grouped by the raw code; the page turns it into words with
+      // pause.reasons.*, which the pause dialog already uses.
+      const key = pause.reasonCode;
       const at = stallMap.get(key) ?? { count: 0, minutes: 0 };
       stallMap.set(key, { count: at.count + 1, minutes: at.minutes + minutes });
     }

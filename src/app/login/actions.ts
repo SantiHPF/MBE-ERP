@@ -6,6 +6,8 @@ import { prisma } from "@/lib/db";
 import { verifyPassword } from "@/lib/auth/password";
 import { createSession, destroySession } from "@/lib/auth/session";
 import { getLoginT } from "@/lib/i18n/server";
+import { markArrival, markDeparture } from "@/lib/attendance/attendance-db";
+import { getSessionUser } from "@/lib/auth/session";
 
 // Keys, not sentences: the wording is resolved once the locale is known.
 const LoginInput = z.object({
@@ -43,10 +45,18 @@ export async function login(
   if (!ok) return invalid;
 
   await createSession(user.id);
+  // The first signal of the workday. Only fills a blank, so signing in again
+  // after lunch never rewrites the morning.
+  await markArrival(user.id, "LOGIN");
   redirect("/my-day");
 }
 
 export async function logout(): Promise<void> {
+  // Before destroySession(), which deletes the session row -- until this was
+  // added, signing out left no trace at all.
+  const user = await getSessionUser();
+  if (user) await markDeparture(user.id);
+
   await destroySession();
   redirect("/login");
 }

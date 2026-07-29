@@ -5,6 +5,8 @@ import { redirect } from "next/navigation";
 import { z } from "zod";
 import { prisma } from "@/lib/db";
 import { requireUserOrThrow } from "@/lib/auth/guards";
+import { errorText } from "@/lib/i18n/errors";
+import { getT } from "@/lib/i18n/server";
 import { toDateOnly } from "@/lib/time";
 
 /**
@@ -16,8 +18,8 @@ import { toDateOnly } from "@/lib/time";
 export type MeetingState = { error?: string; ok?: boolean };
 
 const NewMeeting = z.object({
-  title: z.string().trim().min(1, "Give the meeting a title"),
-  date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Pick a date"),
+  title: z.string().trim().min(1, "errors.giveMeetingATitle"),
+  date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "errors.pickADate"),
 });
 
 export async function createMeeting(
@@ -27,11 +29,12 @@ export async function createMeeting(
   let id: string;
   try {
     const user = await requireUserOrThrow("MANAGER");
+    const { t } = await getT();
     const parsed = NewMeeting.safeParse({
       title: formData.get("title"),
       date: formData.get("date"),
     });
-    if (!parsed.success) return { error: parsed.error.issues[0].message };
+    if (!parsed.success) return { error: t(parsed.error.issues[0].message) };
 
     const meeting = await prisma.meeting.create({
       data: {
@@ -54,7 +57,7 @@ export async function createMeeting(
     id = meeting.id;
   } catch (error) {
     return {
-      error: error instanceof Error ? error.message : "Could not create it",
+      error: await errorText(error, "errors.couldNotCreateIt"),
     };
   }
 
@@ -67,37 +70,38 @@ export async function saveNotes(
 ): Promise<MeetingState> {
   try {
     const user = await requireUserOrThrow("MANAGER");
+    const { t } = await getT();
     const meetingId = String(formData.get("meetingId") ?? "");
     const notes = String(formData.get("notes") ?? "");
 
     const meeting = await prisma.meeting.findUnique({ where: { id: meetingId } });
-    if (!meeting) return { error: "That meeting no longer exists" };
+    if (!meeting) return { error: t("errors.meetingGone") };
     if (meeting.status === "FINALISED") {
-      return { error: "This meeting is finalised — notes are locked" };
+      return { error: t("errors.notesLocked") };
     }
     if (meeting.departmentId !== user.departmentId && user.role !== "ADMIN") {
-      return { error: "That meeting belongs to another department" };
+      return { error: t("errors.meetingOtherDepartment") };
     }
 
     await prisma.meeting.update({ where: { id: meetingId }, data: { notes } });
     revalidatePath(`/meetings/${meetingId}`);
     return { ok: true };
   } catch (error) {
-    return { error: error instanceof Error ? error.message : "Could not save" };
+    return { error: await errorText(error, "errors.couldNotSave") };
   }
 }
 
 const NewItem = z.object({
   meetingId: z.string().min(1),
-  title: z.string().trim().min(1, "What needs doing?"),
+  title: z.string().trim().min(1, "errors.whatNeedsDoing"),
   // No catalogue entry to inherit from, so this is always entered by hand.
   estimatedMinutes: z.coerce
     .number()
     .int()
     // The catalogue has tasks as short as 2 minutes, so no artificial floor.
-    .min(1, "How long will it take?")
-    .max(12 * 60, "Longer than a working day — split it up"),
-  dueDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Pick a due date"),
+    .min(1, "errors.howLong")
+    .max(12 * 60, "errors.longerThanADay"),
+  dueDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "errors.pickADueDate"),
   pinnedAssigneeId: z.string().optional(),
 });
 
@@ -107,6 +111,7 @@ export async function addActionItem(
 ): Promise<MeetingState> {
   try {
     const user = await requireUserOrThrow("MANAGER");
+    const { t } = await getT();
     const parsed = NewItem.safeParse({
       meetingId: formData.get("meetingId"),
       title: formData.get("title"),
@@ -114,14 +119,14 @@ export async function addActionItem(
       dueDate: formData.get("dueDate"),
       pinnedAssigneeId: formData.get("pinnedAssigneeId") || undefined,
     });
-    if (!parsed.success) return { error: parsed.error.issues[0].message };
+    if (!parsed.success) return { error: t(parsed.error.issues[0].message) };
 
     const meeting = await prisma.meeting.findUnique({
       where: { id: parsed.data.meetingId },
     });
-    if (!meeting) return { error: "That meeting no longer exists" };
+    if (!meeting) return { error: t("errors.meetingGone") };
     if (meeting.status === "FINALISED") {
-      return { error: "This meeting is finalised — add the task directly instead" };
+      return { error: t("errors.addTaskDirectly") };
     }
 
     await prisma.actionItem.create({
@@ -138,7 +143,7 @@ export async function addActionItem(
     revalidatePath(`/meetings/${parsed.data.meetingId}`);
     return { ok: true };
   } catch (error) {
-    return { error: error instanceof Error ? error.message : "Could not add it" };
+    return { error: await errorText(error, "errors.couldNotAddIt") };
   }
 }
 
@@ -148,22 +153,23 @@ export async function removeActionItem(
 ): Promise<MeetingState> {
   try {
     await requireUserOrThrow("MANAGER");
+    const { t } = await getT();
     const id = String(formData.get("itemId") ?? "");
 
     const item = await prisma.actionItem.findUnique({
       where: { id },
       include: { meeting: true },
     });
-    if (!item) return { error: "That item no longer exists" };
+    if (!item) return { error: t("errors.itemGone") };
     if (item.meeting.status === "FINALISED") {
-      return { error: "This meeting is finalised — cancel the task instead" };
+      return { error: t("errors.cancelTaskInstead") };
     }
 
     await prisma.actionItem.delete({ where: { id } });
     revalidatePath(`/meetings/${item.meetingId}`);
     return { ok: true };
   } catch (error) {
-    return { error: error instanceof Error ? error.message : "Could not remove" };
+    return { error: await errorText(error, "errors.couldNotRemove") };
   }
 }
 
@@ -178,19 +184,20 @@ export async function finaliseMeeting(
 ): Promise<MeetingState> {
   try {
     const user = await requireUserOrThrow("MANAGER");
+    const { t } = await getT();
     const meetingId = String(formData.get("meetingId") ?? "");
 
     const meeting = await prisma.meeting.findUnique({
       where: { id: meetingId },
       include: { actionItems: true },
     });
-    if (!meeting) return { error: "That meeting no longer exists" };
+    if (!meeting) return { error: t("errors.meetingGone") };
     if (meeting.status === "FINALISED") {
-      return { error: "It is already finalised" };
+      return { error: t("errors.alreadyFinalised") };
     }
     if (meeting.actionItems.length === 0) {
       return {
-        error: "Nothing was decided — add an action item, or leave it as a draft",
+        error: t("errors.nothingDecided"),
       };
     }
 

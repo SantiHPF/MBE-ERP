@@ -1,31 +1,60 @@
 @import "tailwindcss";
 
 /*
- * Neutrals are biased blue-slate rather than plain grey, and the accent is
- * kept separate from the semantic run/pause/stall colours so "this is
+ * Built on the MBE brand palette.
+ *
+ * Blue Stone (#005360) is the accent, used exactly as the brand specifies. The
+ * neutrals carry its hue (188deg) at very low saturation rather than being
+ * plain grey -- that is what makes the palette read as one system instead of a
+ * brand colour dropped onto a stock theme.
+ *
+ * The brand's secondaries are print colours, given in Pantone and CMYK, and
+ * three of them are unusable as screen text: lime green, the tan neutral and
+ * the grey all land near 2:1 on white, where 4.5:1 is the floor. So each
+ * semantic colour is a *shade of the brand hue* rather than the brand swatch
+ * itself -- the raw swatches stay for fills and washes, where their lightness
+ * is the point. Deep Red needed no adjustment at all.
+ *
+ * The accent stays separate from the run/pause/stall family, so "this is
  * interactive" never reads as "this is a state".
  *
- * Dark tokens are defined but not yet verified screen by screen.
+ * Every foreground/background pair below clears WCAG AA (4.5:1, and 7:1 for
+ * body text) in *both* modes -- the light theme had four failing pairs before
+ * this and the dark one had never been checked.
  */
 @theme {
-  --color-canvas: #eef1f5;
-  --color-surface: #ffffff;
-  --color-surface-2: #f5f7fa;
-  --color-line: #e3e8ee;
-  --color-line-strong: #c7d0da;
-  --color-ink: #141b24;
-  --color-muted: #5b6674;
-  --color-faint: #8794a3;
-  --color-accent: #24456e;
-  --color-accent-ink: #ffffff;
-  --color-accent-wash: #e8eef6;
-  --color-run: #1c7d4d;
-  --color-run-wash: #e4f3ea;
-  --color-pause: #a9640a;
-  --color-pause-wash: #fbeedd;
-  --color-stall: #a3352f;
-  --color-stall-wash: #f9e7e5;
-  --color-done: #8494a3;
+  /*
+   * light-dark(light, dark) -- one line per token instead of two palettes.
+   *
+   * Which half applies is decided entirely by `color-scheme` on :root, set
+   * below. That is what lets the theme be a choice as well as an OS setting:
+   * a third copy of these seventeen values, under a [data-theme] selector,
+   * would otherwise be the only way to override the media query.
+   */
+  --color-canvas: light-dark(#f2f4f5, #0f1617);
+  --color-surface: light-dark(#ffffff, #182123);
+  --color-surface-2: light-dark(#f8f9f9, #212c2e);
+  --color-line: light-dark(#e7ebeb, #313f41);
+  --color-line-strong: light-dark(#c7d0d1, #4a5c5e);
+  --color-ink: light-dark(#142224, #e8eded);
+  --color-muted: light-dark(#55696d, #a5b3b6);
+  --color-faint: light-dark(#627578, #859699);
+  /* Blue Stone, exactly as the brand book gives it -- 8.73:1 on white. Too
+     dark to be an accent on a dark ground, so after dark it is Blue Stone's
+     hue lifted: the one place the swatch cannot be used literally. */
+  --color-accent: light-dark(#005360, #75bcc7);
+  --color-accent-ink: light-dark(#ffffff, #0f1617);
+  --color-accent-wash: light-dark(#ebf6f7, #223b3f);
+  /* Lime Green's hue, darkened until it is legible. */
+  --color-run: light-dark(#277e33, #72ca7e);
+  --color-run-wash: light-dark(#ebf7ec, #1d3421);
+  /* The Neutral tan's hue, likewise. */
+  --color-pause: light-dark(#876838, #cdb184);
+  --color-pause-wash: light-dark(#f7f2eb, #362e21);
+  /* Deep Red, unchanged in light -- already 13.63:1. */
+  --color-stall: light-dark(#600a00, #d27a70);
+  --color-stall-wash: light-dark(#f7eceb, #38211e);
+  --color-done: light-dark(#6c6c6c, #8e8585);
 
   --font-mono: ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas, monospace;
 
@@ -40,32 +69,29 @@
   --radius-card: 8px;
   --radius-control: 6px;
 
-  --shadow-card: 0 1px 2px rgb(20 27 36 / 0.04), 0 1px 3px rgb(20 27 36 / 0.06);
-  --shadow-raised: 0 2px 4px rgb(20 27 36 / 0.05), 0 8px 20px rgb(20 27 36 / 0.08);
+  /* Tinted with the ink rather than pure black, so shadows sit in the same
+     colour world as everything else instead of greying it down. */
+  --shadow-card: 0 1px 2px rgb(20 34 36 / 0.04), 0 1px 3px rgb(20 34 36 / 0.06);
+  --shadow-raised: 0 2px 4px rgb(20 34 36 / 0.05), 0 8px 20px rgb(20 34 36 / 0.08);
 }
 
-@media (prefers-color-scheme: dark) {
-  @theme {
-    --color-canvas: #0f141a;
-    --color-surface: #161d26;
-    --color-surface-2: #1b232e;
-    --color-line: #29323d;
-    --color-line-strong: #3a4653;
-    --color-ink: #e6ecf3;
-    --color-muted: #94a2b2;
-    --color-faint: #6f7f90;
-    --color-accent: #7ea6de;
-    --color-accent-ink: #0f141a;
-    --color-accent-wash: #1d2836;
-    --color-run: #45b47b;
-    --color-run-wash: #14291f;
-    --color-pause: #d8973a;
-    --color-pause-wash: #2c2416;
-    --color-stall: #dd7c74;
-    --color-stall-wash: #2e1c1a;
-    --color-done: #6b7987;
-  }
-}
+/*
+ * The whole light/dark switch, in three declarations.
+ *
+ * `color-scheme` is what resolves every light-dark() above, so this is not
+ * optional decoration -- without it the palette has no idea which half to
+ * use. It also fixes what CSS variables alone never could: the browser's own
+ * scrollbars, form controls, spinners and autofill backgrounds, which used to
+ * stay stubbornly light on a dark page.
+ *
+ * `data-theme` is stamped on <html> by the root layout, server-side, from the
+ * cookie -- so a chosen theme is already correct in the first painted frame.
+ * No inline script, no flash of the wrong palette. Nothing at all is set for
+ * SYSTEM, which is why the default below has to be the two-value form.
+ */
+:root { color-scheme: light dark; }
+:root[data-theme="light"] { color-scheme: light; }
+:root[data-theme="dark"] { color-scheme: dark; }
 
 html {
   -webkit-text-size-adjust: 100%;
@@ -74,7 +100,11 @@ html {
 body {
   background: var(--color-canvas);
   color: var(--color-ink);
-  font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  /* Gantari is the brand's complementary face and is on Google Fonts. Avenir
+     Next, the primary, is not freely licensed, so the system stack stands in
+     for it if Gantari fails to load. */
+  font-family: var(--font-gantari), ui-sans-serif, system-ui, -apple-system,
+    "Segoe UI", sans-serif;
   font-size: var(--text-body);
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
@@ -86,6 +116,19 @@ body {
   font-family: var(--font-mono);
   font-variant-numeric: tabular-nums;
   font-feature-settings: "tnum";
+}
+
+/* Carrying the brand through the small things the browser draws for us. */
+::selection {
+  background: var(--color-accent-wash);
+  color: var(--color-accent);
+}
+
+/* The sidebar scrolls independently; a default scrollbar in it is the one
+   piece of chrome that would still look stock. */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-line-strong) transparent;
 }
 
 :focus-visible {
@@ -130,6 +173,20 @@ body {
     font-size: var(--text-micro);
     font-weight: 600;
     letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--color-faint);
+  }
+
+  /*
+   * The sidebar's group headings. Quieter than .eyebrow rather than louder:
+   * the rule and the space above them already say "new section", so the
+   * label only has to name it. Wider tracking at this size keeps three or
+   * four capitals from reading as an abbreviation.
+   */
+  .nav-group {
+    font-size: 0.625rem; /* 10px */
+    font-weight: 600;
+    letter-spacing: 0.14em;
     text-transform: uppercase;
     color: var(--color-faint);
   }

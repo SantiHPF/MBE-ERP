@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/db";
-import { addDays, dateKey, toDateOnly } from "@/lib/time";
+import { addDays, dateKey, today as todayInZone, toDateOnly } from "@/lib/time";
 import { getAvailabilityForRange } from "@/lib/scheduling/availability-db";
 import { findSlot } from "@/lib/scheduling/availability";
 
@@ -54,7 +54,7 @@ export async function getTriageQueue(
     select: { id: true, displayName: true },
   });
 
-  const today = toDateOnly(new Date());
+  const today = todayInZone();
   const horizon = addDays(today, LOOKAHEAD_DAYS);
   const dates: Date[] = [];
   for (let d = today; d <= horizon; d = addDays(d, 1)) dates.push(d);
