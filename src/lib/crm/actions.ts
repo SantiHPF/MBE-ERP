@@ -56,6 +56,10 @@ const SourceInput = z.object({
   id: z.string().optional(),
   name: z.string().trim().min(1, "errors.giveThemAName"),
   type: z.enum(["UNIVERSITY", "JOB_PORTAL"]),
+  // The switchboard and the info@, not a named person's line. Same caps as
+  // ContactInput so the two cannot drift apart.
+  phone: z.string().trim().max(40).optional(),
+  email: z.string().trim().max(200).optional(),
   offersUpdatedAt: z
     .string()
     .regex(/^\d{4}-\d{2}-\d{2}$/)
@@ -75,6 +79,8 @@ export async function saveSource(
       id: formData.get("id") || undefined,
       name: formData.get("name"),
       type: formData.get("type") || "UNIVERSITY",
+      phone: formData.get("phone") || undefined,
+      email: formData.get("email") || undefined,
       offersUpdatedAt: formData.get("offersUpdatedAt") || undefined,
       notes: formData.get("notes") || undefined,
     });
@@ -83,6 +89,8 @@ export async function saveSource(
     const data = {
       name: parsed.data.name,
       type: parsed.data.type,
+      phone: parsed.data.phone || null,
+      email: parsed.data.email || null,
       offersUpdatedAt: parsed.data.offersUpdatedAt
         ? new Date(`${parsed.data.offersUpdatedAt}T00:00:00Z`)
         : null,

@@ -61,6 +61,8 @@ export default async function SourcesPage() {
     id: source.id,
     name: source.name,
     type: source.type,
+    phone: source.phone,
+    email: source.email,
     offersUpdatedAt: source.offersUpdatedAt?.toISOString().slice(0, 10) ?? null,
     // Same stamp as the contacts below it: "we rang them on the 3rd" and "we
     // rang them at 09:05 on the 3rd" are different facts when you are

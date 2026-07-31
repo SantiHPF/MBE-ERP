@@ -1,6 +1,7 @@
 "use client";
 
 import { useActionState, useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import { useT } from "@/lib/i18n/client";
 import {
   applyFilters,
@@ -42,6 +43,9 @@ export type SourceRow = {
   id: string;
   name: string;
   type: "UNIVERSITY" | "JOB_PORTAL";
+  /** The switchboard and the info@, as opposed to a named person's line. */
+  phone: string | null;
+  email: string | null;
   offersUpdatedAt: string | null;
   lastContactedAt: string | null;
   notes: string | null;
@@ -67,6 +71,12 @@ export function SourceList({ sources }: { sources: SourceRow[] }) {
     () => [
       { key: "name", label: t("crm.sourceName"), kind: "text", get: (s) => s.name },
       { key: "notes", label: t("crm.notes"), kind: "text", get: (s) => s.notes },
+      {
+        key: "reach",
+        label: t("crm.switchboard"),
+        kind: "text",
+        get: (s) => [s.phone, s.email],
+      },
       {
         key: "people",
         label: t("crm.contacts"),
@@ -230,6 +240,13 @@ function SourceCard({
             </span>
             {source.name}
           </button>
+          {/* The whole conversation, which this card only ever shows the tip of. */}
+          <Link
+            href={`/crm/sources/${source.id}`}
+            className="text-[12px] text-muted underline decoration-line-strong underline-offset-2 hover:text-ink"
+          >
+            {t("crm.openHistory")}
+          </Link>
           <span className="badge">
             {source.type === "UNIVERSITY" ? t("crm.university") : t("crm.jobPortal")}
           </span>
@@ -276,6 +293,26 @@ function SourceCard({
           {source.offersUpdatedAt ?? "—"}
         </Fact>
         <Fact label={t("crm.candidates")}>{source.candidateCount}</Fact>
+        {source.phone && (
+          <Fact label={t("crm.switchboard")}>
+            <a
+              href={`tel:${source.phone.replace(/\s+/g, "")}`}
+              className="text-accent hover:underline"
+            >
+              {source.phone}
+            </a>
+          </Fact>
+        )}
+        {source.email && (
+          <Fact label={t("crm.generalEmail")}>
+            <a
+              href={`mailto:${source.email}`}
+              className="text-accent hover:underline"
+            >
+              {source.email}
+            </a>
+          </Fact>
+        )}
         {next && (
           <Fact label={t("crm.nextToCall")}>
             {next.name}
@@ -674,6 +711,27 @@ function SourceForm({
           name="offersUpdatedAt"
           defaultValue={source?.offersUpdatedAt ?? ""}
           className="field num"
+        />
+      </label>
+
+      {/* The place's own line and address, for when you have no name to ask
+          for -- or the person you had has moved on. */}
+      <label className="min-w-40 flex-1 text-[11px]">
+        <span className="field-label">{t("crm.switchboard")}</span>
+        <input
+          name="phone"
+          defaultValue={source?.phone ?? ""}
+          className="field num"
+        />
+      </label>
+
+      <label className="min-w-52 flex-1 text-[11px]">
+        <span className="field-label">{t("crm.generalEmail")}</span>
+        <input
+          type="email"
+          name="email"
+          defaultValue={source?.email ?? ""}
+          className="field"
         />
       </label>
 
