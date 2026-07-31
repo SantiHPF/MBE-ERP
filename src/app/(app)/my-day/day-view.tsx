@@ -12,6 +12,7 @@ import { CallPanel } from "./call-panel";
 import { CurrentTask } from "./current-task";
 import { ReviewDay } from "./review-day";
 import { currentTask, stillOwed } from "@/lib/tasks/now";
+import { breaksBetween } from "@/lib/gaps/gap";
 import { useNow } from "../now-provider";
 
 type DayRow =
@@ -34,10 +35,7 @@ function buildDayRows(view: DayView, dayStart: number, dayEnd: number): DayRow[]
       a.title.localeCompare(b.title),
   );
 
-  const breaks: { start: number; end: number }[] = [];
-  for (let i = 1; i < view.windows.length; i++) {
-    breaks.push({ start: view.windows[i - 1].end, end: view.windows[i].start });
-  }
+  const breaks = breaksBetween(view.windows);
   const inBreak = (from: number, to: number) =>
     breaks.some((b) => from < b.end && to > b.start);
 
@@ -82,7 +80,7 @@ export function DayViewClient({
   const { t } = useT();
   // Pausing, finishing and closing the day are the bar's business now, so
   // they are driven from one place whichever page you are on.
-  const { pause, completed } = useNow();
+  const { pause, blocked: cantDo, completed, fillGap } = useNow();
   const [blocked, setBlocked] = useState<BlockingTask | null>(null);
   const [dragging, setDragging] = useState<string | null>(null);
   const [order, setOrder] = useState<string[] | null>(null);
@@ -109,6 +107,9 @@ export function DayViewClient({
   const dayEnd = view.windows[view.windows.length - 1]?.end ?? 1080;
 
   const booked = view.tasks.reduce((s, t) => s + t.estimatedMinutes, 0);
+  // What the rail already calls "unbooked" -- the suggestion the dialog opens
+  // with, which the person can then argue with.
+  const freeMinutes = Math.max(0, view.availableMinutes - booked);
   const done = view.tasks
     .filter((t) => t.status === "DONE")
     .reduce((s, t) => s + t.estimatedMinutes, 0);
@@ -192,6 +193,7 @@ export function DayViewClient({
               onPause={() => pause(current.id)}
               onBlocked={setBlocked}
               onCompleted={completed}
+              onCantDo={cantDo}
             />
           ) : (
             <section className="card card-body text-center">
@@ -199,6 +201,15 @@ export function DayViewClient({
               <p className="mt-1 text-[13px] text-muted">
                 {t("now.allCaughtUpHint")}
               </p>
+              {/* Caught up is exactly when somebody wants more work, so this
+                  is where asking for it belongs. */}
+              <button
+                type="button"
+                onClick={() => fillGap(freeMinutes, true)}
+                className="btn btn-sm btn-primary mx-auto mt-3"
+              >
+                {t("gaps.haveTime")}
+              </button>
             </section>
           )}
 
@@ -338,7 +349,7 @@ export function DayViewClient({
               <Stat label={t("myDay.finished")}>{formatDuration(done)}</Stat>
               <Stat label={t("myDay.leftToDo")}>{formatDuration(booked - done)}</Stat>
               <Stat label={t("myDay.unbooked")}>
-                {formatDuration(Math.max(0, view.availableMinutes - booked))}
+                {formatDuration(freeMinutes)}
               </Stat>
             </dl>
           </section>

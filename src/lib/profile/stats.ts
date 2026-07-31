@@ -79,7 +79,12 @@ export async function getProfileStats(userId: string): Promise<ProfileStats> {
   // --- everything they have ever worked on, with its pauses
   const entries = await prisma.timeEntry.findMany({
     where: { userId },
-    include: { pauses: true, task: { select: { id: true, title: true } } },
+    include: {
+      pauses: true,
+      // parentTaskId so a sitting's tracked time can be credited to the job it
+      // is part of, rather than to a row that never appears in doneTasks.
+      task: { select: { id: true, title: true, parentTaskId: true } },
+    },
   });
 
   const now = new Date();
@@ -88,17 +93,26 @@ export async function getProfileStats(userId: string): Promise<ProfileStats> {
       .filter((e) => e.startedAt >= from)
       .reduce((sum, e) => sum + elapsedSeconds([e], now), 0);
 
+  /**
+   * Whole jobs, not sittings. A ten-hour job split into four is one thing
+   * this person did: counting the sittings would put the same title in "the
+   * jobs they do most" four times, and would drop the job itself out of the
+   * drift figure entirely, since a parent has no time entries of its own.
+   */
   const doneTasks = await prisma.task.findMany({
-    where: { assigneeId: userId, status: "DONE" },
+    where: { assigneeId: userId, status: "DONE", parentTaskId: null },
     select: { id: true, title: true, estimatedMinutes: true, dueDate: true },
   });
 
   const doneIds = new Set(doneTasks.map((t) => t.id));
   const secondsByTask = new Map<string, number>();
   for (const entry of entries) {
+    // A sitting's time counts towards its parent, so the drift figure compares
+    // the whole job's estimate against the whole job's tracked time.
+    const key = entry.task.parentTaskId ?? entry.taskId;
     secondsByTask.set(
-      entry.taskId,
-      (secondsByTask.get(entry.taskId) ?? 0) + elapsedSeconds([entry], now),
+      key,
+      (secondsByTask.get(key) ?? 0) + elapsedSeconds([entry], now),
     );
   }
 

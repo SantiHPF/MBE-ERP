@@ -402,6 +402,21 @@ function Cell({
   }
 
   if (cell.state === "locked") {
+    /**
+     * A day this job is being worked, as one sitting of several. Shown as
+     * "2/4" rather than a tick, so the week reads as a job in progress across
+     * days instead of four unrelated ticks.
+     */
+    if (cell.sessionLabel) {
+      return (
+        <span
+          title={t("sessions.sittingOnThisDay", cell.sessionLabel)}
+          className={`${base} num border-run bg-run-wash text-[10px] text-run`}
+        >
+          {cell.sessionLabel}
+        </span>
+      );
+    }
     return (
       <span
         title={t("myDay.alreadyStarted")}

@@ -43,6 +43,12 @@ export async function setTaskQuantity(
     if (!task) return { error: t("errors.taskGone") };
     if (task.assigneeId !== user.id) return { error: t("errors.notYourTask") };
     if (task.status === "DONE") return { error: t("errors.alreadyDone") };
+    /**
+     * Growing a split job should add a sitting, not stretch the parent past
+     * anything that can be placed. That is worth building and is not this;
+     * refusing plainly beats silently producing a job that cannot be laid out.
+     */
+    if (task.status === "SPLIT") return { error: t("errors.cannotResizeAJob") };
 
     // Work out the per-go cost once, then keep it on the task so later edits
     // do not compound against an already-multiplied total.

@@ -29,11 +29,13 @@ export function CurrentTask({
   onPause,
   onBlocked,
   onCompleted,
+  onCantDo,
 }: {
   task: DayTask;
   onPause: () => void;
   onBlocked: (blocked: BlockingTask) => void;
   onCompleted: (taskId: string) => void;
+  onCantDo: (taskId: string) => void;
 }) {
   const { t } = useT();
   const running = task.status === "IN_PROGRESS";
@@ -93,6 +95,20 @@ export function CurrentTask({
           )}
         </div>
 
+        {/* One sitting of a longer job. The estimate above and the stopwatch
+            below both measure this sitting, which is what is actually in hand;
+            this line is the job around it. */}
+        {task.session && (
+          <p className="mt-1.5 text-[12.5px] text-muted">
+            {t("sessions.sitting", task.session.index, task.session.total)}
+            {" · "}
+            {t(
+              "sessions.leftOfJob",
+              formatDuration(task.session.remainingMinutes),
+            )}
+          </p>
+        )}
+
         {/* The stopwatch only means something once the clock is running. */}
         {live && (
           <>
@@ -150,6 +166,7 @@ export function CurrentTask({
             onPause={onPause}
             onBlocked={onBlocked}
             onCompleted={onCompleted}
+            onCantDo={onCantDo}
           />
           {task.repeatable && <TaskButton.Counter task={task} />}
         </div>

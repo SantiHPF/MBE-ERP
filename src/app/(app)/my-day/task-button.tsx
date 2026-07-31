@@ -3,7 +3,12 @@
 import { useActionState } from "react";
 import type { DayTask } from "@/lib/tasks/day";
 import { formatClock, formatDuration } from "@/lib/time";
-import { completeTask, type ActionState, type BlockingTask } from "@/lib/tasks/actions";
+import {
+  completeTask,
+  finishWholeJob,
+  type ActionState,
+  type BlockingTask,
+} from "@/lib/tasks/actions";
 import { startTaskFor } from "./start-task";
 import { countOne, setTaskQuantity } from "@/lib/tasks/quantity";
 import { useT } from "@/lib/i18n/client";
@@ -14,6 +19,7 @@ const ROW_TINT: Record<string, string> = {
   IN_PROGRESS: "bg-run-wash",
   PAUSED: "bg-pause-wash",
   ORPHANED: "bg-stall-wash",
+  SET_ASIDE: "bg-stall-wash",
 };
 
 const EDGE: Record<string, string> = {
@@ -21,6 +27,7 @@ const EDGE: Record<string, string> = {
   IN_PROGRESS: "bg-run",
   PAUSED: "bg-pause",
   ORPHANED: "bg-stall",
+  SET_ASIDE: "bg-stall",
 };
 
 export function TaskButton({
@@ -117,6 +124,20 @@ export function TaskButton({
                 · {task.quantity} × {task.unitMinutes}m
               </span>
             )}
+            {/* Same slot as the repeatable marker: which sitting of the job
+                this is, so the row is not four identical titles in a week. */}
+            {task.session && (
+              <span
+                className="text-faint"
+                title={t(
+                  "sessions.leftOfJob",
+                  formatDuration(task.session.remainingMinutes),
+                )}
+              >
+                {" "}
+                · {task.session.index}/{task.session.total}
+              </span>
+            )}
           </span>
           {task.notes && (
             <span title={task.notes} className="badge badge-warn cursor-help">
@@ -163,6 +184,15 @@ function StateLabel({ task }: { task: DayTask }) {
       </span>
     );
   }
+  // Still yours and still today, but stepped over so it stops holding up the
+  // rest of the day. Your manager has it in front of them.
+  if (task.status === "SET_ASIDE") {
+    return (
+      <span className="truncate text-[12px] font-medium text-stall">
+        {t("myDay.setAside")}
+      </span>
+    );
+  }
   if (task.status === "DONE") {
     return (
       <span className="num shrink-0 text-[12px] text-done">
@@ -178,12 +208,15 @@ function Controls({
   onPause,
   onBlocked,
   onCompleted,
+  onCantDo,
   compact = false,
 }: {
   task: DayTask;
   onPause: () => void;
   onBlocked?: (blocked: BlockingTask) => void;
   onCompleted?: (taskId: string) => void;
+  /** Opens the "I cannot do this one" dialog. */
+  onCantDo?: (taskId: string) => void;
   compact?: boolean;
 }) {
   const { t } = useT();
@@ -205,13 +238,21 @@ function Controls({
     },
     initial,
   );
+  const [finishState, finish, finishing] = useActionState(
+    async (prev: ActionState, formData: FormData) => {
+      const result = await finishWholeJob(prev, formData);
+      if (result.ok) onCompleted?.(task.id);
+      return result;
+    },
+    initial,
+  );
 
   if (task.status === "DONE") return null;
 
   const size = compact ? "btn-sm" : "flex-1";
   const error = startState.blockedBy
     ? undefined
-    : (startState.error ?? doneState.error);
+    : (startState.error ?? doneState.error ?? finishState.error);
 
   return (
     <div className={compact ? "flex shrink-0 gap-1.5" : "flex gap-1.5"}>
@@ -245,10 +286,43 @@ function Controls({
             disabled={completing}
             className={`btn btn-primary ${size}`}
           >
-            {t("myDay.complete")}
+            {task.session ? t("sessions.finishSitting") : t("myDay.complete")}
           </button>
         </form>
       )}
+
+      {/* The honest exit. Offered on work not yet finished, whether or not the
+          clock is running -- the meeting you turned up for and nobody was
+          there is a thing you find out before you start, not during. */}
+      {onCantDo && task.status !== "SET_ASIDE" && (
+        <button
+          type="button"
+          onClick={() => onCantDo(task.id)}
+          className={`btn ${compact ? "btn-sm" : ""}`}
+        >
+          {t("blocked.cantDoIt")}
+        </button>
+      )}
+
+      {/* Finishing a long job early is the ordinary case, not an exception --
+          three sittings instead of four. Without this the fourth sits on
+          Friday holding time that is actually free. Not offered on the last
+          sitting, where completing it finishes the job anyway. */}
+      {task.session &&
+        task.session.index < task.session.total &&
+        (task.status === "IN_PROGRESS" || task.status === "PAUSED") && (
+          <form action={finish}>
+            <input type="hidden" name="taskId" value={task.id} />
+            <button
+              type="submit"
+              disabled={finishing}
+              className={`btn ${compact ? "btn-sm" : ""}`}
+              title={t("sessions.finishedWholeJobHint")}
+            >
+              {t("sessions.finishedWholeJob")}
+            </button>
+          </form>
+        )}
     </div>
   );
 }

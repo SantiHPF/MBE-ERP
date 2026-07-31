@@ -24,6 +24,12 @@ export type NowState = {
   nextTaskId: string | null;
   /** Set once the day has been closed on purpose. */
   closed: boolean;
+  /**
+   * When they clocked out for lunch and have not clocked back in, as an ISO
+   * instant. The bar counts up from it, so the number stays right without
+   * anything being refetched -- the same trick runningSince uses.
+   */
+  onBreakSince: string | null;
 };
 
 /** Work still owed, in the order the day runs. */

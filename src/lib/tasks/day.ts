@@ -4,8 +4,9 @@ import { computeAvailability, type Window } from "@/lib/scheduling/availability"
 import { elapsedSeconds } from "./elapsed";
 import { callListFor, type CallList } from "@/lib/crm/sync";
 import { dayNeedingReview, todayAttendance } from "@/lib/attendance/attendance-db";
+import { sessionInfoFor, type SessionInfo } from "@/lib/plan/sessions-db";
 
-export type { CallList };
+export type { CallList, SessionInfo };
 
 export type DayTask = {
   id: string;
@@ -38,6 +39,13 @@ export type DayTask = {
   unitMinutes: number | null;
   /** The meeting being minuted, once started. */
   meetingId: string | null;
+  /**
+   * Set when this is one sitting of a job too long to do in one go. Null for
+   * ordinary work. The estimate and the stopwatch above still measure *this
+   * sitting*, which is what the person is actually doing; this is the context
+   * around it.
+   */
+  session: SessionInfo | null;
 };
 
 export type DayView = {
@@ -136,6 +144,8 @@ export async function getDayView(
 
   const now = new Date();
 
+  const sessions = await sessionInfoFor(tasks);
+
   const dayTasks: DayTask[] = tasks.map((task) => {
     const openPause = task.timeEntries
       .flatMap((e) => e.pauses)
@@ -170,6 +180,7 @@ export async function getDayView(
         task.hostedMeeting && task.hostedMeeting.status === "DRAFT"
           ? task.hostedMeeting.id
           : null,
+      session: sessions.get(task.id) ?? null,
     };
   });
 

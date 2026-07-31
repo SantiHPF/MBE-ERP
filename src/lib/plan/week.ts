@@ -30,6 +30,12 @@ export type PlanCell = {
   holder: string | null;
   /** How many are planned, for tasks whose estimate is per go. */
   quantity: number;
+  /**
+   * "2/4" on a day this is one sitting of a longer job, else null. The job
+   * shows on every day it is actually worked rather than only on the column
+   * of its deadline.
+   */
+  sessionLabel: string | null;
 };
 
 export type PlanRow = {
@@ -134,6 +140,10 @@ export async function getPlanWeek(
   const claimedByDate = new Map<string, number>();
   for (const t of tasks) {
     if (t.assigneeId !== userId) continue;
+    // A split job's minutes belong to its sittings, each of which is in this
+    // list on the day it is actually worked. Counting the parent as well
+    // would book its whole estimate a second time, on its deadline.
+    if (t.status === "SPLIT") continue;
     const key = dateKey(t.dueDate);
     claimedByDate.set(key, (claimedByDate.get(key) ?? 0) + t.estimatedMinutes);
   }
@@ -179,7 +189,36 @@ export async function getPlanWeek(
   const tasksByTemplateDate = new Map<string, (typeof tasks)[number]>();
   const untemplated: typeof tasks = [];
 
+  /**
+   * A sitting carries its parent's templateId, so four of them would fight
+   * the job itself for the same cell. The board shows the job as the row --
+   * that is the thing somebody ticked -- and the sittings as labels on the
+   * days they are worked.
+   */
+  const sessionsByTemplateDate = new Map<string, { index: number; total: number }>();
+  const liveSittings = tasks.filter(
+    (t) => t.parentTaskId !== null && t.status !== "CANCELLED",
+  );
+  const totalByParent = new Map<string, number>();
+  for (const s of liveSittings) {
+    totalByParent.set(s.parentTaskId!, (totalByParent.get(s.parentTaskId!) ?? 0) + 1);
+  }
+  const seenByParent = new Map<string, number>();
+  for (const s of [...liveSittings].sort(
+    (a, b) => (a.sessionIndex ?? 0) - (b.sessionIndex ?? 0),
+  )) {
+    const n = (seenByParent.get(s.parentTaskId!) ?? 0) + 1;
+    seenByParent.set(s.parentTaskId!, n);
+    if (!s.templateId || !s.scheduledDate) continue;
+    sessionsByTemplateDate.set(
+      `${s.templateId}:${dateKey(s.scheduledDate)}`,
+      { index: n, total: totalByParent.get(s.parentTaskId!) ?? n },
+    );
+  }
+
   for (const t of tasks) {
+    // Sittings are never rows of their own; see above.
+    if (t.parentTaskId !== null) continue;
     if (t.templateId) {
       tasksByTemplateDate.set(`${t.templateId}:${dateKey(t.dueDate)}`, t);
     } else {
@@ -190,8 +229,23 @@ export async function getPlanWeek(
   const cellFor = (
     task: (typeof tasks)[number] | undefined,
     day: PlanDayHeader,
+    sessionLabel: string | null = null,
   ): PlanCell => {
     if (!task) {
+      /**
+       * No task due here, but a sitting of one is being worked today. Shown
+       * and locked: you do not hand back half a job from the board.
+       */
+      if (sessionLabel) {
+        return {
+          date: day.date,
+          state: "locked",
+          taskId: null,
+          holder: null,
+          quantity: 1,
+          sessionLabel,
+        };
+      }
       // A weekend you do not normally work is still clickable -- coming in on
       // a Sunday is a decision somebody is allowed to make. A day off because
       // of approved leave is not: that is a mistake, not a choice.
@@ -201,15 +255,21 @@ export async function getPlanWeek(
         taskId: null,
         holder: null,
         quantity: 1,
+        sessionLabel: null,
       };
     }
     if (task.assigneeId === userId) {
       return {
         date: day.date,
-        state: STARTED.includes(task.status) ? "locked" : "mine",
+        // A job already cut into sittings is not handed back a day at a time.
+        state:
+          STARTED.includes(task.status) || task.status === "SPLIT"
+            ? "locked"
+            : "mine",
         taskId: task.id,
         holder: null,
         quantity: task.quantity,
+        sessionLabel,
       };
     }
     if (task.assigneeId === null) {
@@ -219,6 +279,7 @@ export async function getPlanWeek(
         taskId: task.id,
         holder: null,
         quantity: task.quantity,
+        sessionLabel,
       };
     }
     return {
@@ -227,13 +288,19 @@ export async function getPlanWeek(
       taskId: task.id,
       holder: task.assignee?.displayName ?? "someone",
       quantity: task.quantity,
+      sessionLabel,
     };
   };
 
   const rows: PlanRow[] = catalogue.map((template) => {
-    const cells = days.map((day) =>
-      cellFor(tasksByTemplateDate.get(`${template.id}:${day.date}`), day),
-    );
+    const cells = days.map((day) => {
+      const sitting = sessionsByTemplateDate.get(`${template.id}:${day.date}`);
+      return cellFor(
+        tasksByTemplateDate.get(`${template.id}:${day.date}`),
+        day,
+        sitting ? `${sitting.index}/${sitting.total}` : null,
+      );
+    });
     return {
       key: `t:${template.id}`,
       templateId: template.id,

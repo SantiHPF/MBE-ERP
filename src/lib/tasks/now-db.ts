@@ -3,6 +3,7 @@ import { today, toDateOnly } from "@/lib/time";
 import { computeAvailability } from "@/lib/scheduling/availability";
 import { elapsedSeconds } from "./elapsed";
 import type { DayTask } from "./day";
+import { sessionInfoFor } from "@/lib/plan/sessions-db";
 import { currentTask, type NowState } from "./now";
 
 /**
@@ -58,6 +59,10 @@ export async function getNowState(
 
   const now = new Date();
 
+  // Kept in step with getDayView's identical block: the two builders are near
+  // duplicates on purpose and must not drift.
+  const sessions = await sessionInfoFor(tasks);
+
   const dayTasks: DayTask[] = tasks.map((task) => {
     const openPause = task.timeEntries
       .flatMap((e) => e.pauses)
@@ -94,6 +99,7 @@ export async function getNowState(
         task.hostedMeeting && task.hostedMeeting.status === "DRAFT"
           ? task.hostedMeeting.id
           : null,
+      session: sessions.get(task.id) ?? null,
     };
   });
 
@@ -110,5 +116,9 @@ export async function getNowState(
     activeTaskId: active?.id ?? null,
     nextTaskId: active ? null : (current?.id ?? null),
     closed: attendance?.status === "CLOSED",
+    onBreakSince:
+      attendance?.breakStartedAt && !attendance.breakEndedAt
+        ? attendance.breakStartedAt.toISOString()
+        : null,
   };
 }

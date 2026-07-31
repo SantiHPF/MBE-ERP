@@ -14,6 +14,10 @@ export async function recentTasksForP1n(
     where: {
       assigneeId: userId,
       dueDate: { gte: toDateOnly(new Date(Date.now() - 30 * 86_400_000)) },
+      // The job, not its sittings: four rows reading the same title on four
+      // dates is a dropdown nobody can pick from, and a P1N is about the work
+      // rather than about which afternoon of it went wrong.
+      parentTaskId: null,
     },
     select: { id: true, title: true, dueDate: true },
     orderBy: { dueDate: "desc" },
