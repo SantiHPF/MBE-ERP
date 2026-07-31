@@ -96,6 +96,8 @@ model User {
   meetingsAttended Meeting[]       @relation("MeetingAttendees")
   pinnedItems     ActionItem[]     @relation("ActionItemPin")
   crmCalls        CrmInteraction[] @relation("CrmCaller")
+  reports       Report[]
+  closedReports Report[] @relation("ReportCloser")
 
   @@index([departmentId])
 }
@@ -510,6 +512,7 @@ model Task {
   blocks        TaskBlock[]
   messages      Message[]
   p1ns          P1n[]
+  reports Report[]
   actionItem    ActionItem?
   /// Set when this task is itself a meeting being minuted.
   hostedMeeting Meeting?       @relation("MeetingSourceTask")
@@ -762,6 +765,64 @@ model P1n {
 
   @@index([departmentId, createdAt])
   @@index([userId])
+}
+
+// --------------------------------------------------------------- reports
+
+/// What somebody is telling us. A defect and an idea want the same box and
+/// the same list; only the reader's expectation differs.
+enum ReportKind {
+  BUG
+  IDEA
+}
+
+enum ReportStatus {
+  OPEN
+  CLOSED
+}
+
+/// Something noticed while using the ERP, filed from wherever it was noticed.
+///
+/// The point of it is that reporting costs one sentence. Everything that would
+/// otherwise have to be typed out -- which page, which account, which language,
+/// what was running -- is captured here instead, on the server, where it cannot
+/// be got wrong or forged.
+model Report {
+  id String @id @default(cuid())
+
+  /// A short handle, because closing a report from the command line by cuid
+  /// is not something anybody would do twice.
+  number Int @unique @default(autoincrement())
+
+  kind   ReportKind   @default(BUG)
+  body   String
+  status ReportStatus @default(OPEN)
+
+  /// The page it was filed from.
+  path   String
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  /// Kept as written rather than read back off the user: a report that only
+  /// happens to a WORKER, or only in Spanish, is a different report, and
+  /// neither fact survives the account being changed.
+  role   Role
+  locale String
+
+  /// Whatever was running when it was filed, when anything was.
+  taskId String?
+  task   Task?   @relation(fields: [taskId], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+
+  closedAt   DateTime?
+  closedById String?
+  /// Null for a close from the command line. The CLI is not a session, and
+  /// putting a name against something that person did not do would be worse
+  /// than leaving it blank.
+  closedBy   User?     @relation("ReportCloser", fields: [closedById], references: [id])
+  closedNote String?
+
+  @@index([status, createdAt])
 }
 
 // -------------------------------------------------------------- meetings
