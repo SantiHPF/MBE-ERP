@@ -60,6 +60,9 @@ export async function syncOnboarding(userId?: string): Promise<OnboardingSync> {
       startDate: true,
       endDate: true,
       departmentId: true,
+      // The day they entered the ERP: the earliest interview it makes sense to
+      // ask for. See the notBefore note in planOnboarding().
+      createdAt: true,
     },
   });
 
@@ -88,6 +91,7 @@ export async function syncOnboarding(userId?: string): Promise<OnboardingSync> {
       startDate: person.startDate!,
       endDate: person.endDate,
       horizon,
+      notBefore: person.createdAt,
       minutes,
     });
 

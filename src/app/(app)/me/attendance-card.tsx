@@ -2,7 +2,7 @@ import { getT } from "@/lib/i18n/server";
 import { formatDuration } from "@/lib/time";
 import { formatDayMonth, fromDateKey } from "@/lib/i18n/dates";
 import { presentMinutes, warmUpMinutes } from "@/lib/attendance/attendance";
-import { recentAttendance } from "@/lib/attendance/attendance-db";
+import { recentAttendanceWithLunch } from "@/lib/attendance/attendance-db";
 import { scheduleZone } from "@/lib/time";
 
 /**
@@ -14,7 +14,7 @@ import { scheduleZone } from "@/lib/time";
  */
 export async function AttendanceCard({ userId }: { userId: string }) {
   const { t, locale } = await getT();
-  const days = await recentAttendance(userId);
+  const days = await recentAttendanceWithLunch(userId);
   const zone = scheduleZone();
 
   const clock = (at: Date | null) =>
@@ -50,6 +50,9 @@ export async function AttendanceCard({ userId }: { userId: string }) {
                   {t("attendance.arrived")}
                 </th>
                 <th className="eyebrow px-2 py-2 text-right">{t("attendance.left")}</th>
+                <th className="eyebrow px-2 py-2 text-right">
+                  {t("attendance.lunch")}
+                </th>
                 <th className="eyebrow px-4 py-2 text-right">
                   {t("attendance.present")}
                 </th>
@@ -57,7 +60,14 @@ export async function AttendanceCard({ userId }: { userId: string }) {
             </thead>
             <tbody>
               {days.map((day) => {
-                const total = presentMinutes(day.startedAt, day.endedAt);
+                // Lunch comes off the total, clocked or assumed -- see
+                // presentMinutes. Nine to six with an hour for lunch is eight
+                // hours present, not nine.
+                const total = presentMinutes(
+                  day.startedAt,
+                  day.endedAt,
+                  day.lunch.countedMinutes,
+                );
                 const warmUp = warmUpMinutes({
                   firstLoginAt: day.firstLoginAt,
                   firstTaskStartAt: day.firstTaskStartAt,
@@ -97,6 +107,54 @@ export async function AttendanceCard({ userId }: { userId: string }) {
                         <span className="ml-1.5 text-[10px] text-faint">
                           {t(`attendance.source${day.endSource}`)}
                         </span>
+                      )}
+                    </td>
+                    {/* Lunch against the timetable. An unclocked one is shown
+                        greyed as the rostered figure rather than blank: it was
+                        almost certainly taken, and it has come off the total
+                        either way, so a blank would look like an error. */}
+                    <td className="num px-2 py-2 text-right">
+                      {day.lunch.assumed ? (
+                        <span
+                          className="text-faint"
+                          title={t("attendance.lunchAssumed")}
+                        >
+                          {day.lunch.countedMinutes > 0
+                            ? formatDuration(day.lunch.countedMinutes)
+                            : "—"}
+                        </span>
+                      ) : (
+                        <>
+                          {clock(day.breakStartedAt)}–
+                          {day.breakEndedAt ? (
+                            clock(day.breakEndedAt)
+                          ) : (
+                            <span className="text-pause">
+                              {t("attendance.stillOut")}
+                            </span>
+                          )}
+                          {(!!day.lunch.startDrift || day.lunch.overBy > 0) && (
+                            <span className="mt-0.5 block text-[10px] text-pause">
+                              {day.lunch.startDrift != null &&
+                                day.lunch.startDrift !== 0 &&
+                                t(
+                                  day.lunch.startDrift < 0
+                                    ? "attendance.leftEarly"
+                                    : "attendance.leftLate",
+                                  formatDuration(Math.abs(day.lunch.startDrift)),
+                                )}
+                              {day.lunch.overBy > 0 && (
+                                <>
+                                  {" "}
+                                  {t(
+                                    "attendance.overLunch",
+                                    formatDuration(day.lunch.overBy),
+                                  )}
+                                </>
+                              )}
+                            </span>
+                          )}
+                        </>
                       )}
                     </td>
                     <td className="num px-4 py-2 text-right font-semibold">

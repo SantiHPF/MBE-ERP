@@ -8,6 +8,7 @@ import { getT } from "@/lib/i18n/server";
 import { slotOverlapsAbsence } from "@/lib/scheduling/availability";
 import { isEffective } from "./effective";
 import { eachDay, parseClock, toDateOnly } from "@/lib/time";
+import { followersOf } from "@/lib/plan/follow-db";
 
 /**
  * Recording an absence does exactly two things, and deliberately no more:
@@ -178,8 +179,17 @@ export async function orphanAffectedTasks(
 
   if (affected.length === 0) return 0;
 
+  /**
+   * A pair is dropped as a pair, so triage sees the whole job.
+   *
+   * A follower left ASSIGNED behind an orphaned leader is work its owner is
+   * not allowed to start and the manager never gets asked about.
+   */
+  const following = await followersOf(affected.map((t) => t.id));
+  const ids = [...new Set([...affected.map((t) => t.id), ...following.map((t) => t.id)])];
+
   await prisma.task.updateMany({
-    where: { id: { in: affected.map((t) => t.id) } },
+    where: { id: { in: ids }, status: { notIn: ["IN_PROGRESS", "PAUSED", "DONE"] } },
     data: {
       status: "ORPHANED",
       orphanedAt: new Date(),

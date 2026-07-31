@@ -67,11 +67,24 @@ export function planOnboarding(input: {
   endDate: Date | null;
   /** How far ahead to generate the recurring review when there is no end. */
   horizon: Date;
+  /**
+   * The earliest date worth generating for -- in practice the day the person
+   * entered the ERP.
+   *
+   * Somebody who joined the company in 2023 has had two-monthly reviews due
+   * since 2023, but this system has not existed to record them. Generating
+   * them anyway invented twenty-odd tasks that were overdue the moment they
+   * appeared and that nobody could ever have done. Their cadence is unaffected:
+   * the sequence still counts from the start date, so the next real occurrence
+   * falls exactly where it always would have.
+   */
+  notBefore?: Date;
   minutes?: Partial<Record<OnboardingKind, number>>;
 }): OnboardingTask[] {
   const start = toDateOnly(input.startDate);
   const end = input.endDate ? toDateOnly(input.endDate) : null;
   const horizon = toDateOnly(input.horizon);
+  const notBefore = input.notBefore ? toDateOnly(input.notBefore) : null;
 
   // Never generate past the leaving date, nor past the horizon.
   const limit = end && end < horizon ? end : horizon;
@@ -82,6 +95,8 @@ export function planOnboarding(input: {
   const add = (kind: OnboardingKind, due: Date) => {
     if (due < start) return;
     if (end && due > end) return;
+    // Already gone by the time this system knew the person existed.
+    if (notBefore && due < notBefore) return;
     out.push({
       externalKey: `onboarding:${input.userId}:${kind}:${dateKey(due)}`,
       kind,

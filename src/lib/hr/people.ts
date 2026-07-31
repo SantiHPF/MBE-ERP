@@ -249,7 +249,9 @@ export async function setEmploymentDates(
         where: {
           assigneeId: user.id,
           dueDate: { gt: endDate },
-          status: { in: ["UNASSIGNED", "ASSIGNED"] },
+          // SPLIT too, or a long job would outlive the sittings it exists to
+          // hold. Deleting the parent takes them with it.
+          status: { in: ["UNASSIGNED", "ASSIGNED", "SPLIT"] },
         },
       });
       dropped = count;
@@ -321,9 +323,39 @@ export async function changeDepartment(
       return { error: t("errors.wouldLockYourselfOut") };
     }
 
+    /**
+     * A split job goes back to the pool whole, not as four loose sittings.
+     *
+     * The un-started sittings are dropped so the parent can be released as an
+     * ordinary unassigned task at its full estimate, and whoever picks it up
+     * next gets it split against their own calendar. A job with tracked time
+     * on it is left where it is: half-finished work needs somebody to decide
+     * what happens to it, and that is not this form.
+     */
+    if (moving) {
+      const splitJobs = await prisma.task.findMany({
+        where: { assigneeId: user.id, status: "SPLIT" },
+        select: { id: true, sessions: { select: { status: true } } },
+      });
+      const untouched = splitJobs
+        .filter((job) =>
+          job.sessions.every((s) => ["ASSIGNED", "UNASSIGNED"].includes(s.status)),
+        )
+        .map((job) => job.id);
+
+      if (untouched.length > 0) {
+        await prisma.task.deleteMany({
+          where: { parentTaskId: { in: untouched } },
+        });
+      }
+    }
+
     const released = moving
       ? await prisma.task.count({
-          where: { assigneeId: user.id, status: { in: ["ASSIGNED", "ORPHANED"] } },
+          where: {
+            assigneeId: user.id,
+            status: { in: ["ASSIGNED", "ORPHANED", "SPLIT"] },
+          },
         })
       : 0;
 
@@ -340,7 +372,7 @@ export async function changeDepartment(
             prisma.task.updateMany({
               where: {
                 assigneeId: user.id,
-                status: { in: ["ASSIGNED", "ORPHANED"] },
+                status: { in: ["ASSIGNED", "ORPHANED", "SPLIT"] },
               },
               data: {
                 assigneeId: null,

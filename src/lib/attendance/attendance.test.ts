@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   atMinutes,
+  breakDrift,
   closeAbandoned,
   NO_SIGNALS,
   presentMinutes,
@@ -215,13 +216,96 @@ describe("closeAbandoned across zones", () => {
 });
 
 describe("presentMinutes", () => {
-  it("measures the whole span, breaks included", () => {
-    // Time present is not time worked; the lunch hour is still time here.
+  it("measures the whole span when no lunch is given", () => {
     expect(presentMinutes(at(9), at(18))).toBe(9 * 60);
+  });
+
+  it("takes lunch off the total", () => {
+    // Nine to six with an hour for lunch is eight hours present, not nine.
+    // It used to report nine, and everybody's figure was an hour too generous.
+    expect(presentMinutes(at(9), at(18), 60)).toBe(8 * 60);
+  });
+
+  it("never goes negative on a lunch longer than the day", () => {
+    expect(presentMinutes(at(9), at(9, 30), 60)).toBe(0);
   });
 
   it("has no answer while the day is still open", () => {
     expect(presentMinutes(at(9), null)).toBeNull();
+  });
+});
+
+describe("breakDrift", () => {
+  const lunch = (over: Partial<Parameters<typeof breakDrift>[0]> = {}) =>
+    breakDrift({
+      breakStartedAt: null,
+      breakEndedAt: null,
+      rosteredStart: 13 * 60,
+      rosteredMinutes: 60,
+      date: DAY,
+      zone: "UTC",
+      ...over,
+    });
+
+  it("assumes the rostered lunch when nobody clocked one", () => {
+    const drift = lunch();
+    expect(drift.assumed).toBe(true);
+    expect(drift.takenMinutes).toBeNull();
+    // Still comes off the total: it was almost certainly taken.
+    expect(drift.countedMinutes).toBe(60);
+  });
+
+  it("says how early somebody went", () => {
+    // Rostered one o'clock, actually left at 12:41.
+    const drift = lunch({ breakStartedAt: at(12, 41), breakEndedAt: at(13, 52) });
+    expect(drift.startDrift).toBe(-19);
+    expect(drift.assumed).toBe(false);
+  });
+
+  it("says how late somebody went", () => {
+    const drift = lunch({ breakStartedAt: at(13, 10), breakEndedAt: at(14, 10) });
+    expect(drift.startDrift).toBe(10);
+  });
+
+  it("measures how long they were actually away", () => {
+    const drift = lunch({ breakStartedAt: at(12, 41), breakEndedAt: at(13, 52) });
+    expect(drift.takenMinutes).toBe(71);
+    expect(drift.countedMinutes).toBe(71);
+  });
+
+  it("flags a lunch that ran over", () => {
+    const drift = lunch({ breakStartedAt: at(13), breakEndedAt: at(14, 11) });
+    expect(drift.overBy).toBe(11);
+    expect(drift.endDrift).toBe(11);
+  });
+
+  it("does not flag a lunch that came in under", () => {
+    const drift = lunch({ breakStartedAt: at(13), breakEndedAt: at(13, 40) });
+    expect(drift.overBy).toBe(0);
+    expect(drift.endDrift).toBe(-20);
+  });
+
+  it("counts the rostered length while somebody is still out", () => {
+    // Away right now. Crediting them the time would be wrong, so the rostered
+    // figure stands in until they clock back.
+    const drift = lunch({ breakStartedAt: at(13), breakEndedAt: null });
+    expect(drift.takenMinutes).toBeNull();
+    expect(drift.countedMinutes).toBe(60);
+    expect(drift.endDrift).toBeNull();
+  });
+
+  it("has nothing to say about the timing of a floating break", () => {
+    // No breakStartMinutes means the break costs capacity but has no hour it
+    // was meant to happen at, so "early" is not a thing that can be said.
+    const drift = lunch({
+      rosteredStart: null,
+      breakStartedAt: at(12, 41),
+      breakEndedAt: at(13, 52),
+    });
+    expect(drift.startDrift).toBeNull();
+    expect(drift.endDrift).toBeNull();
+    // Its length is still comparable.
+    expect(drift.overBy).toBe(11);
   });
 });
 

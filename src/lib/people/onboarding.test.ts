@@ -106,6 +106,54 @@ describe("planOnboarding", () => {
     ]);
   });
 
+  it("invents no history for somebody who predates the system", () => {
+    /**
+     * The bug this pins: a person who joined the company in 2023 had every
+     * two-monthly review since 2023 generated the moment they were entered
+     * into a system that is a week old -- 21 tasks, all MUST, all overdue on
+     * arrival, none of them ever doable.
+     */
+    const withHistory = plan({
+      startDate: D("2023-01-01"),
+      horizon: D("2026-12-31"),
+    });
+    expect(withHistory.length).toBeGreaterThan(20);
+
+    const fromEntry = plan({
+      startDate: D("2023-01-01"),
+      horizon: D("2026-12-31"),
+      notBefore: D("2026-07-29"),
+    });
+    expect(keys(fromEntry).every((d) => d >= "2026-07-29")).toBe(true);
+  });
+
+  it("keeps the cadence itself intact, counted from the start date", () => {
+    // 1 Jan start means odd months, and that stays true after the cut: the
+    // next real review is where it always would have been, not two months
+    // after they happened to be entered into the system.
+    const fromEntry = plan({
+      startDate: D("2023-01-01"),
+      horizon: D("2026-12-31"),
+      notBefore: D("2026-07-29"),
+    });
+    expect(keys(fromEntry)).toEqual(["2026-09-01", "2026-11-01"]);
+  });
+
+  it("leaves a genuine new joiner untouched", () => {
+    // Entered today, starting next week: they still get all three interviews.
+    const joiner = plan({
+      startDate: D("2026-08-05"),
+      notBefore: D("2026-07-29"),
+      horizon: D("2026-12-31"),
+    });
+    expect(keys(joiner)).toEqual([
+      "2026-08-05",
+      "2026-08-12",
+      "2026-10-05",
+      "2026-12-05",
+    ]);
+  });
+
   it("uses catalogue durations when given", () => {
     const tasks = plan({ minutes: { REFERENCES: 45 } });
     const refs = tasks.find((t) => t.kind === "REFERENCES");

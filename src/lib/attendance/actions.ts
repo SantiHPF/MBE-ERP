@@ -7,7 +7,13 @@ import { errorText } from "@/lib/i18n/errors";
 import { getT } from "@/lib/i18n/server";
 import { parseClock, today } from "@/lib/time";
 import { atMinutes } from "./attendance";
-import { closeDay, correctDay, markArrival } from "./attendance-db";
+import {
+  closeDay,
+  correctDay,
+  endBreak,
+  markArrival,
+  startBreak,
+} from "./attendance-db";
 
 export type AttendanceState = {
   error?: string;
@@ -39,6 +45,51 @@ export async function endDay(
     return { ok: true, leftUnfinished: result.leftUnfinished };
   } catch (error) {
     return { error: await errorText(error, "errors.couldNotCloseDay") };
+  }
+}
+
+/**
+ * Going to lunch, and coming back from it.
+ *
+ * Two halves of the same gesture, so the bar can be one button that changes
+ * its mind. Neither ever fails loudly: attendance observes the work and must
+ * never be the thing that stops it.
+ */
+export async function startLunch(
+  _prev: AttendanceState,
+  _formData: FormData,
+): Promise<AttendanceState> {
+  try {
+    const user = await requireUserOrThrow();
+    const { t } = await getT();
+
+    const result = await startBreak(user.id);
+    if (!result.started) return { error: t("errors.alreadyAtLunch") };
+
+    revalidatePath("/", "layout");
+    revalidatePath("/me");
+    return { ok: true };
+  } catch (error) {
+    return { error: await errorText(error, "errors.couldNotSave") };
+  }
+}
+
+export async function endLunch(
+  _prev: AttendanceState,
+  _formData: FormData,
+): Promise<AttendanceState> {
+  try {
+    const user = await requireUserOrThrow();
+    const { t } = await getT();
+
+    const result = await endBreak(user.id);
+    if (!result.ended) return { error: t("errors.notAtLunch") };
+
+    revalidatePath("/", "layout");
+    revalidatePath("/me");
+    return { ok: true };
+  } catch (error) {
+    return { error: await errorText(error, "errors.couldNotSave") };
   }
 }
 

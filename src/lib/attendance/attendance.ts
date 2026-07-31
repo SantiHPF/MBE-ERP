@@ -179,13 +179,116 @@ export function closeAbandoned(input: {
 /**
  * Minutes actually present. Null while the day is still open -- an unfinished
  * day has no total, and showing a running one invites reading it as final.
+ *
+ * Lunch is taken off. It used to be included, which meant a nine-to-six day
+ * with an hour for lunch reported nine hours present and everybody's figure
+ * was an hour too generous. Pass the clocked lunch when there is one, and the
+ * rostered figure otherwise -- an unclocked lunch is assumed to have been
+ * taken, because it nearly always was.
  */
 export function presentMinutes(
   startedAt: Date | null,
   endedAt: Date | null,
+  breakMinutes = 0,
 ): number | null {
   if (!startedAt || !endedAt) return null;
-  return Math.max(0, Math.round((endedAt.getTime() - startedAt.getTime()) / 60_000));
+  const gross = Math.round((endedAt.getTime() - startedAt.getTime()) / 60_000);
+  return Math.max(0, gross - Math.max(0, breakMinutes));
+}
+
+export type BreakDrift = {
+  /** Minutes actually away. Null when nobody clocked it. */
+  takenMinutes: number | null;
+  /** Negative: left early. Positive: left late. Null when unclocked. */
+  startDrift: number | null;
+  /** Negative: back early. Positive: back late. Null when not back yet. */
+  endDrift: number | null;
+  /** Minutes over the rostered length, floored at zero. */
+  overBy: number;
+  /** True when nothing was clocked and the rostered lunch is being assumed. */
+  assumed: boolean;
+  /** What present time should be reduced by, clocked or rostered. */
+  countedMinutes: number;
+};
+
+/**
+ * The lunch somebody actually took, against the one on their timetable.
+ *
+ * The whole point of the feature: a rostered one o'clock lunch and an actual
+ * 12:41 are the difference between a timetable and a description of the day.
+ *
+ * A day with nothing clocked is not an accusation. It reads as lunch taken to
+ * the timetable, `assumed` is set so the UI can say so quietly rather than
+ * flagging it, and the rostered minutes still come off the total.
+ */
+export function breakDrift(input: {
+  breakStartedAt: Date | null;
+  breakEndedAt: Date | null;
+  /** Minutes from midnight the break should start, or null when it floats. */
+  rosteredStart: number | null;
+  rosteredMinutes: number;
+  /** The calendar day, for turning rosteredStart into an instant. */
+  date: Date;
+  zone?: string;
+}): BreakDrift {
+  const rostered = Math.max(0, input.rosteredMinutes);
+  const zone = input.zone ?? scheduleZone();
+
+  if (!input.breakStartedAt) {
+    return {
+      takenMinutes: null,
+      startDrift: null,
+      endDrift: null,
+      overBy: 0,
+      assumed: true,
+      countedMinutes: rostered,
+    };
+  }
+
+  const takenMinutes = input.breakEndedAt
+    ? Math.max(
+        0,
+        Math.round(
+          (input.breakEndedAt.getTime() - input.breakStartedAt.getTime()) / 60_000,
+        ),
+      )
+    : null;
+
+  /**
+   * A floating break has no time it was supposed to start at, so leaving early
+   * is not a thing that can be said about it. Only its length is comparable.
+   */
+  const expectedStart =
+    input.rosteredStart != null
+      ? atMinutes(input.date, input.rosteredStart, zone)
+      : null;
+
+  const startDrift = expectedStart
+    ? Math.round(
+        (input.breakStartedAt.getTime() - expectedStart.getTime()) / 60_000,
+      )
+    : null;
+
+  const expectedEnd =
+    expectedStart && rostered > 0
+      ? new Date(expectedStart.getTime() + rostered * 60_000)
+      : null;
+
+  const endDrift =
+    expectedEnd && input.breakEndedAt
+      ? Math.round((input.breakEndedAt.getTime() - expectedEnd.getTime()) / 60_000)
+      : null;
+
+  return {
+    takenMinutes,
+    startDrift,
+    endDrift,
+    overBy: takenMinutes != null ? Math.max(0, takenMinutes - rostered) : 0,
+    assumed: false,
+    // A break still open counts as the rostered length rather than as nothing:
+    // the person is away right now, and crediting them the time would be wrong.
+    countedMinutes: takenMinutes ?? rostered,
+  };
 }
 
 /**

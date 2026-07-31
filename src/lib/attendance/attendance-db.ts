@@ -1,8 +1,9 @@
 import { prisma } from "@/lib/db";
-import { addDays, today, toDateOnly } from "@/lib/time";
+import { addDays, isoWeekday, today, toDateOnly } from "@/lib/time";
 import { computeAvailability } from "@/lib/scheduling/availability";
 import { MAX_OPEN_SECONDS } from "@/lib/tasks/elapsed";
 import {
+  breakDrift,
   closeAbandoned,
   resolveArrival,
   resolveDeparture,
@@ -34,11 +35,15 @@ async function upsertDay(userId: string, date: Date) {
  * A missing row is a gap in a report. A thrown error here would stop somebody
  * logging in or starting work, which is very much worse.
  */
-async function quietly(what: string, run: () => Promise<void>): Promise<void> {
+async function quietly<T>(
+  what: string,
+  run: () => Promise<T>,
+): Promise<T | null> {
   try {
-    await run();
+    return await run();
   } catch (error) {
     console.error(`attendance: ${what} failed`, error);
+    return null;
   }
 }
 
@@ -155,6 +160,94 @@ export async function markDeparture(
  * Shared by the button and the sweep so they can never disagree about what
  * "stop the clock" means.
  */
+/**
+ * Going to lunch.
+ *
+ * Clocked the same way the day is, so leaving at 12:41 for a one o'clock lunch
+ * is a thing the record can show rather than something only the person knows.
+ *
+ * Any running task is paused with reasonCode BREAK -- you are not working, and
+ * letting the timer run through lunch would put the hour straight into the
+ * estimate-drift figure. The reason text is fixed rather than asked for: the
+ * pause dialog exists to catch *unplanned* stoppages, and being made to
+ * justify going to lunch would be an odd thing for the app to do.
+ */
+export async function startBreak(
+  userId: string,
+  at: Date = new Date(),
+): Promise<{ started: boolean; pausedTask: boolean }> {
+  let pausedTask = false;
+
+  const started = await quietly("startBreak", async () => {
+    const date = today();
+    const day = await upsertDay(userId, date);
+
+    // Already out, and not yet back. Clicking twice is not two lunches.
+    if (day.breakStartedAt && !day.breakEndedAt) return false;
+
+    const running = await prisma.timeEntry.findFirst({
+      where: { userId, endedAt: null },
+      include: { pauses: { where: { resumedAt: null } } },
+    });
+
+    await prisma.$transaction([
+      prisma.attendanceDay.update({
+        where: { id: day.id },
+        data: { breakStartedAt: at, breakEndedAt: null, lastActivityAt: at },
+      }),
+      ...(running && running.pauses.length === 0
+        ? [
+            prisma.pauseEvent.create({
+              data: {
+                timeEntryId: running.id,
+                pausedAt: at,
+                reasonCode: "BREAK" as const,
+                reasonText: "Lunch",
+              },
+            }),
+            prisma.task.update({
+              where: { id: running.taskId },
+              data: { status: "PAUSED" as const },
+            }),
+          ]
+        : []),
+    ]);
+
+    pausedTask = !!running && running.pauses.length === 0;
+    return true;
+  });
+
+  return { started: started ?? false, pausedTask };
+}
+
+/**
+ * Back from lunch. Closes the break and the pause it opened; the task is left
+ * PAUSED rather than restarted, so coming back is a decision rather than a
+ * timer that quietly resumed while somebody was still hanging their coat up.
+ */
+export async function endBreak(
+  userId: string,
+  at: Date = new Date(),
+): Promise<{ ended: boolean }> {
+  const ended = await quietly("endBreak", async () => {
+    const date = today();
+    const day = await upsertDay(userId, date);
+    if (!day.breakStartedAt || day.breakEndedAt) return false;
+
+    // The CHECK constraint would reject a lunch that ended before it started,
+    // which a clock adjustment could otherwise produce.
+    const endedAt = at < day.breakStartedAt ? day.breakStartedAt : at;
+
+    await prisma.attendanceDay.update({
+      where: { id: day.id },
+      data: { breakEndedAt: endedAt, lastActivityAt: endedAt },
+    });
+    return true;
+  });
+
+  return { ended: ended ?? false };
+}
+
 export async function stopRunningEntry(
   userId: string,
   at: Date,
@@ -328,6 +421,19 @@ export async function sweepOpenDays(now: Date = new Date()): Promise<SweepSummar
         endedAt: closure.endedAt,
         endSource: closure.endSource,
         status: closure.status,
+        /**
+         * A lunch nobody clocked back in from is closed at the same instant
+         * the day is, capped so it cannot run past it. Left open it would
+         * read as somebody still at lunch three days later.
+         */
+        ...(day.breakStartedAt && !day.breakEndedAt
+          ? {
+              breakEndedAt:
+                closure.endedAt < day.breakStartedAt
+                  ? day.breakStartedAt
+                  : closure.endedAt,
+            }
+          : {}),
       },
     });
     summary.daysClosed += 1;
@@ -378,6 +484,122 @@ export async function recentAttendance(userId: string, days = 28) {
     where: { userId, date: { gte: from } },
     orderBy: { date: "desc" },
   });
+}
+
+/**
+ * The same, with each day's rostered lunch attached and the drift worked out.
+ *
+ * The rostered break lives on the WorkingPattern for that weekday, or on a
+ * DayOverride when there is one, so reading it needs both -- and doing that
+ * per row would be one query per day. Fetched once here instead.
+ */
+export async function recentAttendanceWithLunch(userId: string, days = 28) {
+  const from = addDays(today(), -days);
+
+  const [rows, patterns, overrides] = await Promise.all([
+    prisma.attendanceDay.findMany({
+      where: { userId, date: { gte: from } },
+      orderBy: { date: "desc" },
+    }),
+    prisma.workingPattern.findMany({ where: { userId } }),
+    prisma.dayOverride.findMany({ where: { userId, date: { gte: from } } }),
+  ]);
+
+  const overrideByDate = new Map(
+    overrides.map((o) => [o.date.toISOString().slice(0, 10), o]),
+  );
+
+  return rows.map((day) => {
+    const shape =
+      overrideByDate.get(day.date.toISOString().slice(0, 10)) ??
+      patterns.find((p) => p.weekday === isoWeekday(day.date));
+
+    const lunch = breakDrift({
+      breakStartedAt: day.breakStartedAt,
+      breakEndedAt: day.breakEndedAt,
+      rosteredStart: shape?.breakStartMinutes ?? null,
+      rosteredMinutes: shape?.breakMinutes ?? 0,
+      date: day.date,
+    });
+
+    return { ...day, lunch, rosteredBreakStart: shape?.breakStartMinutes ?? null };
+  });
+}
+
+export type LunchDrift = {
+  userId: string;
+  displayName: string;
+  date: string;
+  /** Minutes from midnight, so the caller can format it the usual way. */
+  rosteredStart: number | null;
+  startedAt: Date;
+  endedAt: Date | null;
+  takenMinutes: number | null;
+  startDrift: number | null;
+  overBy: number;
+};
+
+/**
+ * Lunches in a department that did not match the timetable.
+ *
+ * Only the clocked ones, and only the ones that actually drifted -- a manager
+ * wants the exceptions, not a register. Days nobody clocked are silent by
+ * design: they are read as lunch taken as rostered, which is nearly always
+ * what happened, and listing them would turn a useful short list into noise.
+ */
+export async function lunchDrift(
+  departmentId: string,
+  from: Date,
+  to: Date,
+  /** Minutes either way before it is worth mentioning. */
+  tolerance = 10,
+): Promise<LunchDrift[]> {
+  const days = await prisma.attendanceDay.findMany({
+    where: {
+      date: { gte: from, lte: to },
+      breakStartedAt: { not: null },
+      user: { departmentId },
+    },
+    include: {
+      user: {
+        select: { id: true, displayName: true, workingPatterns: true },
+      },
+    },
+    orderBy: { date: "desc" },
+  });
+
+  const out: LunchDrift[] = [];
+
+  for (const day of days) {
+    const shape = day.user.workingPatterns.find(
+      (p) => p.weekday === isoWeekday(day.date),
+    );
+    const drift = breakDrift({
+      breakStartedAt: day.breakStartedAt,
+      breakEndedAt: day.breakEndedAt,
+      rosteredStart: shape?.breakStartMinutes ?? null,
+      rosteredMinutes: shape?.breakMinutes ?? 0,
+      date: day.date,
+    });
+
+    const early = drift.startDrift != null && Math.abs(drift.startDrift) >= tolerance;
+    const long = drift.overBy >= tolerance;
+    if (!early && !long) continue;
+
+    out.push({
+      userId: day.user.id,
+      displayName: day.user.displayName,
+      date: day.date.toISOString().slice(0, 10),
+      rosteredStart: shape?.breakStartMinutes ?? null,
+      startedAt: day.breakStartedAt!,
+      endedAt: day.breakEndedAt,
+      takenMinutes: drift.takenMinutes,
+      startDrift: drift.startDrift,
+      overBy: drift.overBy,
+    });
+  }
+
+  return out;
 }
 
 /**

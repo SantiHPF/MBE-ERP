@@ -3,9 +3,10 @@
 import { useActionState, useEffect, useState } from "react";
 import type { DayTask } from "@/lib/tasks/day";
 import { nowMinutesIn, pace, type PaceBand } from "@/lib/tasks/pace";
+import { openGap } from "@/lib/gaps/gap";
 import { formatDuration } from "@/lib/time";
 import { useT } from "@/lib/i18n/client";
-import { reopenDay } from "@/lib/attendance/actions";
+import { endLunch, reopenDay, startLunch } from "@/lib/attendance/actions";
 import { TaskButton } from "./my-day/task-button";
 import { startTaskFor } from "./my-day/start-task";
 import { useNow } from "./now-provider";
@@ -27,7 +28,8 @@ const BAND_STYLE: Record<PaceBand, string> = {
 
 export function NowBar({ zone }: { zone: string }) {
   const { t } = useT();
-  const { state, active, next, pause, completed, closeDay } = useNow();
+  const { state, active, next, pause, blocked, completed, closeDay, fillGap } =
+    useNow();
 
   /**
    * The clock ticks locally.
@@ -44,6 +46,18 @@ export function NowBar({ zone }: { zone: string }) {
   }, [zone]);
 
   const live = pace(state.windows, liveTasks(state.tasks), minutes);
+
+  /**
+   * Free time, recomputed on the same tick.
+   *
+   * Pure and client-side, so noticing a gap costs nothing -- no polling, no
+   * round trip. Only the offer itself asks the server, and only once somebody
+   * has pressed the button.
+   */
+  const gap =
+    state.closed || !state.rostered
+      ? null
+      : openGap(state.windows, state.tasks, minutes);
 
   return (
     <div
@@ -74,6 +88,11 @@ export function NowBar({ zone }: { zone: string }) {
               </span>
               <span className="truncate text-[13.5px] font-semibold">
                 {active.title}
+                {active.session && (
+                  <span className="num ml-1.5 font-normal text-faint">
+                    {active.session.index}/{active.session.total}
+                  </span>
+                )}
               </span>
             </span>
           </>
@@ -100,14 +119,34 @@ export function NowBar({ zone }: { zone: string }) {
               task={active}
               onPause={() => pause(active.id)}
               onCompleted={completed}
+              onCantDo={blocked}
             />
           ) : state.closed ? (
             <ReopenButton />
           ) : (
             <>
+              {/*
+                An offer, not an interruption. A modal every time somebody has
+                twenty spare minutes would train them to dismiss it; a button
+                that says how long they have is there when they want it and
+                invisible when they do not.
+              */}
+              {gap && (
+                <button
+                  type="button"
+                  onClick={() => fillGap(gap.minutes)}
+                  className="btn btn-sm"
+                  title={t("gaps.somethingToDo")}
+                >
+                  <span className="num">
+                    {t("gaps.freeNow", formatDuration(gap.minutes))}
+                  </span>
+                </button>
+              )}
               {/* Starting the day from wherever you happen to be, rather than
                   navigating back to My Day to press one button. */}
               {next && <StartNext task={next} />}
+              <LunchButton since={state.onBreakSince} minutes={minutes} />
               <button type="button" onClick={closeDay} className="btn btn-sm">
                 {t("attendance.closeDay")}
               </button>
@@ -157,6 +196,60 @@ function StartNext({ task }: { task: DayTask }) {
         {starting ? t("myDay.starting") : t("myDay.start")}
       </button>
       {state.error && <span className="sr-only">{state.error}</span>}
+    </form>
+  );
+}
+
+/**
+ * Out to lunch, and back from it.
+ *
+ * One button that changes its mind, because it is one gesture. While away it
+ * counts up from the instant it started -- derived, like everything else here,
+ * so it stays right without a refetch.
+ *
+ * `minutes` is the bar's own 15-second tick: it is not used for the sum, only
+ * to make React re-render often enough that the count is not stale.
+ */
+function LunchButton({
+  since,
+  minutes,
+}: {
+  since: string | null;
+  minutes: number;
+}) {
+  const { t } = useT();
+  const [outState, out, goingOut] = useActionState(startLunch, {});
+  const [backState, back, comingBack] = useActionState(endLunch, {});
+  const error = outState.error ?? backState.error;
+
+  if (since) {
+    const away = Math.max(0, Math.round((Date.now() - Date.parse(since)) / 60_000));
+    return (
+      <form action={back}>
+        <button
+          type="submit"
+          disabled={comingBack}
+          title={error}
+          className="btn btn-sm border-pause bg-pause-wash text-pause"
+          data-tick={minutes}
+        >
+          {t("attendance.backFromLunch")}
+          <span className="num ml-1.5 text-faint">{formatDuration(away)}</span>
+        </button>
+      </form>
+    );
+  }
+
+  return (
+    <form action={out}>
+      <button
+        type="submit"
+        disabled={goingOut}
+        title={error ?? t("attendance.lunchHint")}
+        className="btn btn-sm"
+      >
+        {t("attendance.goToLunch")}
+      </button>
     </form>
   );
 }
