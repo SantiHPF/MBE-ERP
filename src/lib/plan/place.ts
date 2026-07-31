@@ -1,10 +1,18 @@
 import { prisma } from "@/lib/db";
 import { toDateOnly } from "@/lib/time";
 import {
+  anchorPacksBackward,
   computeAvailability,
+  findLastSlot,
   findSlot,
   resolveAnchor,
+  subtractWindows,
 } from "@/lib/scheduling/availability";
+import {
+  anchorFallbackWindows,
+  halfWindows,
+  intersect,
+} from "@/lib/scheduling/half";
 
 /**
  * Give a task a time slot on the day somebody just took it.
@@ -70,32 +78,49 @@ export async function placeOnDay(
     : (task.template?.recurringRules[0]?.fixedStartMinutes ?? null);
 
   // Carve out what is already booked, so the new task lands after it.
-  let free = availability.windows;
-  for (const other of sameDay) {
-    if (other.scheduledStart == null || other.scheduledEnd == null) continue;
-    const next: typeof free = [];
-    for (const w of free) {
-      if (other.scheduledEnd <= w.start || other.scheduledStart >= w.end) {
-        next.push(w);
-        continue;
-      }
-      if (other.scheduledStart > w.start) {
-        next.push({ start: w.start, end: other.scheduledStart });
-      }
-      if (other.scheduledEnd < w.end) {
-        next.push({ start: other.scheduledEnd, end: w.end });
-      }
-    }
-    free = next;
+  let free = subtractWindows(
+    availability.windows,
+    sameDay
+      .filter((o) => o.scheduledStart != null && o.scheduledEnd != null)
+      .map((o) => ({ start: o.scheduledStart!, end: o.scheduledEnd! })),
+  );
+
+  /**
+   * An anchor bounds the task to its half of the day, not merely to a starting
+   * point: findSlot walks into later windows when the one it starts in is
+   * full, which is how "antes del descanso" used to land after the break. A
+   * shift preference does the same job for work with no anchor; the anchor
+   * wins when both are set, being the more specific statement.
+   *
+   * Kept in step with allowedFree() in assign.ts, so a deferral or a manual
+   * reorder cannot undo what the engine deliberately arranged.
+   */
+  if (task.anchor) {
+    free = intersect(free, anchorFallbackWindows(availability.windows, task.anchor));
+  } else if (task.shiftHalf) {
+    free = intersect(free, halfWindows(availability.windows, task.shiftHalf));
   }
 
-  const earliest = Math.max(notBefore, pinnedStart ?? 0);
-  let slot = findSlot(free, task.estimatedMinutes, earliest);
+  /**
+   * A deadline anchor searches from the end of its half rather than the start.
+   *
+   * Kept in step with placeFor() in assign.ts. Without it, claiming a second
+   * "antes del descanso" from the plan board found 13:30 taken and first-fit
+   * it to 10:00 -- the engine and the board would then disagree about the
+   * same task, which is worse than either rule on its own.
+   */
+  let slot: ReturnType<typeof findSlot>;
 
-  // If its hour has already gone, fall back to anywhere that still fits
-  // rather than refusing to place it at all.
-  if (!slot && pinnedStart != null) {
-    slot = findSlot(free, task.estimatedMinutes, notBefore);
+  if (task.anchor && anchorPacksBackward(task.anchor)) {
+    slot = findLastSlot(free, task.estimatedMinutes, Infinity, notBefore);
+  } else {
+    const earliest = Math.max(notBefore, pinnedStart ?? 0);
+    slot = findSlot(free, task.estimatedMinutes, earliest);
+
+    // If its hour has already gone, fall back -- still within the same bound.
+    if (!slot && pinnedStart != null) {
+      slot = findSlot(free, task.estimatedMinutes, notBefore);
+    }
   }
 
   await prisma.task.update({

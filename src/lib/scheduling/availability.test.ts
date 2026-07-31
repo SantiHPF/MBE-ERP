@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
+  anchorPacksBackward,
   computeAvailability,
+  findLastSlot,
   findSlot,
   resolveAnchor,
   slotOverlapsAbsence,
@@ -338,5 +340,58 @@ describe("resolveAnchor", () => {
 
     expect(resolveAnchor("ARRIVAL", early, 10)).toBe(at(8));
     expect(resolveAnchor("ARRIVAL", late, 10)).toBe(at(10));
+  });
+});
+
+describe("findLastSlot", () => {
+  const morning = [{ start: at(9), end: at(14) }];
+  const day = [
+    { start: at(9), end: at(14) },
+    { start: at(16), end: at(19) },
+  ];
+
+  it("puts a task up against the end of the window", () => {
+    expect(findLastSlot(morning, 30)).toEqual({ start: at(13, 30), end: at(14) });
+  });
+
+  it("stacks a second task immediately before the first", () => {
+    // 13:30-14:00 is gone, so the next one wants 13:00-13:30 -- not 09:00.
+    const left = [{ start: at(9), end: at(13, 30) }];
+    expect(findLastSlot(left, 30)).toEqual({ start: at(13), end: at(13, 30) });
+  });
+
+  it("uses the latest window, not the first that fits", () => {
+    expect(findLastSlot(day, 30)).toEqual({ start: at(18, 30), end: at(19) });
+  });
+
+  it("stops at notAfter rather than running past it", () => {
+    expect(findLastSlot(day, 30, at(17))).toEqual({
+      start: at(16, 30),
+      end: at(17),
+    });
+  });
+
+  it("honours notBefore, so work pushed later is not packed back past it", () => {
+    expect(findLastSlot(morning, 30, Infinity, at(13, 45))).toBeNull();
+  });
+
+  it("returns null when nothing is long enough", () => {
+    expect(findLastSlot([{ start: at(9), end: at(9, 20) }], 30)).toBeNull();
+  });
+
+  it("returns null on a day with no windows at all", () => {
+    expect(findLastSlot([], 30)).toBeNull();
+  });
+});
+
+describe("anchorPacksBackward", () => {
+  it("treats the two deadline anchors as backwards", () => {
+    expect(anchorPacksBackward("BEFORE_BREAK")).toBe(true);
+    expect(anchorPacksBackward("BEFORE_LEAVING")).toBe(true);
+  });
+
+  it("treats the two starting guns as forwards", () => {
+    expect(anchorPacksBackward("ARRIVAL")).toBe(false);
+    expect(anchorPacksBackward("AFTER_BREAK")).toBe(false);
   });
 });

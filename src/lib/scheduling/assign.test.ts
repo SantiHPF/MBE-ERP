@@ -136,7 +136,22 @@ describe("capacity is a hard constraint", () => {
     });
 
     expect(result.assignments).toEqual([]);
-    expect(result.unassigned).toEqual([{ taskId: "big", reason: "no-capacity" }]);
+    // Ten hours against an eight-hour day: no calendar of theirs would ever
+    // hold it, so it reads as a job wanting sittings rather than a busy week.
+    expect(result.unassigned).toEqual([
+      { taskId: "big", reason: "needs-splitting" },
+    ]);
+  });
+
+  it("says no-capacity when the day would have held it but is spoken for", () => {
+    const result = assignDay({
+      date: MON,
+      tasks: [task("t1", { estimatedMinutes: 120 })],
+      // An 8h day that could easily take two hours, with only one left.
+      candidates: [candidate("a", { committedMinutes: 420 })],
+    });
+
+    expect(result.unassigned).toEqual([{ taskId: "t1", reason: "no-capacity" }]);
   });
 
   it("skips someone at capacity even when rotation says they are next", () => {
@@ -599,6 +614,55 @@ describe("must-do work is never dropped", () => {
     });
 
     expect(result.assignments).toEqual([]);
+    // Five hours, against a day broken into four and three by lunch. No empty
+    // calendar would hold it either, so this is a job wanting sittings rather
+    // than a day that happened to be busy -- see the pair of tests below.
+    expect(result.unassigned[0].reason).toBe("needs-splitting");
+  });
+});
+
+describe("telling a full day from a job that is too long", () => {
+  it("says needs-splitting when nobody has a stretch long enough", () => {
+    // 09:00-13:00 and 14:00-17:00. Nothing is booked; the job simply does not
+    // fit in either half, and clearing the calendar would not help.
+    const split = computeAvailability({
+      date: MON,
+      patterns: [
+        {
+          weekday: 1,
+          startMinutes: at(9),
+          endMinutes: at(17),
+          breakMinutes: 60,
+          breakStartMinutes: at(13),
+        },
+      ],
+    });
+
+    const result = assignDay({
+      date: MON,
+      tasks: [task("tenHours", { estimatedMinutes: 600 })],
+      candidates: [{ ...candidate("a"), availability: split }],
+    });
+
+    expect(result.unassigned[0].reason).toBe("needs-splitting");
+  });
+
+  it("says no-slot-fits when the room exists but is already taken", () => {
+    // An unbroken 09:00-17:00 day, so a three-hour job would fit fine -- but
+    // the middle of it is already booked and what is left is too fragmented.
+    // Clearing the day would fix this one, which is why it reads differently.
+    const busy = {
+      ...candidate("a"),
+      busy: [{ start: at(11), end: at(15) }],
+    };
+
+    const result = assignDay({
+      date: MON,
+      tasks: [task("threeHours", { estimatedMinutes: 180 })],
+      candidates: [busy],
+    });
+
+    expect(result.assignments).toEqual([]);
     expect(result.unassigned[0].reason).toBe("no-slot-fits");
   });
 });
@@ -715,17 +779,25 @@ describe("anchored routines", () => {
     expect(new Set(day2.assignments.map((a) => a.userId))).toEqual(new Set(["ana"]));
   });
 
-  it("still places the after-break one for somebody working straight through", () => {
-    // No break means no "after the break", but the check still has to happen.
+  it("drops the after-break one for somebody working straight through", () => {
+    /**
+     * This used to place both, on the grounds that the check still had to
+     * happen. It reads better on paper than it does in a day: somebody who
+     * takes no break got the same routine twice within a few minutes of
+     * arriving, because both repetitions resolved to the top of the morning.
+     * With no break there is no "after the break", so it folds onto arrival --
+     * where its sibling already is -- and the routine simply happens once.
+     */
     const result = assignDay({
       date: MON,
       tasks: routine(["a", "b"], ["ARRIVAL", "AFTER_BREAK"]),
       candidates: [candidate("ana")],
     });
 
-    expect(result.assignments).toHaveLength(2);
+    expect(result.assignments).toHaveLength(1);
+    expect(result.assignments[0].taskId).toBe("a");
+    expect(result.collapsed).toEqual([{ taskId: "b", into: null }]);
     expect(result.unassigned).toHaveLength(0);
-    expect(result.assignments.every((a) => a.start != null)).toBe(true);
   });
 
   it("keeps the routine together rather than splitting it across people", () => {
@@ -764,5 +836,580 @@ describe("anchored routines", () => {
     });
 
     expect(new Set(result.assignments.map((a) => a.userId)).size).toBe(2);
+  });
+});
+
+describe("work that goes hand in hand", () => {
+  /** Review then report: one groupKey, the second following the first. */
+  const pair = () => [
+    task("review", { estimatedMinutes: 60, groupKey: "follows:review" }),
+    task("report", {
+      estimatedMinutes: 30,
+      groupKey: "follows:review",
+      followsTaskId: "review",
+    }),
+  ];
+
+  it("gives both halves to the same person", () => {
+    const result = assignDay({
+      date: MON,
+      tasks: pair(),
+      candidates: [candidate("ana"), candidate("luis"), candidate("marta")],
+    });
+
+    expect(result.assignments).toHaveLength(2);
+    expect(new Set(result.assignments.map((a) => a.userId)).size).toBe(1);
+  });
+
+  it("puts the follower after the leader", () => {
+    const result = assignDay({
+      date: MON,
+      tasks: pair(),
+      candidates: [candidate("ana")],
+    });
+
+    const review = result.assignments.find((a) => a.taskId === "review")!;
+    const report = result.assignments.find((a) => a.taskId === "report")!;
+    expect(report.start).toBeGreaterThanOrEqual(review.end!);
+  });
+
+  it("will not drop the follower into an earlier gap", () => {
+    /**
+     * The regression this exists for. First-fit would put the 30-minute report
+     * in the 09:00-09:30 hole and the 60-minute review after it, so the report
+     * would come before the thing it reports on.
+     */
+    const ana = candidate("ana", {
+      busy: [{ start: at(9, 30), end: at(11) }],
+    });
+
+    const result = assignDay({
+      date: MON,
+      tasks: pair(),
+      candidates: [ana],
+    });
+
+    const review = result.assignments.find((a) => a.taskId === "review")!;
+    const report = result.assignments.find((a) => a.taskId === "report")!;
+    expect(review.start).toBe(at(11));
+    expect(report.start).toBe(at(12));
+  });
+
+  it("keeps a chain of three in order however they are listed", () => {
+    // Deliberately supplied back to front: the ordering is derived, not given.
+    const result = assignDay({
+      date: MON,
+      tasks: [
+        task("c", { estimatedMinutes: 30, groupKey: "g", followsTaskId: "b" }),
+        task("b", { estimatedMinutes: 30, groupKey: "g", followsTaskId: "a" }),
+        task("a", { estimatedMinutes: 30, groupKey: "g" }),
+      ],
+      candidates: [candidate("ana")],
+    });
+
+    const startOf = (id: string) =>
+      result.assignments.find((x) => x.taskId === id)!.start!;
+    expect(startOf("a")).toBeLessThan(startOf("b"));
+    expect(startOf("b")).toBeLessThan(startOf("c"));
+  });
+
+  it("keeps the pair together rather than splitting it across a full day", () => {
+    // Only room for the review on ana's day, so the pair goes to luis whole.
+    const result = assignDay({
+      date: MON,
+      tasks: pair(),
+      candidates: [
+        candidate("ana", { start: at(9), end: at(10) }),
+        candidate("luis"),
+      ],
+    });
+
+    expect(new Set(result.assignments.map((a) => a.userId))).toEqual(
+      new Set(["luis"]),
+    );
+  });
+});
+
+describe("a set time outranks a point in the shift", () => {
+  /** 09:00-14:00, lunch, 16:00-19:00 -- the working pattern used here. */
+  function splitDay(userId: string): CandidateInput {
+    return {
+      userId,
+      departmentId: "ops",
+      availability: computeAvailability({
+        date: MON,
+        patterns: [
+          {
+            weekday: 1,
+            startMinutes: at(9),
+            endMinutes: at(19),
+            breakMinutes: 120,
+            breakStartMinutes: at(14),
+          },
+        ],
+      }),
+      committedMinutes: 0,
+      busy: [],
+    };
+  }
+
+  it("gives 09:00 to the task pinned to 09:00, not to the arrivals", () => {
+    /**
+     * The regression. ANCHOR_ORDER.ARRIVAL is 0, and the old comparison sorted
+     * anchors on ANCHOR_ORDER * 1e4 -- so every "al llegar" task sorted ahead
+     * of a 09:00 task's 540 and took the morning from it.
+     */
+    const result = assignDay({
+      date: MON,
+      tasks: [
+        task("arrival-1", { estimatedMinutes: 30, anchor: "ARRIVAL" }),
+        task("arrival-2", { estimatedMinutes: 30, anchor: "ARRIVAL" }),
+        task("arrival-3", { estimatedMinutes: 5, anchor: "ARRIVAL" }),
+        task("nine", { estimatedMinutes: 90, fixedStartMinutes: at(9) }),
+      ],
+      candidates: [splitDay("ana")],
+    });
+
+    const startOf = (id: string) =>
+      result.assignments.find((a) => a.taskId === id)?.start ?? null;
+
+    expect(startOf("nine")).toBe(at(9));
+    for (const id of ["arrival-1", "arrival-2", "arrival-3"]) {
+      expect(startOf(id)).toBeGreaterThanOrEqual(at(10, 30));
+    }
+  });
+
+  it("stacks the arrivals behind it rather than scattering them", () => {
+    const result = assignDay({
+      date: MON,
+      tasks: [
+        task("nine", { estimatedMinutes: 90, fixedStartMinutes: at(9) }),
+        task("a", { estimatedMinutes: 30, anchor: "ARRIVAL" }),
+        task("b", { estimatedMinutes: 30, anchor: "ARRIVAL" }),
+      ],
+      candidates: [splitDay("ana")],
+    });
+
+    const starts = ["nine", "a", "b"]
+      .map((id) => result.assignments.find((x) => x.taskId === id)!.start!)
+      .sort((x, y) => x - y);
+    // 09:00-10:30, then 10:30 and 11:00 -- contiguous, no gaps.
+    expect(starts).toEqual([at(9), at(10, 30), at(11)]);
+  });
+
+  it("keeps an end-of-shift task out of the morning when the afternoon is full", () => {
+    /**
+     * The second regression: an unbounded first-fit fallback put "antes de
+     * salir" at 10:00. Unplaced is the honest answer -- the day reads as over
+     * rather than claiming a time that contradicts the task's own name.
+     */
+    const ana = splitDay("ana");
+    ana.busy = [{ start: at(16), end: at(19) }];
+
+    const result = assignDay({
+      date: MON,
+      tasks: [task("leaving", { estimatedMinutes: 30, anchor: "BEFORE_LEAVING" })],
+      candidates: [ana],
+    });
+
+    const placed = result.assignments.find((a) => a.taskId === "leaving");
+    expect(placed?.start ?? null).not.toBe(at(10));
+    // Either unplaced entirely, or still in the afternoon. Never the morning.
+    if (placed?.start != null) expect(placed.start).toBeGreaterThanOrEqual(at(16));
+  });
+
+  it("honours a morning-only preference", () => {
+    const result = assignDay({
+      date: MON,
+      tasks: [task("m", { estimatedMinutes: 60, shiftHalf: "MORNING" })],
+      candidates: [splitDay("ana")],
+    });
+
+    const slot = result.assignments.find((a) => a.taskId === "m")!;
+    expect(slot.end).toBeLessThanOrEqual(at(14));
+  });
+
+  it("honours an afternoon-only preference", () => {
+    const result = assignDay({
+      date: MON,
+      tasks: [task("a", { estimatedMinutes: 60, shiftHalf: "AFTERNOON" })],
+      candidates: [splitDay("ana")],
+    });
+
+    const slot = result.assignments.find((a) => a.taskId === "a")!;
+    expect(slot.start).toBeGreaterThanOrEqual(at(14));
+  });
+
+  it("lets an anchor override a shift preference that disagrees", () => {
+    // The anchor is the more specific statement about where in the day it goes.
+    const result = assignDay({
+      date: MON,
+      tasks: [
+        task("x", {
+          estimatedMinutes: 30,
+          anchor: "ARRIVAL",
+          shiftHalf: "AFTERNOON",
+        }),
+      ],
+      candidates: [splitDay("ana")],
+    });
+
+    expect(result.assignments.find((a) => a.taskId === "x")!.start).toBe(at(9));
+  });
+});
+
+describe("an anchor bounds the half, not just the starting point", () => {
+  function splitDay(userId: string): CandidateInput {
+    return {
+      userId,
+      departmentId: "ops",
+      availability: computeAvailability({
+        date: MON,
+        patterns: [
+          {
+            weekday: 1,
+            startMinutes: at(9),
+            endMinutes: at(19),
+            breakMinutes: 120,
+            breakStartMinutes: at(14),
+          },
+        ],
+      }),
+      committedMinutes: 0,
+      busy: [],
+    };
+  }
+
+  it("never puts 'before the break' after the break", () => {
+    /**
+     * The regression. resolveAnchor put BEFORE_BREAK at 13:30; the morning was
+     * full, and findSlot walked straight past lunch into the afternoon to land
+     * at 16:30 -- before the break, after the break.
+     */
+    const ana = splitDay("ana");
+    ana.busy = [{ start: at(9), end: at(14) }];
+
+    const result = assignDay({
+      date: MON,
+      tasks: [task("before", { estimatedMinutes: 30, anchor: "BEFORE_BREAK" })],
+      candidates: [ana],
+    });
+
+    const placed = result.assignments.find((a) => a.taskId === "before");
+    if (placed?.start != null) expect(placed.start).toBeLessThan(at(14));
+  });
+
+  it("never puts 'after the break' before it", () => {
+    const ana = splitDay("ana");
+    ana.busy = [{ start: at(16), end: at(19) }];
+
+    const result = assignDay({
+      date: MON,
+      tasks: [task("after", { estimatedMinutes: 30, anchor: "AFTER_BREAK" })],
+      candidates: [ana],
+    });
+
+    const placed = result.assignments.find((a) => a.taskId === "after");
+    if (placed?.start != null) expect(placed.start).toBeGreaterThanOrEqual(at(16));
+  });
+
+  it("still places it normally when its own half has room", () => {
+    const result = assignDay({
+      date: MON,
+      tasks: [task("before", { estimatedMinutes: 30, anchor: "BEFORE_BREAK" })],
+      candidates: [splitDay("ana")],
+    });
+
+    // Backed off the end of the morning so it finishes by the break.
+    expect(result.assignments[0].end).toBe(at(14));
+  });
+
+  it("stacks several 'before the break' tasks against the break", () => {
+    /**
+     * The regression this pair of tests exists for. Only the first one was
+     * aimed at 13:30; the second found that minute taken and first-fit to the
+     * top of the morning, so a real day read 10:00, 10:40, 13:30 -- two of
+     * them nowhere near the break they were named after.
+     */
+    const result = assignDay({
+      date: MON,
+      tasks: [
+        task("b1", { estimatedMinutes: 30, anchor: "BEFORE_BREAK" }),
+        task("b2", { estimatedMinutes: 30, anchor: "BEFORE_BREAK" }),
+        task("b3", { estimatedMinutes: 10, anchor: "BEFORE_BREAK" }),
+      ],
+      candidates: [splitDay("ana")],
+    });
+
+    const slots = result.assignments
+      .map((a) => ({ start: a.start ?? 0, end: a.end ?? 0 }))
+      .sort((x, y) => x.start - y.start);
+
+    // One contiguous block finishing exactly at the break: 30 + 30 + 10 = 70
+    // minutes, so 12:50 to 14:00 with no gaps.
+    expect(slots[slots.length - 1].end).toBe(at(14));
+    expect(slots[0].start).toBe(at(12, 50));
+    for (let i = 1; i < slots.length; i += 1) {
+      expect(slots[i].start).toBe(slots[i - 1].end);
+    }
+  });
+
+  it("stacks several 'before leaving' tasks against the end of the shift", () => {
+    const result = assignDay({
+      date: MON,
+      tasks: [
+        task("l1", { estimatedMinutes: 30, anchor: "BEFORE_LEAVING" }),
+        task("l2", { estimatedMinutes: 30, anchor: "BEFORE_LEAVING" }),
+      ],
+      candidates: [splitDay("ana")],
+    });
+
+    const starts = result.assignments.map((a) => a.start ?? 0).sort((x, y) => x - y);
+    expect(starts).toEqual([at(18), at(18, 30)]);
+  });
+
+  it("still packs 'on arrival' forward from the start of the day", () => {
+    // The mirror case: deadline anchors changed direction, starting guns
+    // must not have.
+    const result = assignDay({
+      date: MON,
+      tasks: [
+        task("a1", { estimatedMinutes: 30, anchor: "ARRIVAL" }),
+        task("a2", { estimatedMinutes: 30, anchor: "ARRIVAL" }),
+      ],
+      candidates: [splitDay("ana")],
+    });
+
+    const starts = result.assignments.map((a) => a.start ?? 0).sort((x, y) => x - y);
+    expect(starts).toEqual([at(9), at(9, 30)]);
+  });
+
+  it("keeps arrivals and before-breaks at opposite ends of the morning", () => {
+    // The shape the user actually sees on My Day: the day opens with the
+    // arrival work and closes the morning with the pre-break work, instead of
+    // all six running together from 09:00.
+    const result = assignDay({
+      date: MON,
+      tasks: [
+        task("a1", { estimatedMinutes: 30, anchor: "ARRIVAL" }),
+        task("a2", { estimatedMinutes: 5, anchor: "ARRIVAL" }),
+        task("b1", { estimatedMinutes: 30, anchor: "BEFORE_BREAK" }),
+        task("b2", { estimatedMinutes: 10, anchor: "BEFORE_BREAK" }),
+      ],
+      candidates: [splitDay("ana")],
+    });
+
+    const startOf = (id: string) =>
+      result.assignments.find((a) => a.taskId === id)?.start ?? -1;
+
+    expect(startOf("a1")).toBeLessThan(at(10));
+    expect(startOf("a2")).toBeLessThan(at(10));
+    expect(startOf("b1")).toBeGreaterThanOrEqual(at(13));
+    expect(startOf("b2")).toBeGreaterThanOrEqual(at(13));
+  });
+});
+
+describe("a routine anchored around a break, on a day without one", () => {
+  /** 09:00-14:00 straight through: no break, so one window. */
+  function shortDay(userId: string): CandidateInput {
+    return {
+      userId,
+      departmentId: "ops",
+      availability: computeAvailability({
+        date: MON,
+        patterns: [
+          { weekday: 1, startMinutes: at(9), endMinutes: at(14), breakMinutes: 0 },
+        ],
+      }),
+      committedMinutes: 0,
+      busy: [],
+    };
+  }
+
+  /** The same routine on a day that does have a break. */
+  function splitDay(userId: string): CandidateInput {
+    return {
+      userId,
+      departmentId: "ops",
+      availability: computeAvailability({
+        date: MON,
+        patterns: [
+          {
+            weekday: 1,
+            startMinutes: at(9),
+            endMinutes: at(19),
+            breakMinutes: 120,
+            breakStartMinutes: at(14),
+          },
+        ],
+      }),
+      committedMinutes: 0,
+      busy: [],
+    };
+  }
+
+  /** WhatsApp: the same check at all four points in the shift. */
+  const fourTimes = () => [
+    task("arrival", { estimatedMinutes: 30, anchor: "ARRIVAL", groupKey: "r:mon" }),
+    task("before", { estimatedMinutes: 30, anchor: "BEFORE_BREAK", groupKey: "r:mon" }),
+    task("after", { estimatedMinutes: 30, anchor: "AFTER_BREAK", groupKey: "r:mon" }),
+    task("leaving", { estimatedMinutes: 30, anchor: "BEFORE_LEAVING", groupKey: "r:mon" }),
+  ];
+
+  it("does it twice, not four times", () => {
+    const result = assignDay({
+      date: MON,
+      tasks: fourTimes(),
+      candidates: [shortDay("chao")],
+    });
+
+    expect(result.assignments).toHaveLength(2);
+    expect(result.assignments.map((a) => a.taskId).sort()).toEqual([
+      "arrival",
+      "leaving",
+    ]);
+  });
+
+  it("folds the two break repetitions onto the ends of the day", () => {
+    const result = assignDay({
+      date: MON,
+      tasks: fourTimes(),
+      candidates: [shortDay("chao")],
+    });
+
+    const folded = Object.fromEntries(
+      result.collapsed.map((c) => [c.taskId, c.into]),
+    );
+    // Both had a sibling already sitting on the point they fold onto, so
+    // neither is work -- they are duplicates.
+    expect(folded).toEqual({ before: null, after: null });
+  });
+
+  it("still does it four times when there is a break", () => {
+    const result = assignDay({
+      date: MON,
+      tasks: fourTimes(),
+      candidates: [splitDay("santi")],
+    });
+
+    expect(result.assignments).toHaveLength(4);
+    expect(result.collapsed).toEqual([]);
+  });
+
+  it("keeps work whose only anchor is the break, moved rather than dropped", () => {
+    // "Examen sorpresa" fires before the break and nowhere else. On a day with
+    // no break it still needs doing, so it moves to the end of the day instead
+    // of quietly not happening.
+    const result = assignDay({
+      date: MON,
+      tasks: [
+        task("examen", {
+          estimatedMinutes: 30,
+          anchor: "BEFORE_BREAK",
+          groupKey: "examen:mon",
+        }),
+      ],
+      candidates: [shortDay("chao")],
+    });
+
+    expect(result.collapsed).toEqual([
+      { taskId: "examen", into: "BEFORE_LEAVING" },
+    ]);
+    expect(result.assignments).toHaveLength(1);
+    // Placed against the end of the shift, as "before leaving" now means.
+    expect(result.assignments[0].end).toBe(at(14));
+  });
+
+  it("moves work anchored only after the break to the start of the day", () => {
+    const result = assignDay({
+      date: MON,
+      tasks: [
+        task("latam", {
+          estimatedMinutes: 30,
+          anchor: "AFTER_BREAK",
+          groupKey: "latam:mon",
+        }),
+      ],
+      candidates: [shortDay("chao")],
+    });
+
+    expect(result.collapsed).toEqual([{ taskId: "latam", into: "ARRIVAL" }]);
+    expect(result.assignments[0].start).toBe(at(9));
+  });
+
+  it("judges capacity on what will actually be done, not on all four", () => {
+    // Two of the four fold away, so 60 minutes is needed, not 120. A person
+    // with 90 left should still be given the routine.
+    const chao = shortDay("chao");
+    chao.committedMinutes = 210; // 300 rostered - 210 = 90 left
+
+    const result = assignDay({
+      date: MON,
+      tasks: fourTimes(),
+      candidates: [chao],
+    });
+
+    expect(result.assignments).toHaveLength(2);
+    expect(result.unassigned).toEqual([]);
+  });
+});
+
+describe("folding a routine when part of it is already done", () => {
+  function shortDay(userId: string): CandidateInput {
+    return {
+      userId,
+      departmentId: "ops",
+      availability: computeAvailability({
+        date: MON,
+        patterns: [
+          { weekday: 1, startMinutes: at(9), endMinutes: at(14), breakMinutes: 0 },
+        ],
+      }),
+      committedMinutes: 0,
+      busy: [],
+    };
+  }
+
+  it("does not move a repetition onto a point the finished one already holds", () => {
+    /**
+     * The regression. The arrival check was already done, so it was in flight
+     * and not in the pool. The after-break one folded onto arrival, found it
+     * apparently free, and moved there -- leaving the day with the same
+     * "al llegar" twice, one done and one still to do.
+     */
+    const result = assignDay({
+      date: MON,
+      tasks: [
+        task("after", {
+          estimatedMinutes: 30,
+          anchor: "AFTER_BREAK",
+          groupKey: "crm:mon",
+        }),
+      ],
+      candidates: [shortDay("santi")],
+      occupiedAnchors: [{ groupKey: "crm:mon", anchor: "ARRIVAL" }],
+    });
+
+    expect(result.collapsed).toEqual([{ taskId: "after", into: null }]);
+    expect(result.assignments).toEqual([]);
+  });
+
+  it("still moves it when the finished work is a different routine", () => {
+    const result = assignDay({
+      date: MON,
+      tasks: [
+        task("after", {
+          estimatedMinutes: 30,
+          anchor: "AFTER_BREAK",
+          groupKey: "crm:mon",
+        }),
+      ],
+      candidates: [shortDay("santi")],
+      // Whatsapp's arrival check says nothing about CRM's.
+      occupiedAnchors: [{ groupKey: "whatsapp:mon", anchor: "ARRIVAL" }],
+    });
+
+    expect(result.collapsed).toEqual([{ taskId: "after", into: "ARRIVAL" }]);
+    expect(result.assignments).toHaveLength(1);
   });
 });

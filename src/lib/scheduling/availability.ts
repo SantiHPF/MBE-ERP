@@ -76,7 +76,36 @@ function subtract(windows: Window[], cutStart: number, cutEnd: number): Window[]
   return out;
 }
 
-function total(windows: Window[]): number {
+/**
+ * Windows with every one of `cuts` carved out.
+ *
+ * The same algebra as subtract(), applied repeatedly. It had grown three
+ * private copies -- the assignment engine's subtractBusy(), the inline loop in
+ * plan/place.ts, and this file -- which is three chances for "free time" to
+ * mean three different things.
+ */
+export function subtractWindows(windows: Window[], cuts: Window[]): Window[] {
+  let out = windows;
+  for (const cut of cuts) out = subtract(out, cut.start, cut.end);
+  return out;
+}
+
+/** The part of `windows` falling inside [from, to). */
+export function clipWindows(
+  windows: Window[],
+  from: number,
+  to: number,
+): Window[] {
+  const out: Window[] = [];
+  for (const w of windows) {
+    const start = Math.max(w.start, from);
+    const end = Math.min(w.end, to);
+    if (end > start) out.push({ start, end });
+  }
+  return out;
+}
+
+export function totalMinutes(windows: Window[]): number {
   return windows.reduce((sum, w) => sum + (w.end - w.start), 0);
 }
 
@@ -145,9 +174,9 @@ export function computeAvailability(input: {
     }
 
     if (absence.startMinutes != null && absence.endMinutes != null) {
-      const before = total(windows);
+      const before = totalMinutes(windows);
       windows = subtract(windows, absence.startMinutes, absence.endMinutes);
-      if (total(windows) !== before) hitByAbsence = true;
+      if (totalMinutes(windows) !== before) hitByAbsence = true;
     }
   }
 
@@ -163,7 +192,7 @@ export function computeAvailability(input: {
   return {
     rostered: true,
     windows,
-    availableMinutes: total(windows),
+    availableMinutes: totalMinutes(windows),
     reducedBy,
   };
 }
@@ -254,4 +283,75 @@ export function findSlot(
     }
   }
   return null;
+}
+
+/**
+ * The mirror of findSlot: the *latest* slot that can hold `minutes`.
+ *
+ * "Antes del descanso" does not mean "somewhere in the morning", it means up
+ * against the break. Placing such work with findSlot puts the first one right
+ * -- resolveAnchor aims it at the end of the window -- and then packs every
+ * other one forward from 09:00, because first-fit is the only thing findSlot
+ * knows how to do. A day with three of them read 10:00, 10:40, 13:30, and the
+ * first two contradicted their own names.
+ *
+ * `notBefore` is still honoured, so work pushed later in the day cannot be
+ * packed backwards past the point it was pushed to.
+ */
+export function findLastSlot(
+  windows: Window[],
+  minutes: number,
+  notAfter = Infinity,
+  notBefore = 0,
+): Window | null {
+  for (let i = windows.length - 1; i >= 0; i -= 1) {
+    const w = windows[i];
+    const end = Math.min(w.end, notAfter);
+    const start = Math.max(w.start, notBefore);
+    if (end - start >= minutes) {
+      return { start: end - minutes, end };
+    }
+  }
+  return null;
+}
+
+/**
+ * Does this anchor mean "as late as possible" rather than "as early as"?
+ *
+ * The four anchors are two pairs. ARRIVAL and AFTER_BREAK are starting guns:
+ * the sooner the better. BEFORE_BREAK and BEFORE_LEAVING are deadlines -- the
+ * work wants to sit against the boundary, and anything earlier is a day that
+ * disagrees with the catalogue.
+ */
+export function anchorPacksBackward(anchor: DayAnchor): boolean {
+  return anchor === "BEFORE_BREAK" || anchor === "BEFORE_LEAVING";
+}
+
+/** Does this day have a break in the middle of it, rather than none at all? */
+export function dayHasBreak(windows: Window[]): boolean {
+  return windows.length >= 2;
+}
+
+/**
+ * What an anchor means on a day with no break in it.
+ *
+ * The four points are really "when I arrive", "before I stop", "when I come
+ * back" and "before I leave". Take the break away and the middle two have
+ * nothing to refer to: they fold onto the two ends of the day.
+ *
+ * This is what stops a routine that runs four times around a break from
+ * running four times on a day that has none. Folded onto an anchor a sibling
+ * already occupies, the repetition is dropped -- checking WhatsApp twice on a
+ * short day is the point. Folded somewhere free, it survives with the new
+ * anchor, so work whose only anchor is break-relative still gets done.
+ */
+export function collapseAnchor(anchor: DayAnchor): DayAnchor {
+  switch (anchor) {
+    case "BEFORE_BREAK":
+      return "BEFORE_LEAVING";
+    case "AFTER_BREAK":
+      return "ARRIVAL";
+    default:
+      return anchor;
+  }
 }
