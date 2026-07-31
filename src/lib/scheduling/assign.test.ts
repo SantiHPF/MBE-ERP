@@ -1558,3 +1558,76 @@ describe("a deadline with no start time", () => {
     }
   });
 });
+
+describe("work held behind a task this run is not placing", () => {
+  it("keeps it with the pinned person and after the given minute", () => {
+    // The leader is running 14:00-16:00 on someone else's calendar, so it is
+    // not in this run at all. The follower must still be theirs, and after.
+    const result = assignDay({
+      date: MON,
+      candidates: [
+        candidate("leader-owner", { busy: [{ start: at(14), end: at(16) }] }),
+        candidate("somebody-else"),
+      ],
+      tasks: [
+        task("follower", {
+          estimatedMinutes: 30,
+          groupKey: "follows:leader",
+          followsTaskId: "leader",
+          pinnedAssigneeId: "leader-owner",
+          notBeforeMinutes: at(16),
+        }),
+      ],
+    });
+
+    expect(result.assignments).toHaveLength(1);
+    expect(result.assignments[0].userId).toBe("leader-owner");
+    expect(result.assignments[0].start).toBe(at(16));
+  });
+
+  it("holds a whole chain behind it, in order", () => {
+    const result = assignDay({
+      date: MON,
+      candidates: [candidate("leader-owner"), candidate("somebody-else")],
+      tasks: [
+        task("head", {
+          estimatedMinutes: 30,
+          groupKey: "follows:leader",
+          followsTaskId: "leader",
+          pinnedAssigneeId: "leader-owner",
+          notBeforeMinutes: at(15),
+        }),
+        task("tail", {
+          estimatedMinutes: 30,
+          groupKey: "follows:leader",
+          followsTaskId: "head",
+        }),
+      ],
+    });
+
+    const head = result.assignments.find((a) => a.taskId === "head");
+    const tail = result.assignments.find((a) => a.taskId === "tail");
+    expect(head?.start).toBe(at(15));
+    expect(tail?.userId).toBe("leader-owner");
+    expect(tail?.start).toBe(at(15, 30));
+  });
+
+  it("says so plainly when the pinned person is gone", () => {
+    const result = assignDay({
+      date: MON,
+      candidates: [candidate("somebody-else")],
+      tasks: [
+        task("follower", {
+          groupKey: "follows:leader",
+          followsTaskId: "leader",
+          pinnedAssigneeId: "leader-owner",
+          notBeforeMinutes: at(16),
+        }),
+      ],
+    });
+
+    expect(result.unassigned).toEqual([
+      { taskId: "follower", reason: "pinned-person-unavailable" },
+    ]);
+  });
+});

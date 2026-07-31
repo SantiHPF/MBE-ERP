@@ -84,6 +84,15 @@ export type TaskInput = {
    * gets both, and this says which way round they go.
    */
   followsTaskId?: string | null;
+  /**
+   * The earliest minute this may start.
+   *
+   * Set when the thing it comes after is not in this run -- somebody is doing
+   * it right now, so the engine will not move it, and it is therefore invisible
+   * to the placement below. Without this floor the follower first-fits into the
+   * morning and the pair reads backwards.
+   */
+  notBeforeMinutes?: number | null;
 };
 
 export type RotationInput = {
@@ -342,12 +351,20 @@ export function assignDay(input: {
      * the order they were placed, which is what the anchor actually asks for.
      */
     if (task.anchor && anchorPacksBackward(task.anchor)) {
-      const slot = findLastSlot(free, task.estimatedMinutes, limit);
-      return slot;
+      return findLastSlot(
+        free,
+        task.estimatedMinutes,
+        limit,
+        task.notBeforeMinutes ?? 0,
+      );
     }
 
+    const floor = task.notBeforeMinutes ?? null;
+
     const from = wantedStart(task, candidate);
-    if (from == null) {
+    const start = from == null ? floor : floor == null ? from : Math.max(from, floor);
+
+    if (start == null) {
       /**
        * A deadline binds even when nothing says where to start.
        *
@@ -361,7 +378,7 @@ export function assignDay(input: {
       return slot && slot.end <= limit ? slot : null;
     }
 
-    const slot = findSlot(free, task.estimatedMinutes, from);
+    const slot = findSlot(free, task.estimatedMinutes, start);
     if (!slot) return null;
     return slot.end <= limit ? slot : null;
   };
@@ -381,6 +398,7 @@ export function assignDay(input: {
   ): Window | null => {
     const free = allowedFree(task, candidate);
     const limit = task.fixedEndMinutes ?? Infinity;
+    const floor = task.notBeforeMinutes ?? 0;
 
     /**
      * A deadline binds even when the task's point in the day is already taken.
@@ -394,9 +412,9 @@ export function assignDay(input: {
     // Same rule as placeFor: a deadline anchor searches from the end of its
     // half. Falling back forwards is what the bound was added to prevent.
     if (task.anchor && anchorPacksBackward(task.anchor)) {
-      return findLastSlot(free, task.estimatedMinutes, limit);
+      return findLastSlot(free, task.estimatedMinutes, limit, floor);
     }
-    const slot = findSlot(free, task.estimatedMinutes);
+    const slot = findSlot(free, task.estimatedMinutes, floor);
     return slot && slot.end <= limit ? slot : null;
   };
 
@@ -598,6 +616,28 @@ export function assignDay(input: {
       return;
     }
 
+    /**
+     * A member pinned to somebody fixes the whole unit to them.
+     *
+     * A chain whose leader is already being worked on is one person's job by
+     * definition -- ranking it would hand the second half to whoever happened
+     * to be free. Placed even when their day is full, for the same reason
+     * must-do work is: a visible overload beats a pair torn in two.
+     */
+    const pinnedTo = members.find((m) => m.pinnedAssigneeId)?.pinnedAssigneeId;
+    if (pinnedTo) {
+      const target = inDepartment.find((c) => c.userId === pinnedTo);
+      if (!target) {
+        for (const m of members) {
+          unassigned.push({ taskId: m.id, reason: "pinned-person-unavailable" });
+        }
+        return;
+      }
+      const needed = minutesFor(collapseFor(members, target).keep);
+      placeGroup(members, target, target.remaining < needed);
+      return;
+    }
+
     const ranked = [...inDepartment]
       .filter((c) => c.remaining >= minutesFor(collapseFor(members, c).keep))
       .sort((a, b) => compareForTask(a, b, first, rotation, oneOffLoad));
@@ -672,7 +712,15 @@ export function assignDay(input: {
        * would read backwards -- which the ordering rule would then refuse to
        * let anybody start.
        */
-      const after = task.followsTaskId ? endOf.get(task.followsTaskId) : undefined;
+      /**
+       * Its leader's end when the leader is in this group, and otherwise the
+       * floor the caller set for it -- which is the same fact, for a leader
+       * this run is not placing.
+       */
+      const after =
+        (task.followsTaskId ? endOf.get(task.followsTaskId) : undefined) ??
+        task.notBeforeMinutes ??
+        undefined;
 
       // Its own point in the day first, then anywhere in the right half of it
       // that still fits -- a check that cannot sit exactly where it belongs is
