@@ -1,4 +1,5 @@
 import type { Window } from "@/lib/scheduling/availability";
+import { clipWindows, totalMinutes } from "@/lib/scheduling/availability";
 
 /**
  * Is the day still reachable?
@@ -41,11 +42,7 @@ const FINISHED = ["DONE", "CANCELLED"];
  * excluded -- an hour for lunch is not an hour you can put a task in.
  */
 export function minutesLeftInDay(windows: Window[], nowMinutes: number): number {
-  let total = 0;
-  for (const w of windows) {
-    total += Math.max(0, w.end - Math.max(w.start, nowMinutes));
-  }
-  return total;
+  return totalMinutes(clipWindows(windows, nowMinutes, Infinity));
 }
 
 /**

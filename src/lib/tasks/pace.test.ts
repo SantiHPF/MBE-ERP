@@ -63,6 +63,18 @@ describe("remainingWorkMinutes", () => {
     ).toBe(20);
   });
 
+  /**
+   * The regression lock on the worst of the split-job double-counts.
+   *
+   * pace() is fed the day's tasks, which come from a scheduledDate filter. A
+   * parent (status SPLIT) never has one, so it can never reach here -- and if
+   * it ever did, a ten-hour job would read as ten hours of work owed today
+   * instead of the one sitting actually planned.
+   */
+  it("counts one sitting's minutes, not the whole job's", () => {
+    expect(remainingWorkMinutes([task({ estimatedMinutes: 150 })])).toBe(150);
+  });
+
   it("does not ask twice for time already spent on the running task", () => {
     expect(
       remainingWorkMinutes([
