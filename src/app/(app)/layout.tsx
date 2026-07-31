@@ -7,6 +7,8 @@ import {
 import { prisma } from "@/lib/db";
 import { logout } from "@/app/login/actions";
 import { NavLink } from "./nav-link";
+import { MessageBadge } from "./message-badge";
+import { unreadFor } from "@/lib/messages/db";
 import { LocaleProvider } from "@/lib/i18n/client";
 import { getT } from "@/lib/i18n/server";
 import { readTheme } from "@/lib/theme/read";
@@ -35,6 +37,10 @@ export default async function AppLayout({
     ? await prisma.absence.count({ where: { status: "PENDING" } })
     : 0;
 
+  // The first count on this page that everybody has. Server-rendered like the
+  // one above, and kept fresh between navigations by the poll in NowProvider.
+  const unread = await unreadFor(user.id);
+
   const initials = user.displayName
     .split(" ")
     .slice(0, 2)
@@ -56,6 +62,10 @@ export default async function AppLayout({
         <NavLink key="plan" href="/plan">{t("nav.planWeek")}</NavLink>,
         <NavLink key="cal" href="/my-calendar">{t("nav.myCalendar")}</NavLink>,
         <NavLink key="meet" href="/meetings">{t("nav.meetings")}</NavLink>,
+        <NavLink key="msg" href="/messages">
+          {t("nav.messages")}
+          <MessageBadge initial={unread} />
+        </NavLink>,
         <NavLink key="p1n" href="/p1n">{t("nav.p1n")}</NavLink>,
       ],
     },
