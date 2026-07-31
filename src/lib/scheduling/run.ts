@@ -442,24 +442,61 @@ export async function runSchedule(options?: {
       })
       .filter((c): c is CandidateInput => c !== null);
 
+    const schedulableById = new Map(schedulable.map((t) => [t.id, t]));
+    const heldById = new Map(inFlight.map((t) => [t.id, t]));
+
     /**
      * A pair that goes hand in hand is one unit of work, so it reuses the
      * grouping the anchored routines already have: the whole chain is keyed on
      * the task at the top of it, which sends it to one person.
+     *
+     * "The top" means the highest ancestor this run is placing, not the
+     * absolute root. Once somebody starts the leader it becomes immovable and
+     * drops out of `schedulable`, and this walk used to lose it -- leaving the
+     * follower in a group of one, pointing at a task the engine could not see,
+     * to be first-fit to whoever was free. The second half of a pair went to a
+     * different person, in the morning, while the first half was being done in
+     * the afternoon.
      */
     const chainRoot = new Map<string, string>();
+
+    /**
+     * Chain heads whose leader is in flight: who owns it, and when it ends.
+     * Enough for the engine to keep the pair together and in order without
+     * being able to move the half somebody is holding.
+     */
+    const detached = new Map<
+      string,
+      { assigneeId: string | null; end: number | null }
+    >();
+
     for (const t of schedulable) {
       if (!t.followsTaskId) continue;
-      let root = t.followsTaskId;
+
+      let root = t.id;
       const seen = new Set<string>([t.id]);
-      // Walk to the top, guarding against a cycle in the stored links.
+
+      // Bounded by MAX_CHAIN's worth of hops, and by `seen`, so a cycle in the
+      // stored links stops rather than spinning.
       for (let hop = 0; hop < 5; hop++) {
-        if (seen.has(root)) break;
-        seen.add(root);
-        const parent = schedulable.find((s) => s.id === root)?.followsTaskId;
-        if (!parent) break;
-        root = parent;
+        const parentId = schedulableById.get(root)?.followsTaskId;
+        if (!parentId || seen.has(parentId)) break;
+
+        if (!schedulableById.has(parentId)) {
+          const leader = heldById.get(parentId);
+          if (leader) {
+            detached.set(root, {
+              assigneeId: leader.assigneeId,
+              end: leader.scheduledEnd,
+            });
+          }
+          break;
+        }
+
+        seen.add(parentId);
+        root = parentId;
       }
+
       chainRoot.set(t.id, root);
       chainRoot.set(root, root);
     }
@@ -467,13 +504,18 @@ export async function runSchedule(options?: {
     const taskInputs: TaskInput[] = schedulable.map((t) => {
       const fixed = t.externalKey ? fixedByKey.get(t.externalKey) : undefined;
       const root = chainRoot.get(t.id);
+      const detach = detached.get(t.id);
       return {
         id: t.id,
         departmentId: t.departmentId,
         estimatedMinutes: t.estimatedMinutes,
         templateId: t.templateId,
         priority: t.priority,
-        pinnedAssigneeId: t.actionItem?.pinnedAssigneeId ?? null,
+        // A meeting naming somebody wins over an inherited owner: it is a
+        // decision a person made, not one the calendar implies.
+        pinnedAssigneeId:
+          t.actionItem?.pinnedAssigneeId ?? detach?.assigneeId ?? null,
+        notBeforeMinutes: detach?.end ?? null,
         fixedStartMinutes: fixed?.start ?? null,
         fixedEndMinutes: fixed?.end ?? null,
         // The task's own anchor is authoritative -- it survives a rule being
