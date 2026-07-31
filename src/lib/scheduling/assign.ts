@@ -380,11 +380,24 @@ export function assignDay(input: {
     candidate: WorkingCandidate,
   ): Window | null => {
     const free = allowedFree(task, candidate);
+    const limit = task.fixedEndMinutes ?? Infinity;
+
+    /**
+     * A deadline binds even when the task's point in the day is already taken.
+     *
+     * Without this, a task with only a deadline that couldn't fit at its
+     * intended anchor would be fallback-placed at whatever first-fits, even
+     * past its deadline. A deadline honoured by the main path and ignored by
+     * the fallback is not honoured at all -- what mattered was that placeFor
+     * now returns null for deadline reasons, making this fallback reachable.
+     */
     // Same rule as placeFor: a deadline anchor searches from the end of its
     // half. Falling back forwards is what the bound was added to prevent.
-    return task.anchor && anchorPacksBackward(task.anchor)
-      ? findLastSlot(free, task.estimatedMinutes)
-      : findSlot(free, task.estimatedMinutes);
+    if (task.anchor && anchorPacksBackward(task.anchor)) {
+      return findLastSlot(free, task.estimatedMinutes, limit);
+    }
+    const slot = findSlot(free, task.estimatedMinutes);
+    return slot && slot.end <= limit ? slot : null;
   };
 
   const orderTasks = (tasks: TaskInput[]) =>

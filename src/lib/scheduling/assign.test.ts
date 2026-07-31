@@ -1499,4 +1499,62 @@ describe("a deadline with no start time", () => {
     expect(result.assignments[0].start).toBe(at(9));
     expect(result.assignments[0].end).toBe(at(10));
   });
+
+  it("gives a MUST task with only a deadline a null slot when no deadline-respecting slot exists", () => {
+    // A MUST task with only a deadline, on a day where nothing fits by that
+    // time, is assigned to somebody but with start: null, overCapacity: true.
+    // That is how "never dropped" is expressed when the day is over.
+    const result = assignDay({
+      date: MON,
+      candidates: [
+        candidate("solo", { busy: [{ start: at(9), end: at(10, 30) }] }),
+      ],
+      tasks: [
+        task("must-by-ten", {
+          priority: "MUST",
+          templateId: null,
+          fixedEndMinutes: at(10),
+        }),
+      ],
+    });
+
+    expect(result.assignments).toHaveLength(1);
+    expect(result.assignments[0].start).toBeNull();
+    expect(result.assignments[0].end).toBeNull();
+    expect(result.assignments[0].overCapacity).toBe(true);
+  });
+
+  it("does not fallback-place a grouped member past its deadline", () => {
+    // A routine member with a deadline, whose anchor can't accommodate it,
+    // should not be fallback-placed past the deadline. With a deadline that
+    // can't be met on a full day, the member gets a null slot and overCapacity
+    // is true (like MUST work) -- the day reads as over, not the deadline as
+    // violated.
+    const result = assignDay({
+      date: MON,
+      candidates: [
+        candidate("solo", { busy: [{ start: at(9), end: at(10, 30) }] }),
+      ],
+      tasks: [
+        task("routine-1", {
+          templateId: "tpl-routine",
+          groupKey: "routine",
+          fixedEndMinutes: at(10),
+        }),
+        task("routine-2", {
+          templateId: "tpl-routine",
+          groupKey: "routine",
+          fixedEndMinutes: at(10),
+        }),
+      ],
+    });
+
+    // The routine gets assigned to solo, but cannot fit by the deadline.
+    expect(result.assignments).toHaveLength(2);
+    // Both should have null slots (no moment before 10:00 is free).
+    for (const a of result.assignments) {
+      expect(a.start).toBeNull();
+      expect(a.end).toBeNull();
+    }
+  });
 });
