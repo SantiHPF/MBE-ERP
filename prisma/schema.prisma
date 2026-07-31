@@ -87,6 +87,9 @@ model User {
   attendance      AttendanceDay[]
   triageActions   TriageAction[]
   deferrals       TaskDeferral[]
+  blocks          TaskBlock[]
+  messagesSent     Message[] @relation("MessageSender")
+  messagesReceived Message[] @relation("MessageRecipient")
   p1ns            P1n[]
   p1nsApplied     P1n[]            @relation("P1nApplier")
   meetingsCreated Meeting[]        @relation("MeetingAuthor")
@@ -157,6 +160,13 @@ model AttendanceDay {
   /// The latest. Null while the day is still open.
   endedAt   DateTime?
   endSource AttendanceSource?
+
+  /// Lunch, clocked the same way the day is: an actual out and an actual in,
+  /// against the rostered break on the WorkingPattern. Both null means nobody
+  /// clocked it, which is read as "took it exactly as rostered" rather than
+  /// as "took none" -- see breakDrift() in lib/attendance/attendance.ts.
+  breakStartedAt DateTime?
+  breakEndedAt   DateTime?
 
   firstLoginAt     DateTime?
   firstTaskStartAt DateTime?
@@ -288,6 +298,14 @@ model TaskTemplate {
   /// a candidate call, an invoice, a check-in. Lets the day hold "10 calls"
   /// as one block instead of ten identical rows.
   repeatable       Boolean  @default(false)
+  /// How long one sitting of this job should be, when the whole job is too
+  /// long to do in one. Null means the default in lib/plan/sessions.ts.
+  ///
+  /// It lives on the catalogue rather than being worked out from whoever
+  /// picks the job up: the engine's re-runs have to be a pure function of the
+  /// rules and the calendar, and sizing a sitting from one person's longest
+  /// free window would make the second run split differently from the first.
+  sessionMinutes   Int?
   priority         Priority @default(NORMAL)
   active           Boolean  @default(true)
   createdAt        DateTime @default(now())
@@ -295,11 +313,22 @@ model TaskTemplate {
   departmentId String
   department   Department @relation(fields: [departmentId], references: [id])
 
+  /// "This one comes after that one." Set on the follower, so several entries
+  /// may hang off the same leader -- reviewing the portals can produce both a
+  /// report and a Gantt update. Null for work that stands on its own.
+  /// Keep instances of this entry in one half of the day. Null means anywhere.
+  shiftHalf ShiftHalf?
+
+  followsId String?
+  follows   TaskTemplate?  @relation("TemplateFollows", fields: [followsId], references: [id], onDelete: SetNull)
+  followers TaskTemplate[] @relation("TemplateFollows")
+
   recurringRules RecurringRule[]
   tasks          Task[]
   rotation       RotationLedger[]
 
   @@unique([departmentId, name])
+  @@index([followsId])
 }
 
 /// How hard a task pushes for capacity.
@@ -326,6 +355,14 @@ enum Frequency {
 /// done at the start of every shift cannot be expressed as a fixed time. These
 /// resolve per person against the windows computeAvailability() returns, which
 /// already have the break carved out.
+/// Which part of the working day a task belongs in, when it has no anchor and
+/// no clock time but still should not drift. Split at one company-wide hour --
+/// see src/lib/scheduling/half.ts.
+enum ShiftHalf {
+  MORNING
+  AFTERNOON
+}
+
 enum DayAnchor {
   ARRIVAL
   BEFORE_BREAK
@@ -390,8 +427,17 @@ enum TaskStatus {
   IN_PROGRESS
   PAUSED
   ORPHANED
+  /// Still yours and still today, but stepped over: somebody said they could
+  /// not do it and chose to keep it. The day runs in order, so without this a
+  /// single stuck task holds up everything below it.
+  SET_ASIDE
   DONE
   CANCELLED
+  /// Not work: a job too long for one sitting, holding the sittings that are.
+  /// Never has a slot, never counts towards anybody's day. A status rather
+  /// than a flag because nearly every filter here is an allow-list, so a new
+  /// value is excluded from all of them by construction. See lib/plan/sessions.ts.
+  SPLIT
 }
 
 model Task {
@@ -431,6 +477,11 @@ model Task {
   /// re-polling the sheet updates instead of duplicating.
   externalKey String? @unique
 
+  /// A parent (status SPLIT) never has any of these three. That one fact is
+  /// what keeps it out of My Day, the now-bar, pace, /team and triage's
+  /// totals -- every day-scoped query in the app filters on scheduledDate --
+  /// without any of them having to learn what a parent is. Nothing may set a
+  /// slot on a SPLIT row; verify:sessions asserts it.
   scheduledDate  DateTime? @db.Date
   scheduledStart Int?
   scheduledEnd   Int?
@@ -440,21 +491,54 @@ model Task {
   /// placeOnDay after a deferral, a manual reorder -- can still honour it.
   anchor DayAnchor?
 
+  /// Copied from the template when the task is created, for the same reason
+  /// `anchor` is: re-placing it later must still honour it.
+  shiftHalf ShiftHalf?
+
   orphanedAt   DateTime?
   orphanReason String?
+
+  /// Why the engine could not place it, from assignDay's Unassigned union.
+  /// Worked out every run and previously thrown away, which is why triage
+  /// could only ever show a count of work nobody had room for.
+  unplacedReason String?
 
   timeEntries   TimeEntry[]
   crmInteractions CrmInteraction[]
   triageActions TriageAction[]
   deferrals     TaskDeferral[]
+  blocks        TaskBlock[]
+  messages      Message[]
   p1ns          P1n[]
   actionItem    ActionItem?
   /// Set when this task is itself a meeting being minuted.
   hostedMeeting Meeting?       @relation("MeetingSourceTask")
 
+  /// The instance this one follows, for this day. Deleting the leader takes
+  /// its followers with it: the second half of a pair means nothing alone.
+  followsTaskId String?
+  followsTask   Task?  @relation("TaskFollows", fields: [followsTaskId], references: [id], onDelete: Cascade)
+  followers     Task[] @relation("TaskFollows")
+
+  /// The long job this is one sitting of. Cascades like followsTaskId does:
+  /// one slice of a job means nothing once the job is gone.
+  ///
+  /// Deliberately not the same link as followsTaskId -- the engine walks that
+  /// one to a chain root and places the whole chain inside a single day, which
+  /// is the exact thing sittings exist to avoid.
+  parentTaskId String?
+  parent       Task?  @relation("TaskSessions", fields: [parentTaskId], references: [id], onDelete: Cascade)
+  sessions     Task[] @relation("TaskSessions")
+
+  /// 1-based, in the order the sittings have to happen. Null on everything
+  /// else. Unique per parent, enforced by a partial index in the migration.
+  sessionIndex Int?
+
   @@index([departmentId, dueDate])
   @@index([assigneeId, scheduledDate])
   @@index([status])
+  @@index([parentTaskId])
+  @@index([followsTaskId])
   /// Also has a partial unique index that Prisma cannot express, added by hand
   /// in 20260728140000_concurrency_guards:
   ///   ("templateId", "dueDate") WHERE origin = 'CATALOGUE' AND status <> 'CANCELLED'
@@ -549,7 +633,78 @@ model TaskDeferral {
   @@index([userId, createdAt])
 }
 
-/// Why a task moved. Written whenever a manager resolves an orphan.
+/// One thing said to one person.
+///
+/// No thread table: a conversation is every message between two people in
+/// either direction, ordered by time, which is all this needs and keeps the
+/// unread count a single indexed count rather than an aggregate.
+model Message {
+  id String @id @default(cuid())
+
+  senderId String
+  sender   User   @relation("MessageSender", fields: [senderId], references: [id])
+
+  recipientId String
+  recipient   User   @relation("MessageRecipient", fields: [recipientId], references: [id])
+
+  body String
+
+  /// Set when it was sent alongside a task -- handing work over with a word
+  /// about why, or a block report. Nullable and SET NULL on delete: a message
+  /// about a task that has since been cancelled is still a message.
+  taskId String?
+  task   Task?   @relation(fields: [taskId], references: [id], onDelete: SetNull)
+
+  readAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  /// The unread badge, which runs on every page load.
+  @@index([recipientId, readAt])
+  /// The inbox, newest first.
+  @@index([recipientId, createdAt])
+  @@index([senderId, createdAt])
+}
+
+/// What the person chose to happen to work they could not do.
+enum BlockOutcome {
+  /// Moved to another day. Also writes a TaskDeferral, as deferring always has.
+  MOVED
+  /// Given back to the manager: orphaned, and in the triage queue.
+  HANDED_BACK
+  /// Kept for today, but stepped over so it stops holding up the rest.
+  SET_ASIDE
+  /// "This does not need doing" -- a request, not a decision. Only a manager
+  /// cancels work.
+  CANCEL_REQUESTED
+}
+
+/// Somebody could not do a task, and said why.
+///
+/// Distinct from PauseEvent, which is a stoppage inside work already started,
+/// and from TaskDeferral, which records only that a date moved. This is the
+/// person's account of why the plan did not survive contact with the day, and
+/// it is what the manager reads in triage.
+model TaskBlock {
+  id      String @id @default(cuid())
+  taskId  String
+  task    Task   @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  userId  String
+  user    User   @relation(fields: [userId], references: [id])
+  reason  String
+  outcome BlockOutcome
+  /// Where it went, for MOVED.
+  movedTo DateTime? @db.Date
+  /// Set once a manager has dealt with it. Null means it is still in the queue.
+  resolvedAt DateTime?
+  createdAt  DateTime @default(now())
+
+  @@index([taskId])
+  @@index([resolvedAt, createdAt])
+}
+
+/// Why a task moved. Written whenever an orphan is resolved -- by a manager in
+/// triage, or by whoever picked it up out of their own free time, which is the
+/// only way one leaves the queue without a manager seeing it first.
 model TriageAction {
   id         String           @id @default(cuid())
   taskId     String
@@ -715,6 +870,12 @@ model CrmSource {
 
   departmentId String
   department   Department @relation(fields: [departmentId], references: [id])
+
+  /// The switchboard and the info@ address: how you reach the place itself
+  /// when the person you know there has left, or before you know anybody.
+  /// Distinct from CrmContact.phone/email, which belong to a named person.
+  phone String?
+  email String?
 
   /// When the intern offers on their board were last refreshed.
   offersUpdatedAt DateTime?

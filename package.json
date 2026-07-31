@@ -23,7 +23,10 @@
     "ingest": "tsx scripts/ingest-sheet.ts",
     "import:catalogue": "tsx scripts/import-catalogue.ts",
     "import:recurring": "tsx scripts/import-recurring.ts",
-    "verify:attendance": "tsx scripts/verify-attendance.ts"
+    "verify:attendance": "tsx scripts/verify-attendance.ts",
+    "verify:gaps": "tsx scripts/verify-gaps.ts",
+    "verify:follow": "tsx scripts/verify-follow.ts",
+    "verify:sessions": "tsx scripts/verify-sessions.ts"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"
