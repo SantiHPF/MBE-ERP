@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useState } from "react";
 import type { OrphanedTask } from "@/lib/triage/queue";
 import { formatClock, formatDuration } from "@/lib/time";
 import {
@@ -15,6 +15,7 @@ const initial: TriageState = {};
 
 export function OrphanCard({ task }: { task: OrphanedTask }) {
   const { t } = useT();
+  const [note, setNote] = useState("");
   const [reassignState, reassign, reassigning] = useActionState(
     reassignTask,
     initial,
@@ -51,11 +52,22 @@ export function OrphanCard({ task }: { task: OrphanedTask }) {
             <p className="mb-1.5 text-[11px] font-semibold tracking-[0.07em] text-faint uppercase">
               {t("triage.giveToSomeone")}
             </p>
+            {/* Handing work over without a word about why is how people end
+                up wondering what they did wrong. Optional, and it goes to
+                them as a message alongside the task. */}
+            <input
+              value={note}
+              onChange={(e) => setNote(e.target.value)}
+              placeholder={t("triage.sayWhy")}
+              aria-label={t("triage.sayWhy")}
+              className="field mb-2"
+            />
             <div className="mb-3.5 flex flex-wrap gap-1.5">
               {task.candidates.map((c) => (
                 <form key={c.userId} action={reassign}>
                   <input type="hidden" name="taskId" value={task.id} />
                   <input type="hidden" name="userId" value={c.userId} />
+                  <input type="hidden" name="note" value={note} />
                   <button
                     type="submit"
                     disabled={busy}

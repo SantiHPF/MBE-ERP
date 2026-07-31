@@ -157,3 +157,152 @@ export async function getTriageQueue(
     };
   });
 }
+
+/**
+ * Somebody said they could not do a task, and what they chose to happen to it.
+ *
+ * The first thing a manager should see. An orphan is the system reporting a
+ * clash of dates; this is a person reporting that the plan did not survive
+ * contact with the day, which is both more useful and more perishable.
+ *
+ * Unresolved only, newest first. Resolved rows stay in the table so "why did
+ * this move" is still answerable, but they are not a queue any more.
+ */
+export type StuckTask = {
+  blockId: string;
+  taskId: string;
+  title: string;
+  estimatedMinutes: number;
+  who: string;
+  reason: string;
+  outcome: string;
+  /** Where they moved it to, for MOVED. */
+  movedTo: string | null;
+  when: string;
+  /** Whether the task is still theirs to be given back. */
+  stillOwned: boolean;
+  status: string;
+};
+
+export async function getStuckQueue(departmentId: string): Promise<StuckTask[]> {
+  const blocks = await prisma.taskBlock.findMany({
+    where: { resolvedAt: null, task: { departmentId } },
+    include: {
+      user: { select: { displayName: true } },
+      task: {
+        select: {
+          id: true,
+          title: true,
+          estimatedMinutes: true,
+          status: true,
+          assigneeId: true,
+        },
+      },
+    },
+    orderBy: { createdAt: "desc" },
+    take: 40,
+  });
+
+  return blocks
+    // A task cancelled or finished since is no longer a decision anybody owes.
+    .filter((b) => !["CANCELLED", "DONE"].includes(b.task.status))
+    .map((b) => ({
+      blockId: b.id,
+      taskId: b.task.id,
+      title: b.task.title,
+      estimatedMinutes: b.task.estimatedMinutes,
+      who: b.user.displayName,
+      reason: b.reason,
+      outcome: b.outcome,
+      movedTo: b.movedTo ? dateKey(b.movedTo) : null,
+      when: b.createdAt.toISOString(),
+      stillOwned: b.task.assigneeId !== null,
+      status: b.task.status,
+    }));
+}
+
+/**
+ * Work the engine could not place, with the reason it worked out at the time.
+ *
+ * This used to be a bare count and a paragraph of prose, because assignDay
+ * computed a reason every run and runSchedule threw it away. Persisting it
+ * turns "4 tasks nobody had room for" into a list, and separates the ones
+ * waiting on a spare hour from the ones that will never fit until they are
+ * split up.
+ */
+export type UnplacedTask = {
+  id: string;
+  title: string;
+  estimatedMinutes: number;
+  dueDate: string;
+  reason: string | null;
+};
+
+export async function getUnplaced(departmentId: string): Promise<UnplacedTask[]> {
+  const tasks = await prisma.task.findMany({
+    where: { departmentId, status: "UNASSIGNED", assigneeId: null },
+    select: {
+      id: true,
+      title: true,
+      estimatedMinutes: true,
+      dueDate: true,
+      unplacedReason: true,
+    },
+    orderBy: [{ dueDate: "asc" }, { estimatedMinutes: "desc" }],
+    take: 40,
+  });
+
+  return tasks.map((t) => ({
+    id: t.id,
+    title: t.title,
+    estimatedMinutes: t.estimatedMinutes,
+    dueDate: dateKey(t.dueDate),
+    reason: t.unplacedReason,
+  }));
+}
+
+/**
+ * Recent slips: work that moved, and what the person said about it.
+ *
+ * TaskDeferral has been written on every deferral since the feature shipped
+ * and read by nothing at all. A manager who wants to know why a week keeps
+ * sliding has had no way to find out.
+ */
+export type Slip = {
+  taskId: string;
+  title: string;
+  who: string;
+  reason: string;
+  from: string;
+  to: string;
+  when: string;
+};
+
+export async function getRecentSlips(
+  departmentId: string,
+  days = 7,
+): Promise<Slip[]> {
+  const since = new Date(Date.now() - days * 86_400_000);
+
+  const deferrals = await prisma.taskDeferral.findMany({
+    where: { createdAt: { gte: since }, task: { departmentId } },
+    include: {
+      user: { select: { displayName: true } },
+      task: { select: { id: true, title: true, status: true } },
+    },
+    orderBy: { createdAt: "desc" },
+    take: 20,
+  });
+
+  return deferrals
+    .filter((d) => d.task.status !== "CANCELLED")
+    .map((d) => ({
+      taskId: d.task.id,
+      title: d.task.title,
+      who: d.user.displayName,
+      reason: d.reason,
+      from: dateKey(d.fromDate),
+      to: dateKey(d.toDate),
+      when: d.createdAt.toISOString(),
+    }));
+}
