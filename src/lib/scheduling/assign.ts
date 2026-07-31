@@ -347,7 +347,19 @@ export function assignDay(input: {
     }
 
     const from = wantedStart(task, candidate);
-    if (from == null) return findSlot(free, task.estimatedMinutes);
+    if (from == null) {
+      /**
+       * A deadline binds even when nothing says where to start.
+       *
+       * The limit used to be checked only on the branch below, so a task that
+       * merely had to be *finished* by ten was placed at half past and the
+       * deadline was never mentioned again. findSlot returns the earliest
+       * fitting slot, so if that one busts the deadline no later one can
+       * save it -- null is the honest answer, and triage shows it.
+       */
+      const slot = findSlot(free, task.estimatedMinutes);
+      return slot && slot.end <= limit ? slot : null;
+    }
 
     const slot = findSlot(free, task.estimatedMinutes, from);
     if (!slot) return null;

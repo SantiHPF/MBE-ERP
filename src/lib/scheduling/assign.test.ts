@@ -1470,3 +1470,33 @@ describe("priority across routines and single tasks", () => {
     expect(routine?.start).toBe(at(9));
   });
 });
+
+describe("a deadline with no start time", () => {
+  it("refuses a slot that would finish after it", () => {
+    // Finish by 10:00, but 09:00-10:30 is already taken. There is no honest
+    // slot, so it must go to triage rather than land at 10:30 pretending.
+    const result = assignDay({
+      date: MON,
+      candidates: [
+        candidate("solo", { busy: [{ start: at(9), end: at(10, 30) }] }),
+      ],
+      tasks: [task("due-by-ten", { templateId: null, fixedEndMinutes: at(10) })],
+    });
+
+    expect(result.assignments).toHaveLength(0);
+    expect(result.unassigned).toEqual([
+      { taskId: "due-by-ten", reason: "no-slot-fits" },
+    ]);
+  });
+
+  it("takes a slot that finishes in time", () => {
+    const result = assignDay({
+      date: MON,
+      candidates: [candidate("solo")],
+      tasks: [task("due-by-ten", { templateId: null, fixedEndMinutes: at(10) })],
+    });
+
+    expect(result.assignments[0].start).toBe(at(9));
+    expect(result.assignments[0].end).toBe(at(10));
+  });
+});
