@@ -137,6 +137,19 @@ export function addDays(date: Date, days: number): Date {
   return next;
 }
 
+/**
+ * Whole calendar days from `from` to `to`. Negative when `to` is the earlier
+ * of the two, which is how "overdue by three days" is expressed.
+ *
+ * Both ends are normalised to date-only first, so this counts days on the
+ * calendar rather than 24-hour periods -- and is therefore unaffected by the
+ * DST crossover that shortens one of them.
+ */
+export function daysBetween(from: Date, to: Date): number {
+  const ms = toDateOnly(to).getTime() - toDateOnly(from).getTime();
+  return Math.round(ms / 86_400_000);
+}
+
 export function eachDay(start: Date, end: Date): Date[] {
   const days: Date[] = [];
   let cursor = toDateOnly(start);

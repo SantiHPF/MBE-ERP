@@ -1,5 +1,6 @@
 import { dateKey, eachDay, isoWeekday } from "@/lib/time";
 import type { DayAnchor } from "./availability";
+import type { ShiftHalf } from "./half";
 
 /**
  * Turns recurring rules into concrete, dated task instances.
@@ -30,6 +31,8 @@ export type RuleInput = {
     estimatedMinutes: number;
     active: boolean;
     priority?: "MUST" | "NORMAL" | "SPARE_TIME";
+    /// Keep instances in one half of the day. Anchors override it.
+    shiftHalf?: ShiftHalf | null;
   };
 };
 
@@ -81,6 +84,8 @@ export type PlannedTask = {
   fixedEndMinutes: number | null;
   /** Set for anchored work; its clock time depends on who ends up with it. */
   anchor: DayAnchor | null;
+  /** Morning or afternoon, from the catalogue. Null means anywhere. */
+  shiftHalf: ShiftHalf | null;
   /**
    * Anchored repetitions of a rule are one person's routine, so they are
    * assigned together. Null for everything else.
@@ -161,6 +166,7 @@ export function planRecurringTasks(input: {
         departmentId: rule.departmentId,
         templateId: rule.templateId,
         origin: "RECURRING",
+        shiftHalf: rule.template.shiftHalf ?? null,
       } as const;
 
       // Anchored: one task per point in the shift, all belonging to one
@@ -215,4 +221,55 @@ export function diffAgainstExisting(
 ): { toCreate: PlannedTask[]; alreadyPresent: number } {
   const toCreate = planned.filter((task) => !existingKeys.has(task.externalKey));
   return { toCreate, alreadyPresent: planned.length - toCreate.length };
+}
+
+/** How work already on the calendar is counted against what a rule wants. */
+export function coverageKey(templateId: string, date: Date): string {
+  return `${templateId}:${dateKey(date)}`;
+}
+
+/**
+ * Take off what somebody has already put on the calendar themselves.
+ *
+ * A rule says how many times a day something happens; it does not say those
+ * have to come from the rule. Planning your week on the board is a claim on
+ * exactly that work, and the rule has no way to see it -- a claim carries no
+ * externalKey, so diffAgainstExisting looks straight past it. That is how a
+ * board tick on Thursday and the rule's own Thursday instance ended up as two
+ * Sucesos on one morning.
+ *
+ * So the rule tops up rather than adds: it wants four CRM checks, you have
+ * already claimed one, it raises three. Claim nothing and you get all four,
+ * which is what keeps must-do work arriving whether or not anybody planned it.
+ *
+ * Repetitions are given up from the end of the day backwards, so what survives
+ * is the early part of the routine. "Al llegar" is a real instruction people
+ * notice missing; the fourth check of the afternoon is the one that can be the
+ * thing you already picked up.
+ */
+export function dropAlreadyCovered(
+  planned: PlannedTask[],
+  covered: Map<string, number>,
+): { toPlan: PlannedTask[]; covered: number } {
+  if (covered.size === 0) return { toPlan: planned, covered: 0 };
+
+  const left = new Map(covered);
+  const dropped = new Set<PlannedTask>();
+
+  // Walk backwards so the repetitions given up are the latest ones. Anchored
+  // instances are pushed in ANCHOR order, so this gives up "antes de salir"
+  // before "al llegar".
+  for (let i = planned.length - 1; i >= 0; i -= 1) {
+    const task = planned[i];
+    const key = coverageKey(task.templateId, task.dueDate);
+    const remaining = left.get(key) ?? 0;
+    if (remaining <= 0) continue;
+    left.set(key, remaining - 1);
+    dropped.add(task);
+  }
+
+  return {
+    toPlan: planned.filter((t) => !dropped.has(t)),
+    covered: dropped.size,
+  };
 }

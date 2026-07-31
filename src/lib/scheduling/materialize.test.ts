@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
 import {
   buildRecurringKey,
+  coverageKey,
   diffAgainstExisting,
+  dropAlreadyCovered,
   planRecurringTasks,
   type RuleInput,
 } from "./materialize";
@@ -371,5 +373,105 @@ describe("anchored rules", () => {
     ]);
     expect(planned.every((p) => p.anchor === null)).toBe(true);
     expect(planned.every((p) => p.groupKey === null)).toBe(true);
+  });
+});
+
+describe("dropAlreadyCovered", () => {
+  /** A rule that fires once on Monday and once on Thursday. */
+  const onceADay = () =>
+    planRecurringTasks({ rules: [rule()], from: MON, to: FRI });
+
+  /** The same template at four points in the shift, one day only. */
+  const fourTimes = () =>
+    planRecurringTasks({
+      rules: [
+        rule({
+          weekdays: [1],
+          anchors: ["ARRIVAL", "BEFORE_BREAK", "AFTER_BREAK", "BEFORE_LEAVING"],
+        }),
+      ],
+      from: MON,
+      to: MON,
+    });
+
+  it("plans everything when nobody has claimed anything", () => {
+    const { toPlan, covered } = dropAlreadyCovered(onceADay(), new Map());
+    expect(toPlan).toHaveLength(2);
+    expect(covered).toBe(0);
+  });
+
+  it("raises nothing for a once-a-day job somebody already claimed", () => {
+    // The bug: a board tick on Monday plus the rule's own Monday instance is
+    // the same job twice on one morning.
+    const { toPlan, covered } = dropAlreadyCovered(
+      onceADay(),
+      new Map([[coverageKey("tpl-1", MON), 1]]),
+    );
+
+    expect(covered).toBe(1);
+    expect(toPlan).toHaveLength(1);
+    expect(toPlan[0].dueDate.toISOString().slice(0, 10)).toBe("2026-07-30");
+  });
+
+  it("tops a four-times-a-day routine up to four, not five", () => {
+    const { toPlan, covered } = dropAlreadyCovered(
+      fourTimes(),
+      new Map([[coverageKey("tpl-1", MON), 1]]),
+    );
+
+    expect(covered).toBe(1);
+    expect(toPlan).toHaveLength(3);
+  });
+
+  it("gives up the end of the day rather than the arrival check", () => {
+    // "Al llegar" is an instruction somebody notices missing. The fourth
+    // check of the afternoon is the one a claim can stand in for.
+    const { toPlan } = dropAlreadyCovered(
+      fourTimes(),
+      new Map([[coverageKey("tpl-1", MON), 1]]),
+    );
+
+    expect(toPlan.map((t) => t.anchor)).toEqual([
+      "ARRIVAL",
+      "BEFORE_BREAK",
+      "AFTER_BREAK",
+    ]);
+  });
+
+  it("raises nothing at all when the whole routine is already claimed", () => {
+    const { toPlan } = dropAlreadyCovered(
+      fourTimes(),
+      new Map([[coverageKey("tpl-1", MON), 4]]),
+    );
+    expect(toPlan).toEqual([]);
+  });
+
+  it("does not go negative when more is claimed than the rule wants", () => {
+    const { toPlan, covered } = dropAlreadyCovered(
+      onceADay(),
+      new Map([[coverageKey("tpl-1", MON), 9]]),
+    );
+    expect(covered).toBe(1);
+    expect(toPlan).toHaveLength(1);
+  });
+
+  it("only counts a claim against its own day", () => {
+    const { toPlan } = dropAlreadyCovered(
+      onceADay(),
+      new Map([[coverageKey("tpl-1", MON), 1]]),
+    );
+    // Thursday is untouched by a Monday claim.
+    expect(toPlan.map((t) => t.dueDate.toISOString().slice(0, 10))).toEqual([
+      "2026-07-30",
+    ]);
+  });
+
+  it("only counts a claim against its own template", () => {
+    const { toPlan, covered } = dropAlreadyCovered(
+      onceADay(),
+      new Map([[coverageKey("tpl-other", MON), 3]]),
+    );
+    expect(covered).toBe(0);
+    expect(toPlan).toHaveLength(2);
   });
 });

@@ -139,9 +139,40 @@ async function main() {
     );
 
     check(
-      "the four run in order through the day",
-      starts.length === 4 && starts.every((s, i) => i === 0 || s >= starts[i - 1]),
-      starts.map((s) => formatClock(s)).join(" → "),
+      "the ones that fit run in order through the day",
+      starts.every((s, i) => i === 0 || s >= starts[i - 1]),
+      starts.map((s) => formatClock(s)).join(" → ") || "(none placed)",
+    );
+
+    /**
+     * The property that actually matters, and the one this used to get wrong.
+     *
+     * It asserted all four were placed, which passed while "antes del descanso"
+     * sat at 18:00 -- after the break it is named for. On a day already full of
+     * real work some anchors genuinely cannot be honoured, and going unplaced
+     * is the honest answer; what must never happen is one being placed in the
+     * wrong half of the day.
+     */
+    const divide = pattern?.breakStartMinutes ?? null;
+    const misplaced = divide
+      ? list.filter((t) => {
+          if (t.scheduledStart == null) return false;
+          const wantsMorning =
+            t.anchor === "ARRIVAL" || t.anchor === "BEFORE_BREAK";
+          return wantsMorning
+            ? t.scheduledStart >= divide
+            : t.scheduledStart < divide;
+        })
+      : [];
+
+    check(
+      "none is placed in the wrong half of the day",
+      misplaced.length === 0,
+      misplaced.length === 0
+        ? `${starts.length} placed, each in its own half`
+        : misplaced
+            .map((t) => `${t.anchor}@${formatClock(t.scheduledStart!)}`)
+            .join(" "),
     );
 
     // Move their start an hour later; the anchored work should follow.
@@ -162,10 +193,24 @@ async function main() {
         },
       });
 
+      /**
+       * Arrival follows the shift, but "as soon after as there is room" --
+       * the same rule the check above states and this one used to contradict
+       * by demanding the exact minute. On a day already full it lands later;
+       * what it must never do is start before the person does.
+       *
+       * When the old placement *was* exactly on the old start, the day plainly
+       * had room, and then the new one has to be exactly on the new start.
+       */
+      const newStart = pattern.startMinutes + 60;
+      const wasOnTheDot = arrival?.scheduledStart === pattern.startMinutes;
+      const now = again?.scheduledStart ?? null;
+
       check(
         "the times follow a change of hours",
-        again?.scheduledStart === pattern.startMinutes + 60,
-        `arrival now ${again?.scheduledStart != null ? formatClock(again.scheduledStart) : "—"}, shift now starts ${formatClock(pattern.startMinutes + 60)}`,
+        now != null && now >= newStart && (!wasOnTheDot || now === newStart),
+        `arrival now ${now != null ? formatClock(now) : "—"}, shift now starts ${formatClock(newStart)}` +
+          (wasOnTheDot ? " (had room, so must be exact)" : " (day already busy)"),
       );
 
       await prisma.workingPattern.update({
