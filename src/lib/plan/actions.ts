@@ -8,6 +8,10 @@ import { errorText, message } from "@/lib/i18n/errors";
 import { getT } from "@/lib/i18n/server";
 import { toDateOnly } from "@/lib/time";
 import { placeOnDay } from "./place";
+import { claimTemplate } from "./claim";
+import { createFollowers, followersOf } from "./follow-db";
+import { ensureSessions } from "./sessions-db";
+import { DEFAULT_SESSION_MINUTES, MAX_SESSIONS } from "./sessions";
 
 /**
  * Planning is one gesture: tick a task on a day to take it, untick to let it
@@ -27,15 +31,6 @@ const Toggle = z.object({
 });
 
 const STARTED = ["IN_PROGRESS", "PAUSED", "DONE"];
-
-/** Postgres unique-violation: one of the schema's claim guards fired. */
-function isUniqueViolation(error: unknown): boolean {
-  return (
-    typeof error === "object" &&
-    error !== null &&
-    (error as { code?: string }).code === "P2002"
-  );
-}
 
 function revalidate() {
   revalidatePath("/plan");
@@ -75,13 +70,39 @@ export async function toggleTaskDay(
         return { error: t("errors.alreadyStartedThis") };
       }
 
+      // A pair is given back as a pair -- keeping the second half of something
+      // whose first half you just dropped would be work nobody can start.
+      const followers = await followersOf([task.id]);
+      if (followers.some((f) => STARTED.includes(f.status))) {
+        return { error: t("errors.followerAlreadyStarted") };
+      }
+
+      /**
+       * A long job is given back whole, and only while none of it has been
+       * done. Half a job in the pool is not something anybody can pick up.
+       */
+      const sittings = await prisma.task.findMany({
+        where: { parentTaskId: task.id },
+        select: { id: true, status: true },
+      });
+      if (sittings.some((s) => STARTED.includes(s.status))) {
+        return { error: t("errors.alreadyStartedThis") };
+      }
+
       // Work you added yourself disappears; work the rules or a meeting
       // created still needs doing, so it goes back to the pool.
       if (task.origin === "CATALOGUE") {
+        // Followers and sittings go with it: both foreign keys cascade.
         await prisma.task.delete({ where: { id: task.id } });
       } else {
-        await prisma.task.update({
-          where: { id: task.id },
+        // The sittings are dropped rather than released: the job goes back at
+        // its full estimate, and whoever takes it next has it cut against
+        // their own calendar rather than inheriting somebody else's week.
+        if (sittings.length > 0) {
+          await prisma.task.deleteMany({ where: { parentTaskId: task.id } });
+        }
+        await prisma.task.updateMany({
+          where: { id: { in: [task.id, ...followers.map((f) => f.id)] } },
           data: {
             assigneeId: null,
             status: "UNASSIGNED",
@@ -118,88 +139,54 @@ export async function toggleTaskDay(
       }
 
       await placeOnDay(parsed.data.taskId, user.id, date);
+      // A job too long for one sitting is cut up now that it has an owner and
+      // a calendar to be cut against. A no-op for ordinary work.
+      await ensureSessions(parsed.data.taskId);
       revalidate();
       return { ok: true };
     }
 
     if (!parsed.data.templateId) return { error: t("errors.nothingToAdd") };
 
-    const template = await prisma.taskTemplate.findUnique({
+    /**
+     * The second half of a pair is not something you take on its own -- it
+     * would arrive with nothing to follow and the ordering rule would never let
+     * you start it. Take the first half and both appear.
+     */
+    const asFollower = await prisma.taskTemplate.findUnique({
       where: { id: parsed.data.templateId },
+      select: { follows: { select: { name: true } } },
     });
-    if (!template) return { error: t("errors.notInCatalogue") };
-    if (template.departmentId !== user.departmentId) {
-      return { error: t("errors.taskOtherDepartment") };
+    if (asFollower?.follows) {
+      return { error: t("errors.waitingOnLeader", asFollower.follows.name) };
     }
 
-    // Somebody may have created the instance since the page loaded.
-    const existing = await prisma.task.findFirst({
-      where: {
-        templateId: template.id,
-        dueDate: date,
-        status: { not: "CANCELLED" },
-      },
-      include: { assignee: { select: { id: true, displayName: true } } },
-    });
+    const claim = await claimTemplate(
+      parsed.data.templateId,
+      user.id,
+      user.departmentId,
+      date,
+    );
 
-    if (existing) {
-      if (existing.assigneeId === user.id) return { ok: true };
-      if (existing.assigneeId === null) {
-        const { count } = await prisma.task.updateMany({
-          where: { id: existing.id, assigneeId: null },
-          data: { assigneeId: user.id, status: "ASSIGNED" },
-        });
-        if (count === 0) return { error: t("errors.somebodyTookIt") };
-        await placeOnDay(existing.id, user.id, date);
-        revalidate();
-        return { ok: true };
-      }
+    if (claim.outcome === "taken") {
       return {
-        error: t("errors.alreadyHasIt", existing.assignee?.displayName ?? "", template.name),
-      };
-    }
-
-    // The findFirst above is not a guarantee: somebody can create the task in
-    // the gap before this runs. A partial unique index on
-    // (templateId, dueDate) for live CATALOGUE tasks makes that a collision
-    // rather than a duplicate, and losing the collision means they got there
-    // first.
-    let created;
-    try {
-      created = await prisma.task.create({
-        data: {
-          title: template.name,
-          estimatedMinutes: template.estimatedMinutes,
-          dueDate: date,
-          departmentId: user.departmentId,
-          templateId: template.id,
-          origin: "CATALOGUE",
-          status: "ASSIGNED",
-          assigneeId: user.id,
-        },
-      });
-    } catch (error) {
-      if (!isUniqueViolation(error)) throw error;
-
-      const winner = await prisma.task.findFirst({
-        where: {
-          templateId: template.id,
-          dueDate: date,
-          origin: "CATALOGUE",
-          status: { not: "CANCELLED" },
-        },
-        include: { assignee: { select: { id: true, displayName: true } } },
-      });
-
-      if (winner?.assigneeId === user.id) return { ok: true };
-      return {
-        error: winner?.assignee
-          ? t("errors.tookItFirst", winner.assignee.displayName)
+        error: claim.by
+          ? t("errors.alreadyHasIt", claim.by, claim.title)
           : t("errors.somebodyTookIt"),
       };
     }
 
-    await placeOnDay(created.id, user.id, date);
+    if (claim.outcome === "claimed") {
+      await placeOnDay(claim.taskId, user.id, date);
+      // Whatever goes hand in hand with it comes too, right after. Done before
+      // the split, so the follower is placed against the leader's own slot
+      // rather than against the first sitting of it.
+      const leader = await prisma.task.findUniqueOrThrow({
+        where: { id: claim.taskId },
+      });
+      await createFollowers(leader);
+      await ensureSessions(claim.taskId);
+    }
     revalidate();
     return { ok: true };
   } catch (error) {
@@ -211,11 +198,17 @@ export async function toggleTaskDay(
 
 const NewTask = z.object({
   title: z.string().trim().min(1, "errors.whatNeedsDoing"),
+  /**
+   * Twelve hours used to be the ceiling because a task had to fit one day.
+   * Long work is now cut into sittings across several, so the ceiling is what
+   * the splitter will lay out at its default chunk size -- past that the
+   * estimate is a project plan rather than a task.
+   */
   estimatedMinutes: z.coerce
     .number()
     .int()
     .min(1, "errors.howLong")
-    .max(12 * 60, "errors.longerThanADay"),
+    .max(MAX_SESSIONS * DEFAULT_SESSION_MINUTES, "errors.longerThanAJob"),
   date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "errors.pickADay"),
 });
 
@@ -252,6 +245,9 @@ export async function createAdHocTask(
     });
 
     await placeOnDay(task.id, user.id, day);
+    // A ten-hour job goes in as one thing and comes out as sittings across
+    // the days up to its deadline.
+    await ensureSessions(task.id);
     revalidate();
     return { ok: true, message: t("errors.added", parsed.data.title) };
   } catch (error) {
