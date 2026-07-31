@@ -623,6 +623,14 @@ export function assignDay(input: {
      * definition -- ranking it would hand the second half to whoever happened
      * to be free. Placed even when their day is full, for the same reason
      * must-do work is: a visible overload beats a pair torn in two.
+     *
+     * This is not the same claim assignSingle's pin makes, so it does not get
+     * the same gate. There, the pin is a meeting naming somebody in advance --
+     * a plan, still revisable, so a full day means triage. Here, the pin
+     * exists because the leader is IN_PROGRESS: somebody is doing the first
+     * half right now. Sending the second half to triage would strand work
+     * already under way, which no priority level makes acceptable -- so this
+     * path forces regardless of priority, where assignSingle's does not.
      */
     const pinnedTo = members.find((m) => m.pinnedAssigneeId)?.pinnedAssigneeId;
     if (pinnedTo) {
@@ -719,8 +727,7 @@ export function assignDay(input: {
        */
       const after =
         (task.followsTaskId ? endOf.get(task.followsTaskId) : undefined) ??
-        task.notBeforeMinutes ??
-        undefined;
+        task.notBeforeMinutes;
 
       // Its own point in the day first, then anywhere in the right half of it
       // that still fits -- a check that cannot sit exactly where it belongs is

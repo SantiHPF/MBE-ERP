@@ -1630,4 +1630,32 @@ describe("work held behind a task this run is not placing", () => {
       { taskId: "follower", reason: "pinned-person-unavailable" },
     ]);
   });
+
+  it("forces a pinned group onto its person's already-full day, regardless of priority", () => {
+    // No MUST here on purpose: assignSingle's pin gates forcing on priority
+    // because it is a meeting nomination, revisable when the day is full. A
+    // pinned group's leader is IN_PROGRESS right now, so this path forces
+    // unconditionally rather than stranding the half already under way.
+    const result = assignDay({
+      date: MON,
+      candidates: [
+        candidate("leader-owner", { committedMinutes: 480 }),
+        candidate("somebody-else"),
+      ],
+      tasks: [
+        task("follower", {
+          estimatedMinutes: 30,
+          groupKey: "follows:leader",
+          followsTaskId: "leader",
+          pinnedAssigneeId: "leader-owner",
+          notBeforeMinutes: at(16),
+        }),
+      ],
+    });
+
+    expect(result.unassigned).toHaveLength(0);
+    expect(result.assignments).toHaveLength(1);
+    expect(result.assignments[0].userId).toBe("leader-owner");
+    expect(result.assignments[0].overCapacity).toBe(true);
+  });
 });
