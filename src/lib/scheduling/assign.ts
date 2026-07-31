@@ -421,19 +421,34 @@ export function assignDay(input: {
     });
 
   /**
-   * A day's anchored repetitions go to one person, so they are offered as a
-   * unit. Everything else is its own unit of one, which is the old behaviour.
+   * One list, in the order things are actually placed.
+   *
+   * Routines used to be a separate list run to completion before any single
+   * task was considered, which meant a *backlog* routine could take the whole
+   * day and leave a must-do task with no slot -- the exact opposite of what
+   * the priorities promise. A routine is now a unit of many and a single task
+   * a unit of one, and both queue by the same rule.
+   *
+   * A unit takes its place from its highest-priority member, because
+   * orderTasks() has already sorted and a group first appears here at its most
+   * important task. The members array is shared with `groups`, so later
+   * members join the unit already sitting in the right place.
    */
   const groups = new Map<string, TaskInput[]>();
-  const singles: TaskInput[] = [];
+  const units: { grouped: boolean; members: TaskInput[] }[] = [];
   for (const task of orderTasks(input.tasks)) {
     if (!task.groupKey) {
-      singles.push(task);
+      units.push({ grouped: false, members: [task] });
       continue;
     }
     const list = groups.get(task.groupKey);
-    if (list) list.push(task);
-    else groups.set(task.groupKey, [task]);
+    if (list) {
+      list.push(task);
+      continue;
+    }
+    const members = [task];
+    groups.set(task.groupKey, members);
+    units.push({ grouped: true, members });
   }
 
   /**
@@ -471,10 +486,6 @@ export function assignDay(input: {
     }
 
     return out;
-  }
-
-  for (const members of groups.values()) {
-    assignGroup(orderChain(members));
   }
 
   /**
@@ -667,7 +678,7 @@ export function assignDay(input: {
     creditRotation(members[0], candidate.userId);
   }
 
-  for (const task of singles) {
+  function assignSingle(task: TaskInput): void {
     const place = (candidate: WorkingCandidate): Window | null => {
       if (candidate.remaining < task.estimatedMinutes) return null;
       return placeFor(task, candidate);
@@ -689,7 +700,7 @@ export function assignDay(input: {
       } else {
         unassigned.push({ taskId: task.id, reason: "pinned-person-unavailable" });
       }
-      continue;
+      return;
     }
 
     const inDepartment = working.filter(
@@ -697,7 +708,7 @@ export function assignDay(input: {
     );
     if (inDepartment.length === 0) {
       unassigned.push({ taskId: task.id, reason: "no-one-in-department" });
-      continue;
+      return;
     }
 
     const withCapacity = inDepartment.filter(
@@ -761,12 +772,12 @@ export function assignDay(input: {
     const tooLongForAnybody = longestStretch < task.estimatedMinutes;
 
     if (withCapacity.length === 0) {
-      if ((task.priority ?? "NORMAL") === "MUST" && forceOnSomebody()) continue;
+      if ((task.priority ?? "NORMAL") === "MUST" && forceOnSomebody()) return;
       unassigned.push({
         taskId: task.id,
         reason: tooLongForAnybody ? "needs-splitting" : "no-capacity",
       });
-      continue;
+      return;
     }
 
     const ranked = [...withCapacity].sort((a, b) =>
@@ -793,12 +804,17 @@ export function assignDay(input: {
     }
 
     if (!placed) {
-      if ((task.priority ?? "NORMAL") === "MUST" && forceOnSomebody()) continue;
+      if ((task.priority ?? "NORMAL") === "MUST" && forceOnSomebody()) return;
       unassigned.push({
         taskId: task.id,
         reason: tooLongForAnybody ? "needs-splitting" : "no-slot-fits",
       });
     }
+  }
+
+  for (const unit of units) {
+    if (unit.grouped) assignGroup(orderChain(unit.members));
+    else assignSingle(unit.members[0]);
   }
 
   return { assignments, unassigned, collapsed };

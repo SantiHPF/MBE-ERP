@@ -1413,3 +1413,60 @@ describe("folding a routine when part of it is already done", () => {
     expect(result.assignments).toHaveLength(1);
   });
 });
+
+describe("priority across routines and single tasks", () => {
+  it("gives a must-do task the day before a spare-time routine", () => {
+    // One person, 09:00-11:00. The routine wants two hours; the must-do task
+    // wants one. Backlog work must not be what fills the day.
+    const result = assignDay({
+      date: MON,
+      candidates: [candidate("solo", { end: at(11) })],
+      tasks: [
+        task("spare-a", {
+          priority: "SPARE_TIME",
+          templateId: "tpl-spare",
+          groupKey: "routine",
+        }),
+        task("spare-b", {
+          priority: "SPARE_TIME",
+          templateId: "tpl-spare",
+          groupKey: "routine",
+        }),
+        task("must", { priority: "MUST", templateId: "tpl-must" }),
+      ],
+    });
+
+    const must = result.assignments.find((a) => a.taskId === "must");
+    expect(must?.start).toBe(at(9));
+    expect(must?.overCapacity).toBeUndefined();
+  });
+
+  it("gives a must-do task the day before a normal routine", () => {
+    const result = assignDay({
+      date: MON,
+      candidates: [candidate("solo", { end: at(11) })],
+      tasks: [
+        task("routine-a", { templateId: "tpl-routine", groupKey: "routine" }),
+        task("routine-b", { templateId: "tpl-routine", groupKey: "routine" }),
+        task("must", { priority: "MUST", templateId: "tpl-must" }),
+      ],
+    });
+
+    const must = result.assignments.find((a) => a.taskId === "must");
+    expect(must?.start).toBe(at(9));
+  });
+
+  it("still places a routine before a spare-time single", () => {
+    const result = assignDay({
+      date: MON,
+      candidates: [candidate("solo", { end: at(10) })],
+      tasks: [
+        task("spare", { priority: "SPARE_TIME", templateId: "tpl-spare" }),
+        task("routine", { templateId: "tpl-routine", groupKey: "routine" }),
+      ],
+    });
+
+    const routine = result.assignments.find((a) => a.taskId === "routine");
+    expect(routine?.start).toBe(at(9));
+  });
+});
