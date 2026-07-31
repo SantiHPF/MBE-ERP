@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { useActionState, useMemo, useState } from "react";
 import { formatClock } from "@/lib/time";
 import {
   saveCatalogueEntry,
@@ -16,11 +16,17 @@ export type CatalogueEntry = {
   name: string;
   category: string | null;
   estimatedMinutes: number;
+  /** How long one sitting should be, for a job too long to do in one. */
+  sessionMinutes: number | null;
   notes: string | null;
   instructions: string | null;
   isMeeting: boolean;
   repeatable: boolean;
   priority: "MUST" | "NORMAL" | "SPARE_TIME";
+  /** Keep it in one half of the day. Null means anywhere. */
+  shiftHalf: "MORNING" | "AFTERNOON" | null;
+  /** The entry this one comes straight after, when two jobs go hand in hand. */
+  followsId: string | null;
   active: boolean;
   rule: {
     frequency: "WEEKLY" | "MONTHLY";
@@ -65,16 +71,42 @@ type WhenInDay = "ANYWHERE" | "FIXED" | "ANCHORS";
 
 export function CatalogueForm({
   departmentId,
+  siblings,
   entry,
   onDone,
   onCancel,
 }: {
   departmentId: string;
+  /** The rest of this department's catalogue, for the "comes after" picker. */
+  siblings: CatalogueEntry[];
   entry?: CatalogueEntry;
   onDone: (s: CatalogueState) => void;
   onCancel: () => void;
 }) {
   const { t } = useT();
+
+  /**
+   * What this entry could sensibly come after.
+   *
+   * Itself is excluded, and so is anything already downstream of it -- picking
+   * one of those would close a loop, and offering a choice the server is bound
+   * to reject is worse than not offering it. The server checks again anyway:
+   * this list was built when the form opened.
+   */
+  const leaderOptions = useMemo(() => {
+    const downstream = new Set<string>();
+    if (entry) {
+      downstream.add(entry.id);
+      for (let depth = 0; depth < 6; depth++) {
+        for (const s of siblings) {
+          if (s.followsId && downstream.has(s.followsId)) downstream.add(s.id);
+        }
+      }
+    }
+    return siblings
+      .filter((s) => s.active && !downstream.has(s.id))
+      .sort((a, b) => a.name.localeCompare(b.name));
+  }, [siblings, entry]);
   const [state, submit, pending] = useActionState(
     async (p: CatalogueState, f: FormData) => {
       const r = await saveCatalogueEntry(p, f);
@@ -103,6 +135,9 @@ export function CatalogueForm({
   );
   const [priority, setPriority] = useState<"MUST" | "NORMAL" | "SPARE_TIME">(
     entry?.priority ?? "NORMAL",
+  );
+  const [half, setHalf] = useState<"" | "MORNING" | "AFTERNOON">(
+    entry?.shiftHalf ?? "",
   );
 
   // Three ways a task can sit in the day, and only one applies at a time.
@@ -154,9 +189,26 @@ export function CatalogueForm({
             name="estimatedMinutes"
             defaultValue={entry?.estimatedMinutes ?? 30}
             min={1}
-            max={720}
+            max={1440}
             step={1}
             required
+            className={`num ${field}`}
+          />
+        </label>
+        {/* Only worth asking about once the job is long enough to be cut up;
+            below that it is a field with no effect. */}
+        <label className="text-[11px]">
+          <span className={label} title={t("sessions.sessionMinutesHint")}>
+            {t("sessions.sessionMinutes")}
+          </span>
+          <input
+            type="number"
+            name="sessionMinutes"
+            defaultValue={entry?.sessionMinutes ?? ""}
+            min={15}
+            max={720}
+            step={15}
+            placeholder="180"
             className={`num ${field}`}
           />
         </label>
@@ -250,6 +302,65 @@ export function CatalogueForm({
             : priority === "SPARE_TIME"
               ? t("catalogue.spareHint")
               : t("catalogue.normalHint")}
+        </p>
+      </fieldset>
+
+      {/* --------------------------------------------- which half of the day */}
+      <fieldset className="rounded border border-line bg-surface-2 p-3">
+        <legend className="px-1 text-[11px] font-semibold tracking-[0.07em] text-faint uppercase">
+          {t("catalogue.whichHalf")}
+        </legend>
+        <div className="flex flex-wrap gap-1.5">
+          {(
+            [
+              ["", t("catalogue.halfAny")],
+              ["MORNING", t("catalogue.halfMorning")],
+              ["AFTERNOON", t("catalogue.halfAfternoon")],
+            ] as const
+          ).map(([id, text]) => (
+            <button
+              key={id || "any"}
+              type="button"
+              aria-pressed={half === id}
+              onClick={() => setHalf(id)}
+              className={
+                half === id
+                  ? "rounded-md border border-accent bg-accent px-2.5 py-1.5 text-[12.5px] font-medium text-accent-ink"
+                  : "rounded-md border border-line-strong bg-surface px-2.5 py-1.5 text-[12.5px] text-muted transition-colors hover:border-accent hover:text-ink"
+              }
+            >
+              {text}
+            </button>
+          ))}
+        </div>
+        <input type="hidden" name="shiftHalf" value={half} />
+        <p className="mt-1.5 text-[11.5px] text-muted">
+          {t("catalogue.whichHalfHint")}
+        </p>
+      </fieldset>
+
+      {/* ------------------------------------------------- work that pairs up */}
+      <fieldset className="rounded border border-line bg-surface-2 p-3">
+        <legend className="px-1 text-[11px] font-semibold tracking-[0.07em] text-faint uppercase">
+          {t("catalogue.goesWith")}
+        </legend>
+        <label className="flex flex-wrap items-center gap-2 text-[12.5px]">
+          <span className="text-muted">{t("catalogue.comesAfter")}</span>
+          <select
+            name="followsId"
+            defaultValue={entry?.followsId ?? ""}
+            className="field min-w-[200px] py-1 text-[12.5px]"
+          >
+            <option value="">{t("catalogue.comesAfterNothing")}</option>
+            {leaderOptions.map((option) => (
+              <option key={option.id} value={option.id}>
+                {option.name}
+              </option>
+            ))}
+          </select>
+        </label>
+        <p className="mt-1.5 text-[11.5px] text-muted">
+          {t("catalogue.comesAfterHint")}
         </p>
       </fieldset>
 

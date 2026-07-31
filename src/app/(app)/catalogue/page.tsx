@@ -76,11 +76,14 @@ export default async function CataloguePage({
             name: tpl.name,
             category: tpl.category,
             estimatedMinutes: tpl.estimatedMinutes,
+            sessionMinutes: tpl.sessionMinutes,
             notes: tpl.notes,
             instructions: tpl.instructions,
             isMeeting: tpl.isMeeting,
             repeatable: tpl.repeatable,
             priority: tpl.priority as "MUST" | "NORMAL" | "SPARE_TIME",
+            shiftHalf: tpl.shiftHalf,
+            followsId: tpl.followsId,
             active: tpl.active,
             rule: rule
               ? {

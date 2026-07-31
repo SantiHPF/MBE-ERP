@@ -128,6 +128,7 @@ export function CatalogueList({
         <div className="mb-3">
           <CatalogueForm
             departmentId={departmentId}
+            siblings={entries}
             onDone={(s) => {
               setNotice(s);
               if (s.ok) setCreating(false);
@@ -200,6 +201,16 @@ export function CatalogueList({
               >
                 {describeRule(entry.rule, t, locale)}
               </span>
+              {/* Half of a pair: say which half, so the schedule above it
+                  ("on demand") is not read as the whole story. */}
+              {entry.followsId && (
+                <span className="text-xs text-muted">
+                  {t(
+                    "catalogue.afterX",
+                    entries.find((e) => e.id === entry.followsId)?.name ?? "—",
+                  )}
+                </span>
+              )}
               {canEdit && (
                 <button
                   type="button"
@@ -218,6 +229,7 @@ export function CatalogueList({
               <div className="border-t border-line p-3.5">
                 <CatalogueForm
                   departmentId={departmentId}
+                  siblings={entries}
                   entry={entry}
                   onDone={(s) => {
                     setNotice(s);

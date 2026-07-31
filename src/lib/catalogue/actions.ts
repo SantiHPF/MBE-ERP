@@ -7,6 +7,9 @@ import { requireUserOrThrow, hasRole } from "@/lib/auth/guards";
 import { errorText, fail } from "@/lib/i18n/errors";
 import { getT } from "@/lib/i18n/server";
 import { parseClock, today, toDateOnly } from "@/lib/time";
+import { depthOf, MAX_CHAIN, wouldCycle } from "@/lib/plan/follow";
+import { SHIFT_SPLIT_MINUTES } from "@/lib/scheduling/half";
+import { DEFAULT_SESSION_MINUTES, MAX_SESSIONS } from "@/lib/plan/sessions";
 
 /**
  * Editing the task catalogue and its schedule.
@@ -42,11 +45,24 @@ const Entry = z.object({
   departmentId: z.string().min(1, "errors.pickADepartment"),
   name: z.string().trim().min(1, "errors.giveTaskAName"),
   category: z.string().trim().max(60).optional(),
+  /**
+   * Longer than a day is allowed now: a catalogue entry is exactly where a
+   * project-shaped job lives, and anything over sessionMinutes is cut into
+   * sittings when somebody takes it. The ceiling is what the splitter will
+   * lay out at its default chunk size.
+   */
   estimatedMinutes: z.coerce
     .number()
     .int()
     .min(1, "errors.howLongDoesItTake")
-    .max(12 * 60, "errors.longerThanADay"),
+    .max(MAX_SESSIONS * DEFAULT_SESSION_MINUTES, "errors.longerThanAJob"),
+  /** How long one sitting of it should be. Null uses the default. */
+  sessionMinutes: z.coerce
+    .number()
+    .int()
+    .min(15, "errors.sittingTooShort")
+    .max(12 * 60, "errors.longerThanADay")
+    .optional(),
   notes: z.string().trim().max(2000).optional(),
   instructions: z.string().trim().max(500).optional(),
   isMeeting: z.boolean().optional(),
@@ -54,6 +70,10 @@ const Entry = z.object({
   priority: z.enum(["MUST", "NORMAL", "SPARE_TIME"]).default("NORMAL"),
   instancesPerOccurrence: z.coerce.number().int().min(1).max(20).optional(),
   fixedStart: z.string().optional(),
+  /// Keep it in one half of the day. Anchors override it, being more specific.
+  shiftHalf: z.enum(["MORNING", "AFTERNOON"]).optional(),
+  /// The entry this one comes straight after, when two jobs go hand in hand.
+  followsId: z.string().optional(),
   /// Points in the shift, when the task is done several times a day. Kept
   /// separate from the recurrence union because it is orthogonal to it: a
   /// weekly or a monthly rule can both be anchored.
@@ -110,6 +130,7 @@ export async function saveCatalogueEntry(
       name: formData.get("name"),
       category: formData.get("category") || undefined,
       estimatedMinutes: formData.get("estimatedMinutes"),
+      sessionMinutes: formData.get("sessionMinutes") || undefined,
       notes: formData.get("notes") || undefined,
       instructions: formData.get("instructions") || undefined,
       isMeeting: formData.get("isMeeting") === "on",
@@ -117,6 +138,8 @@ export async function saveCatalogueEntry(
       priority: formData.get("priority") || "NORMAL",
       instancesPerOccurrence: formData.get("instancesPerOccurrence") || 1,
       fixedStart: formData.get("fixedStart") || undefined,
+      shiftHalf: formData.get("shiftHalf") || undefined,
+      followsId: formData.get("followsId") || undefined,
       anchors: formData.getAll("anchors").map(String),
     });
     if (!parsed.success) return { error: t(parsed.error.issues[0].message) };
@@ -142,16 +165,80 @@ export async function saveCatalogueEntry(
     });
     if (clash) return { error: t("errors.alreadyInCatalogue", input.name) };
 
+    /**
+     * A clock time and a half of the day that disagree.
+     *
+     * "At 09:00, in the afternoon" describes nothing placeable, and the engine
+     * would silently drop the task rather than explain itself. Caught here,
+     * where somebody can still fix it.
+     */
+    if (input.shiftHalf && recurrence.frequency !== "NONE" && input.fixedStart) {
+      const startMinutes = parseClock(input.fixedStart);
+      const inMorning = startMinutes < SHIFT_SPLIT_MINUTES;
+      if (
+        (input.shiftHalf === "MORNING" && !inMorning) ||
+        (input.shiftHalf === "AFTERNOON" && inMorning)
+      ) {
+        return { error: t("errors.shiftHalfContradictsTime") };
+      }
+    }
+
+    /**
+     * "Comes after" has to stay a tree.
+     *
+     * A cycle would make chainFrom() walk for ever if it were not guarded, and
+     * would describe a day nobody could ever start. Checked here, at the only
+     * point a link is created, rather than defended at every point one is read.
+     */
+    if (input.followsId) {
+      const leader = await prisma.taskTemplate.findUnique({
+        where: { id: input.followsId },
+        select: { departmentId: true },
+      });
+      if (!leader) return { error: t("errors.notInCatalogue") };
+      if (leader.departmentId !== input.departmentId) {
+        // The pair is done by one person, so it cannot span two departments.
+        return { error: t("errors.followLeaderOtherDepartment") };
+      }
+
+      const links = await prisma.taskTemplate.findMany({
+        where: { departmentId: input.departmentId },
+        select: { id: true, followsId: true },
+      });
+
+      // A new entry has no id yet, so it cannot be part of a cycle; only an
+      // edit can close one.
+      if (input.templateId) {
+        if (input.templateId === input.followsId) {
+          return { error: t("errors.followsItself") };
+        }
+        const proposed = links.map((l) =>
+          l.id === input.templateId ? { ...l, followsId: input.followsId! } : l,
+        );
+        if (wouldCycle(input.templateId, input.followsId, links)) {
+          return { error: t("errors.followWouldLoop") };
+        }
+        if (depthOf(input.templateId, proposed) > MAX_CHAIN) {
+          return { error: t("errors.followChainTooLong", MAX_CHAIN) };
+        }
+      } else if (depthOf(input.followsId, links) >= MAX_CHAIN) {
+        return { error: t("errors.followChainTooLong", MAX_CHAIN) };
+      }
+    }
+
     const data = {
       departmentId: input.departmentId,
       name: input.name,
       category: input.category || null,
       estimatedMinutes: input.estimatedMinutes,
+      sessionMinutes: input.sessionMinutes ?? null,
       notes: input.notes || null,
       instructions: input.instructions || null,
       isMeeting: input.isMeeting ?? false,
       repeatable: input.repeatable ?? false,
       priority: input.priority,
+      shiftHalf: input.shiftHalf ?? null,
+      followsId: input.followsId || null,
       active: true,
     };
 
