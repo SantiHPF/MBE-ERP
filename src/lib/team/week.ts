@@ -26,6 +26,12 @@ export type WeekDay = {
   absent: boolean;
   absenceCategory: string | null;
   blocks: WeekBlock[];
+  /**
+   * Owed on this day but with no slot: the day was too full, or too broken up,
+   * to hold it. Kept apart from `blocks` because it has no start time, and
+   * defaulting one to midnight drew it as a task that begins at 00:00.
+   */
+  unplaced: WeekBlock[];
 };
 
 export type WeekPerson = {
@@ -132,18 +138,37 @@ export async function getTeamWeek(
         (a) => dateKey(a.startDate) <= key && key <= dateKey(a.endDate),
       );
 
-      const blocks: WeekBlock[] = mine.tasks
-        .filter((t) => t.scheduledDate && dateKey(t.scheduledDate) === key)
-        .map((t) => ({
-          id: t.id,
-          title: t.title,
-          start: t.scheduledStart ?? 0,
-          end: t.scheduledEnd ?? 0,
-          status: t.status,
-          estimatedMinutes: t.estimatedMinutes,
-        }));
+      const onThisDay = mine.tasks.filter(
+        (t) => t.scheduledDate && dateKey(t.scheduledDate) === key,
+      );
 
-      const booked = blocks.reduce((s, b) => s + b.estimatedMinutes, 0);
+      const toBlock = (t: (typeof onThisDay)[number]): WeekBlock => ({
+        id: t.id,
+        title: t.title,
+        start: t.scheduledStart ?? 0,
+        end: t.scheduledEnd ?? 0,
+        status: t.status,
+        estimatedMinutes: t.estimatedMinutes,
+      });
+
+      const blocks: WeekBlock[] = onThisDay
+        .filter((t) => t.scheduledStart != null)
+        .map(toBlock);
+
+      /**
+       * Work that belongs to this day but never got a slot -- an over-full day,
+       * or an anchored task whose half of the day was already gone. It is still
+       * owed, so it still counts towards the day's load; it simply has no time
+       * to be drawn at.
+       */
+      const unplaced: WeekBlock[] = onThisDay
+        .filter((t) => t.scheduledStart == null)
+        .map(toBlock);
+
+      const booked = [...blocks, ...unplaced].reduce(
+        (s, b) => s + b.estimatedMinutes,
+        0,
+      );
       weeklyMinutes += availability.availableMinutes;
       personBooked += booked;
 
@@ -158,6 +183,7 @@ export async function getTeamWeek(
         absent: availability.rostered && availability.availableMinutes === 0,
         absenceCategory: covering?.category ?? null,
         blocks,
+        unplaced,
       };
     });
 

@@ -400,6 +400,20 @@ function DayCell({
           </div>
         ))}
 
+      {/* Work owed today that never got a slot. Pinned to the top of the cell
+          rather than drawn on the timeline: it has no start time, and giving
+          it one put "antes de salir" at midnight. */}
+      {!day.absent && day.unplaced.length > 0 && (
+        <div
+          title={`${t("team.noSlot")}: ${day.unplaced
+            .map((b) => `${b.title} (${formatDuration(b.estimatedMinutes)})`)
+            .join(", ")}`}
+          className="absolute inset-x-1.5 top-0.5 truncate rounded-sm border border-dashed border-pause bg-pause-wash px-1 py-px text-[9px] font-semibold text-pause"
+        >
+          {t("team.noSlotN", day.unplaced.length)}
+        </div>
+      )}
+
       </div>
 
       {/* The totals band. Its own strip, so a full day cannot bury it. */}
@@ -407,9 +421,10 @@ function DayCell({
         className="absolute inset-x-0 bottom-0 flex items-center justify-end border-t border-line/70 bg-surface-2 px-1"
         style={{ height: FOOTER_PX }}
       >
-        {day.absent ? null : day.blocks.length > 0 ? (
+        {day.absent ? null : day.blocks.length + day.unplaced.length > 0 ? (
           <span className="num text-[9px] text-muted">
-            {day.blocks.length} · {formatDuration(day.bookedMinutes)}
+            {day.blocks.length + day.unplaced.length} ·{" "}
+            {formatDuration(day.bookedMinutes)}
           </span>
         ) : (
           <span className="w-full text-center text-[9px] text-faint">
