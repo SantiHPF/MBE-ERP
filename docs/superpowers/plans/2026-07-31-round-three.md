@@ -25,11 +25,11 @@
 
 # Part A — The three assign fixes
 
-Landing first, per the spec's sequencing: Task A4 fixes how followers are *placed*, and Part C changes how they are *generated*.
+Landing first, per the spec's sequencing: Task 4 fixes how followers are *placed*, and Part C changes how they are *generated*.
 
 ---
 
-### Task A1: A must-do task stops losing to a routine
+### Task 1: A must-do task stops losing to a routine
 
 **Files:**
 - Modify: `src/lib/scheduling/assign.ts:423-478` (grouping and the group loop) and `:670` (the singles loop)
@@ -234,14 +234,14 @@ git commit -m "fix: must-do work no longer loses the day to a routine"
 
 ---
 
-### Task A2: A deadline is respected when no start time is set
+### Task 2: A deadline is respected when no start time is set
 
 **Files:**
 - Modify: `src/lib/scheduling/assign.ts:349-354` (`placeFor`)
 - Test: `src/lib/scheduling/assign.test.ts`
 
 **Interfaces:**
-- Consumes: `assignSingle` from Task A1 (no direct use; this task only edits `placeFor`).
+- Consumes: `assignSingle` from Task 1 (no direct use; this task only edits `placeFor`).
 - Produces: no signature changes.
 
 **Background.** `placeFor` honours `fixedEndMinutes` only when there is a wanted start:
@@ -344,20 +344,20 @@ git commit -m "fix: a task due by a time no longer lands after it"
 
 ---
 
-### Task A3: The engine can hold a task behind work it is not placing
+### Task 3: The engine can hold a task behind work it is not placing
 
 **Files:**
 - Modify: `src/lib/scheduling/assign.ts` — `TaskInput` (~line 87), `placeFor`, `fallbackFor`, `assignGroup`, `placeAll`
 - Test: `src/lib/scheduling/assign.test.ts`
 
 **Interfaces:**
-- Consumes: `assignSingle` and the `units` loop from Task A1.
+- Consumes: `assignSingle` and the `units` loop from Task 1.
 - Produces:
   - `TaskInput.notBeforeMinutes?: number | null` — a floor on the start, in minutes from midnight.
   - `assignGroup` honours `pinnedAssigneeId` on any member, fixing the whole unit to that person.
-  - Task A4 sets both from `run.ts`.
+  - Task 4 sets both from `run.ts`.
 
-**Background.** This is the pure half of the orphaned-follower fix. A follower whose leader is already `IN_PROGRESS` is currently placed by first-fit, so it can land before its leader and go to somebody else entirely. The engine has no way to say "this belongs to that person, and not before this minute" — that is what this task adds. Task A4 wires it up.
+**Background.** This is the pure half of the orphaned-follower fix. A follower whose leader is already `IN_PROGRESS` is currently placed by first-fit, so it can land before its leader and go to somebody else entirely. The engine has no way to say "this belongs to that person, and not before this minute" — that is what this task adds. Task 4 wires it up.
 
 - [ ] **Step 1: Write the failing test**
 
@@ -461,7 +461,7 @@ In `src/lib/scheduling/assign.ts`, immediately after the `followsTaskId` field i
 
 - [ ] **Step 4: Honour the floor when placing**
 
-In `placeFor`, change the deadline branch added in Task A2 and the branch below it so both respect the floor. The whole tail of `placeFor` becomes:
+In `placeFor`, change the deadline branch added in Task 2 and the branch below it so both respect the floor. The whole tail of `placeFor` becomes:
 
 ```ts
     const floor = task.notBeforeMinutes ?? null;
@@ -589,14 +589,14 @@ git commit -m "feat: the engine can hold work behind a task it is not placing"
 
 ---
 
-### Task A4: A follower is no longer abandoned when its leader starts
+### Task 4: A follower is no longer abandoned when its leader starts
 
 **Files:**
 - Modify: `src/lib/scheduling/run.ts` — the `chainRoot` block and the `taskInputs` map that follows it
-- Verify: `scripts/verify-follow.ts` (run by hand; extended in Task C6)
+- Verify: `scripts/verify-follow.ts` (run by hand; extended in Task 11)
 
 **Interfaces:**
-- Consumes: `TaskInput.notBeforeMinutes` and pinned-group support from Task A3.
+- Consumes: `TaskInput.notBeforeMinutes` and pinned-group support from Task 3.
 - Produces: nothing new; this is the database-side wiring.
 
 **Background.** `run.ts` walks each schedulable task up to a chain root and keys the whole chain on it, so one person gets the pair. The walk uses `schedulable.find(...)`, so once the leader is `IN_PROGRESS` it is not found: the follower keeps a `groupKey` naming a task that is not in the run and a `followsTaskId` that `placeAll` cannot resolve, and first-fits. Reproduced: the follower went to a different person, at 09:00, while its leader ran 14:00–16:00.
@@ -710,7 +710,7 @@ The mapper becomes:
 - [ ] **Step 3: Typecheck**
 
 Run: `npx tsc --noEmit`
-Expected: no errors. `scheduledEnd` is `number | null` on `Task` and `notBeforeMinutes` accepts `number | null`, so this compiles only if Task A3 landed.
+Expected: no errors. `scheduledEnd` is `number | null` on `Task` and `notBeforeMinutes` accepts `number | null`, so this compiles only if Task 3 landed.
 
 - [ ] **Step 4: Run the whole suite**
 
@@ -724,7 +724,7 @@ Run:
 npm run db:start
 npx tsx scripts/verify-follow.ts
 ```
-Expected: every check reports `ok`, and the script cleans up after itself. This proves the existing pair behaviour still holds end to end. The in-flight-leader case is added to this script in Task C6, once the multi-leader work gives it a reason to be rewritten.
+Expected: every check reports `ok`, and the script cleans up after itself. This proves the existing pair behaviour still holds end to end. The in-flight-leader case is added to this script in Task 11, once the multi-leader work gives it a reason to be rewritten.
 
 - [ ] **Step 6: Commit**
 
@@ -741,7 +741,7 @@ Independent of Parts A and C. Can be moved to the front if a working report butt
 
 ---
 
-### Task B1: The Report record
+### Task 5: The Report record
 
 **Files:**
 - Modify: `prisma/schema.prisma`
@@ -893,7 +893,7 @@ git commit -m "feat: a record for a bug or a suggestion raised from inside"
 
 ---
 
-### Task B2: Filing and closing a report
+### Task 6: Filing and closing a report
 
 **Files:**
 - Create: `src/lib/reports/actions.ts`
@@ -902,7 +902,7 @@ git commit -m "feat: a record for a bug or a suggestion raised from inside"
 - Create: `src/lib/reports/body.test.ts`
 
 **Interfaces:**
-- Consumes: the `Report` model from Task B1.
+- Consumes: the `Report` model from Task 5.
 - Produces:
   - `src/lib/reports/body.ts`: `export const MAX_BODY = 4000` and
     `export function readBody(raw: unknown): { ok: true; body: string } | { ok: false; error: string }`
@@ -914,7 +914,7 @@ git commit -m "feat: a record for a bug or a suggestion raised from inside"
     `export async function listReports(filter?: ReportFilter): Promise<ReportRow[]>`,
     `export async function findReport(number: number): Promise<ReportRow | null>`,
     `export async function closeByNumber(number: number, note: string | null): Promise<boolean>`
-- The CLI (Task B4) and the admin page (Task B5) both read `db.ts`. Only the page uses `actions.ts`.
+- The CLI (Task 8) and the admin page (Task 9) both read `db.ts`. Only the page uses `actions.ts`.
 
 **Why the split.** `body.ts` is the only part with logic worth unit-testing without a database; keeping it separate is what lets the validation rule be tested at all, since Vitest never touches Postgres here.
 
@@ -1172,7 +1172,7 @@ it to the `errors` group of `src/lib/i18n/dictionary.ts`, in **both** objects:
 ```
 
 (The other two new error keys, `reportEmpty` and `reportTooLong`, are added in
-Task B3 Step 1 alongside the rest of the report strings.)
+Task 7 Step 1 alongside the rest of the report strings.)
 
 - [ ] **Step 8: Typecheck**
 
@@ -1194,7 +1194,7 @@ git commit -m "feat: filing a report captures the context so you do not have to"
 
 ---
 
-### Task B3: The button on every page
+### Task 7: The button on every page
 
 **Files:**
 - Create: `src/app/(app)/report-button.tsx`
@@ -1202,7 +1202,7 @@ git commit -m "feat: filing a report captures the context so you do not have to"
 - Modify: `src/lib/i18n/dictionary.ts` (both `en` and `es`)
 
 **Interfaces:**
-- Consumes: `createReport` and `ReportState` from Task B2.
+- Consumes: `createReport` and `ReportState` from Task 6.
 - Produces: `export function ReportButton(): JSX.Element` — a client component taking no props. It reads the path itself with `usePathname()`.
 
 **Why the sidebar.** The sidebar is the shell, so a button in it is on every page for every role by construction. A floating corner button would fight the fixed now-bar, which is already pinned to the bottom of every page.
@@ -1256,7 +1256,7 @@ In the `errors` group of **both** objects, add:
     reportTooLong: "Es demasiado largo: 4000 caracteres como máximo",
 ```
 
-Plus `notFound` in both, if Task B2 Step 7 found it missing.
+Plus `notFound` in both, if Task 6 Step 7 found it missing.
 
 - [ ] **Step 2: Write the component**
 
@@ -1455,14 +1455,14 @@ git commit -m "feat: a report button on every page, for a bug or an idea"
 
 ---
 
-### Task B4: Reading reports from the command line
+### Task 8: Reading reports from the command line
 
 **Files:**
 - Create: `scripts/reports.ts`
 - Modify: `package.json` (the `scripts` block)
 
 **Interfaces:**
-- Consumes: `listReports`, `findReport`, `closeByNumber`, `ReportFilter` from Task B2.
+- Consumes: `listReports`, `findReport`, `closeByNumber`, `ReportFilter` from Task 6.
 - Produces: `npm run bugs` with the sub-commands below.
 
 **Why.** This is the reason the feature exists: a report filed while testing has to reach whoever is fixing it without being pasted anywhere.
@@ -1592,7 +1592,7 @@ In `package.json`, in the `scripts` block, add after `"verify:sessions"`:
 
 - [ ] **Step 3: Try it**
 
-With the report you filed in Task B3 still in the database, run:
+With the report you filed in Task 7 still in the database, run:
 
 ```bash
 npm run bugs
@@ -1621,7 +1621,7 @@ git commit -m "feat: read and close reports from the command line"
 
 ---
 
-### Task B5: The admin list
+### Task 9: The admin list
 
 **Files:**
 - Create: `src/app/(app)/admin/reports/page.tsx`
@@ -1630,7 +1630,7 @@ git commit -m "feat: read and close reports from the command line"
 - Modify: `src/lib/i18n/dictionary.ts` (both `en` and `es`)
 
 **Interfaces:**
-- Consumes: `listReports` from Task B2, `closeReport` and `ReportState` from Task B2.
+- Consumes: `listReports` from Task 6, `closeReport` and `ReportState` from Task 6.
 - Produces: nothing other tasks depend on.
 
 - [ ] **Step 1: Add the strings, both languages**
@@ -1832,7 +1832,7 @@ Expected: no errors.
 - [ ] **Step 6: See it working**
 
 Run `npm run dev` and visit `/admin/reports` as an ADMIN. Expected: the report
-you filed and closed in Task B4 appears under **Closed** and **All**, with its
+you filed and closed in Task 8 appears under **Closed** and **All**, with its
 note, and nothing under **Open**. File another from any page and confirm it
 appears under Open with a working Close button. Then sign in as a WORKER and
 confirm `/admin/reports` refuses and the nav link is absent.
@@ -1855,7 +1855,29 @@ git commit -m "feat: an admin list of what has been reported"
 
 ---
 
-### Task C1: The chain arithmetic becomes a graph
+### Task 10: Comes-after becomes a graph
+
+**One task, five parts, in order.** Dropping `TaskTemplate.followsId` breaks
+`follow.ts`, `follow-db.ts`, `catalogue/actions.ts`, `catalogue/page.tsx`,
+`catalogue-form.tsx` and `catalogue-list.tsx` at once, so there is no smaller
+change that leaves the tree typechecking. Commit after each part if you like —
+the task is judged on its whole diff — but **the task is not done until
+`npx tsc --noEmit` is clean and `npm test` is green.**
+
+Part 2 applies a database migration. Run `npm run db:start` before it and do not
+run `prisma migrate reset` at any point.
+
+**Files across all five parts:**
+- Modify: `src/lib/plan/follow.ts`, `src/lib/plan/follow.test.ts`
+- Modify: `prisma/schema.prisma`; Create: `prisma/migrations/20260731110000_template_follows/migration.sql`
+- Modify: `src/lib/plan/follow-db.ts`
+- Modify: `src/lib/catalogue/actions.ts`, `src/app/(app)/catalogue/page.tsx`
+- Modify: `src/app/(app)/catalogue/catalogue-form.tsx`, `src/app/(app)/catalogue/catalogue-list.tsx`
+- Modify: `src/lib/i18n/dictionary.ts`
+
+---
+
+#### Part 1 — The chain arithmetic becomes a graph
 
 **Files:**
 - Modify: `src/lib/plan/follow.ts`
@@ -1863,7 +1885,7 @@ git commit -m "feat: an admin list of what has been reported"
 
 **Interfaces:**
 - Consumes: nothing.
-- Produces — every signature in this file changes shape, and Tasks C3 and C4 depend on the exact names:
+- Produces — every signature in this file changes shape, and Parts 3 and 4 depend on the exact names:
   - `export type FollowLink = { followerId: string; leaderId: string }`
   - `export type ChainStep = { templateId: string; afterTemplateId: string }`
   - `export function chainFrom(leaderId: string, links: FollowLink[]): ChainStep[]`
@@ -2195,12 +2217,13 @@ runtime shape a directed graph rather than a tree".
 Run: `npx vitest run src/lib/plan/follow.test.ts`
 Expected: PASS, all of them.
 
-- [ ] **Step 5: Expect the rest of the build to break**
+- [ ] **Step 5: Note what is now broken, and leave it**
 
 Run: `npx tsc --noEmit`
 Expected: errors in `src/lib/plan/follow-db.ts` and `src/lib/catalogue/actions.ts`,
-which still pass `{ id, followsId }` links. That is correct — Tasks C3 and C4 fix
-them. Do not fix them here.
+which still pass `{ id, followsId }` links. That is expected at this point —
+Parts 3 and 4 fix them. Do not patch them here; do not move on until the
+`follow.test.ts` run above is green.
 
 - [ ] **Step 6: Commit**
 
@@ -2209,12 +2232,9 @@ git add src/lib/plan/follow.ts src/lib/plan/follow.test.ts
 git commit -m "feat: the chain arithmetic works on a graph, not a tree"
 ```
 
-Note: the tree is knowingly left un-typechecking between this commit and Task C4.
-If that is unacceptable, do Tasks C1–C4 as one commit instead.
-
 ---
 
-### Task C2: The join table
+#### Part 2 — The join table
 
 **Files:**
 - Modify: `prisma/schema.prisma`
@@ -2342,13 +2362,13 @@ git commit -m "feat: comes-after becomes a link table, so there can be several"
 
 ---
 
-### Task C3: Generating one follower per leader
+#### Part 3 — Generating one follower per leader
 
 **Files:**
 - Modify: `src/lib/plan/follow-db.ts`
 
 **Interfaces:**
-- Consumes: `chainFrom`, `ChainStep`, `FollowLink`, `buildFollowKey` from Task C1; `TemplateFollow` from Task C2.
+- Consumes: `chainFrom`, `ChainStep`, `FollowLink`, `buildFollowKey` from Part 1; `TemplateFollow` from Part 2.
 - Produces: `createFollowers(leader: Task): Promise<Task[]>` and `followersOf(taskIds: string[]): Promise<Task[]>` — both signatures unchanged.
 
 **Note.** `followersOf` needs no change at all: it walks `Task.followsTaskId`, which is still a single link. Do not touch it.
@@ -2381,8 +2401,16 @@ to the closing `return created;` with:
   const steps = chainFrom(leader.templateId, links);
   if (steps.length === 0) return [];
 
+  /**
+   * The leader's own template is fetched alongside the followers', because the
+   * disambiguating title needs its name and `steps` never includes the leader
+   * itself.
+   */
   const templates = await prisma.taskTemplate.findMany({
-    where: { id: { in: steps.map((s) => s.templateId) }, active: true },
+    where: {
+      id: { in: [leader.templateId, ...steps.map((s) => s.templateId)] },
+      active: true,
+    },
   });
   const byId = new Map(templates.map((t) => [t.id, t]));
 
@@ -2482,19 +2510,6 @@ to the closing `return created;` with:
   return created;
 ```
 
-Note `byId` must now also contain the leader's own template for the name lookup —
-it does not, because `steps` never includes the leader itself. Fix that by
-widening the template query in the step above:
-
-```ts
-  const templates = await prisma.taskTemplate.findMany({
-    where: {
-      id: { in: [leader.templateId, ...steps.map((s) => s.templateId)] },
-      active: true,
-    },
-  });
-```
-
 - [ ] **Step 3: Update the file's doc comment**
 
 The opening comment says "A catalogue entry can say it comes after another one".
@@ -2506,13 +2521,13 @@ debriefing waiting on both.
 
 Run: `npx tsc --noEmit`
 Expected: the only remaining errors are in `src/lib/catalogue/actions.ts`, fixed
-in Task C4. `follow-db.ts` itself must be clean.
+in Part 4. `follow-db.ts` itself must be clean.
 
 - [ ] **Step 5: Run the whole suite**
 
 Run: `npm test`
 Expected: all pass (nothing unit-tests `follow-db.ts`; it is verified by script
-in Task C6).
+in Task 11).
 
 - [ ] **Step 6: Commit**
 
@@ -2523,15 +2538,15 @@ git commit -m "feat: each leader raises its own copy of what comes after it"
 
 ---
 
-### Task C4: Saving several leaders from the catalogue
+#### Part 4 — Saving several leaders from the catalogue
 
 **Files:**
 - Modify: `src/lib/catalogue/actions.ts`
 - Modify: `src/app/(app)/catalogue/page.tsx` (the entry query feeding the form)
 
 **Interfaces:**
-- Consumes: `wouldCycle`, `depthOf`, `MAX_CHAIN`, `FollowLink` from Task C1; `TemplateFollow` from Task C2.
-- Produces: `saveCatalogueEntry` now reads `formData.getAll("leaderIds")`. The `CatalogueEntry` type gains `leaderIds: string[]` and loses `followsId` — Task C5 consumes both.
+- Consumes: `wouldCycle`, `depthOf`, `MAX_CHAIN`, `FollowLink` from Part 1; `TemplateFollow` from Part 2.
+- Produces: `saveCatalogueEntry` now reads `formData.getAll("leaderIds")`. The `CatalogueEntry` type gains `leaderIds: string[]` and loses `followsId` — Part 5 consumes both.
 
 - [ ] **Step 1: Take a list in the schema**
 
@@ -2693,7 +2708,7 @@ that relation.
 Run: `npx tsc --noEmit`
 Expected: the only remaining errors are in
 `src/app/(app)/catalogue/catalogue-form.tsx` and `catalogue-list.tsx`, fixed in
-Task C5.
+Part 5.
 
 - [ ] **Step 8: Commit**
 
@@ -2704,7 +2719,7 @@ git commit -m "feat: a catalogue entry can be saved with several things before i
 
 ---
 
-### Task C5: Choosing several leaders in the form
+#### Part 5 — Choosing several leaders in the form
 
 **Files:**
 - Modify: `src/app/(app)/catalogue/catalogue-form.tsx`
@@ -2712,7 +2727,7 @@ git commit -m "feat: a catalogue entry can be saved with several things before i
 - Modify: `src/lib/i18n/dictionary.ts` (both `en` and `es`)
 
 **Interfaces:**
-- Consumes: `CatalogueEntry.leaderIds` from Task C4; `wouldCycle` and `FollowLink` from Task C1.
+- Consumes: `CatalogueEntry.leaderIds` from Part 4; `wouldCycle` and `FollowLink` from Part 1.
 - Produces: nothing other tasks depend on.
 
 - [ ] **Step 1: Add the strings, both languages**
@@ -2851,7 +2866,7 @@ expression that produces the name change.
 
 Run: `npx tsc --noEmit`
 Expected: **no errors anywhere.** This is the step that closes the window opened
-in Task C1.
+in Part 1.
 
 - [ ] **Step 7: Run the whole suite**
 
@@ -2875,13 +2890,13 @@ git commit -m "feat: pick more than one thing a task comes after"
 
 ---
 
-### Task C6: Proving it end to end
+### Task 11: Proving it end to end
 
 **Files:**
 - Modify: `scripts/verify-follow.ts`
 
 **Interfaces:**
-- Consumes: everything from Tasks A3, A4, C1–C5.
+- Consumes: everything from Tasks 3, 4 and 10.
 - Produces: nothing.
 
 **Why a script and not a test.** Vitest never touches Postgres in this project.
@@ -2996,7 +3011,7 @@ is already covered. Verify that by reading the cleanup block.
 
 - [ ] **Step 3: Add the in-flight-leader case**
 
-This is Task A4's regression check. After the block above, add:
+This is Task 4's regression check. After the block above, add:
 
 ```ts
   // --------------------------------- a follower whose leader is being done
@@ -3041,7 +3056,7 @@ npm run db:start
 npx tsx scripts/verify-follow.ts
 ```
 Expected: every check reports `ok`, and the script cleans up after itself. If the
-in-flight checks fail, the fault is in Task A4's `detached` map, not here.
+in-flight checks fail, the fault is in Task 4's `detached` map, not here.
 
 - [ ] **Step 5: Run every verify script**
 
@@ -3070,7 +3085,7 @@ git commit -m "test: two leaders raise two debriefings, and a live leader keeps 
 
 ---
 
-### Task C7: Say it in the README
+### Task 12: Say it in the README
 
 **Files:**
 - Modify: `README.md`
@@ -3099,7 +3114,7 @@ sentence; and the list readable from the app or the command line.
 
 Read the "**Assigns it automatically.**" bullet. It describes capacity as a hard
 constraint with must-do work as the exception — which is now true in a way it
-was not before Task A1. Leave it if it reads correctly; if it implies routines
+was not before Task 1. Leave it if it reads correctly; if it implies routines
 and single tasks were already ranked together, no change is needed either.
 
 - [ ] **Step 4: Commit**
@@ -3117,24 +3132,24 @@ git commit -m "docs: several things before a task, and the report button"
 
 | Spec requirement | Task |
 |---|---|
-| `TemplateFollow` join table, backfill, drop column | C2 |
-| Instance model unchanged (`Task.followsTaskId` single) | C2, C3 (explicitly not touched) |
-| `buildFollowKey` unchanged; two leaders → two tasks | C3, verified C6 |
-| Title suffixed only when 2+ leaders | C3, verified C6 |
-| `chainFrom` returns the real parent | C1, C3 |
-| `wouldCycle` walks all parents | C1 |
-| `depthOf` longest path | C1 |
-| `MAX_CHAIN` stays 5 | C1 (unchanged) |
-| Catalogue multi-select, cycle/depth refused at save | C4, C5 |
-| `Report` model with auto-captured context | B1 |
-| Bug/Suggestion toggle, one textarea, every page, every role | B3 |
-| `npm run bugs` with all/bugs/ideas/show/close | B4 |
-| `/admin/reports`, ADMIN only | B5 |
-| Body validated: trimmed, non-empty, ≤4000 | B2 |
-| `closedById` null for a CLI close | B1, B2 |
-| Defect 1 — priority across groups and singles | A1 |
-| Defect 2 — deadline with no start | A2 |
-| Defect 3 — orphaned follower | A3 (pure), A4 (wiring) |
+| `TemplateFollow` join table, backfill, drop column | 10 (Part 2) |
+| Instance model unchanged (`Task.followsTaskId` single) | 10 (Parts 2, 3 — explicitly not touched) |
+| `buildFollowKey` unchanged; two leaders → two tasks | 10 (Part 3), verified 11 |
+| Title suffixed only when 2+ leaders | 10 (Part 3), verified 11 |
+| `chainFrom` returns the real parent | 10 (Parts 1, 3) |
+| `wouldCycle` walks all parents | 10 (Part 1) |
+| `depthOf` longest path | 10 (Part 1) |
+| `MAX_CHAIN` stays 5 | 10 (Part 1, unchanged) |
+| Catalogue multi-select, cycle/depth refused at save | 10 (Parts 4, 5) |
+| `Report` model with auto-captured context | 5 |
+| Bug/Suggestion toggle, one textarea, every page, every role | 7 |
+| `npm run bugs` with all/bugs/ideas/show/close | 8 |
+| `/admin/reports`, ADMIN only | 9 |
+| Body validated: trimmed, non-empty, ≤4000 | 6 |
+| `closedById` null for a CLI close | 5, 6 |
+| Defect 1 — priority across groups and singles | 1 |
+| Defect 2 — deadline with no start | 2 |
+| Defect 3 — orphaned follower | 3 (pure), 4 (wiring) |
 | Rotation window recorded, not fixed | spec only — correctly no task |
 | Sequencing: Part A before Part C | plan order |
 
