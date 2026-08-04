@@ -95,6 +95,7 @@ const en = {
     of: "of",
     today: "today",
     yourRecord: "Your record",
+    notifications: "Alerts",
   },
   /**
    * Everything a server action can say when something goes wrong, plus the
@@ -497,6 +498,38 @@ const en = {
     requests: "Requests",
     people: "People",
     p1n: "P1N",
+    /* Under the wordmark in the sidebar's brand lockup. */
+    brandSub: "Operations",
+    /* No screens yet -- sub-project 4 builds them. The keys exist now so
+       the nav and the breadcrumb map are written once. */
+    performance: "Performance",
+    attendance: "Attendance",
+  },
+  search: {
+    placeholder: "Search task, person, P1N…",
+    /* Shown in the outlined chip inside the field. Not translated -- the
+       key exists so the chip is not a magic string in the markup. */
+    hint: "⌘K",
+    open: "Search",
+    close: "Close search",
+    empty: "Nothing matches “{0}”",
+    /* Before anything is typed. */
+    prompt: "Type to search tasks, people and P1N",
+    tasks: "Tasks",
+    people: "People",
+    p1ns: "P1N",
+  },
+  notifications: {
+    /* The popover's eyebrow. */
+    title: "Alerts",
+    open: "Alerts",
+    markRead: "Mark read",
+    empty: "Nothing waiting",
+    /* {0} is the sender's name, which is their own and untranslated. */
+    newMessage: "{0} wrote to you",
+    absencePending: "{0} is waiting on a decision",
+    orphaned: "Without an owner",
+    blocked: "Stopped",
   },
   myDay: {
     today: "Today",
@@ -1130,6 +1163,7 @@ const es: Dictionary = {
     of: "de",
     today: "hoy",
     yourRecord: "Tu ficha",
+    notifications: "Avisos",
   },
   errors: {
     // -- compartidos
@@ -1525,6 +1559,30 @@ const es: Dictionary = {
     requests: "Solicitudes",
     people: "Personal",
     p1n: "P1N",
+    brandSub: "Operaciones",
+    performance: "Rendimiento",
+    attendance: "Asistencia",
+  },
+  search: {
+    placeholder: "Buscar tarea, persona, P1N…",
+    hint: "⌘K",
+    open: "Buscar",
+    close: "Cerrar la búsqueda",
+    empty: "Nada coincide con «{0}»",
+    prompt: "Escribe para buscar tareas, personas y P1N",
+    tasks: "Tareas",
+    people: "Personas",
+    p1ns: "P1N",
+  },
+  notifications: {
+    title: "Avisos",
+    open: "Avisos",
+    markRead: "Marcar leídos",
+    empty: "Nada pendiente",
+    newMessage: "{0} te ha escrito",
+    absencePending: "{0} espera una decisión",
+    orphaned: "Sin dueño",
+    blocked: "Parada",
   },
   myDay: {
     today: "Hoy",
