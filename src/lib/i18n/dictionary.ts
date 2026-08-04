@@ -521,7 +521,6 @@ const en = {
   notifications: {
     /* The popover's eyebrow. */
     title: "Alerts",
-    open: "Alerts",
     markRead: "Mark read",
     empty: "Nothing waiting",
     /* {0} is the sender's name, which is their own and untranslated. */
@@ -1574,7 +1573,6 @@ const es: Dictionary = {
   },
   notifications: {
     title: "Avisos",
-    open: "Avisos",
     markRead: "Marcar leídos",
     empty: "Nada pendiente",
     newMessage: "{0} te ha escrito",

@@ -18,7 +18,10 @@ import { rankHits, MAX_HITS, type SearchHit } from "./rank";
  * not exist, and the cap means the query never returns more than eighteen
  * rows however common the word.
  *
- * Scoped to the caller's department, matching every other read in the app.
+ * Each kind is scoped to match what its destination page actually shows:
+ * - Task templates: company-wide (/catalogue accepts ?dept parameter)
+ * - People: company-wide (/hr/people shows all departments)
+ * - P1N: department-scoped (/p1n filters by department)
  */
 export async function search(query: string): Promise<SearchHit[]> {
   const user = await requireUser();
@@ -30,19 +33,22 @@ export async function search(query: string): Promise<SearchHit[]> {
   const [tasks, people, p1ns] = await Promise.all([
     // Task templates: only for managers and above. /catalogue requires MANAGER role,
     // so we gate the search result at the query to avoid offering inaccessible pages.
+    // Search is company-wide since /catalogue accepts ?dept parameter for any department.
     hasRole(user, "MANAGER")
       ? prisma.taskTemplate.findMany({
-          where: { departmentId: user.departmentId, active: true, name: where },
-          select: { id: true, name: true, estimatedMinutes: true },
+          where: { active: true, name: where },
+          select: { id: true, name: true, estimatedMinutes: true, departmentId: true, department: { select: { name: true } } },
           take: MAX_HITS,
           orderBy: { name: "asc" },
         })
       : Promise.resolve([]),
     // People: only for HR and admins. /hr/people requires canManagePeople,
     // so we gate the search result at the query to avoid offering inaccessible pages.
+    // Search is company-wide since /hr/people shows all departments.
+    // active: true is deliberate — an account that has left is not something you jump to.
     canManagePeople(user)
       ? prisma.user.findMany({
-          where: { departmentId: user.departmentId, active: true, displayName: where },
+          where: { active: true, displayName: where },
           select: { id: true, displayName: true, username: true },
           take: MAX_HITS,
           orderBy: { displayName: "asc" },
@@ -62,8 +68,10 @@ export async function search(query: string): Promise<SearchHit[]> {
       kind: "task" as const,
       id: t.id,
       title: t.name,
-      sub: formatDuration(t.estimatedMinutes),
-      href: "/catalogue",
+      sub: t.departmentId === user.departmentId
+        ? formatDuration(t.estimatedMinutes)
+        : `${formatDuration(t.estimatedMinutes)} · ${t.department.name}`,
+      href: `/catalogue?dept=${t.departmentId}`,
     })),
     ...people.map((p) => ({
       kind: "person" as const,
