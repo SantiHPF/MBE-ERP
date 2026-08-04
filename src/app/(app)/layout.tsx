@@ -16,10 +16,9 @@ import { ThemeToggle } from "./theme-toggle";
 import { getNowState } from "@/lib/tasks/now-db";
 import { scheduleZone } from "@/lib/time";
 import { NowProvider } from "./now-provider";
-import { TopBar } from "./top-bar";
 import { getNotifications } from "@/lib/notifications/read";
 import { Bell } from "./notifications/bell";
-import { CommandPalette } from "./command-palette";
+import { ShellChrome } from "./shell-chrome";
 
 export default async function AppLayout({
   children,
@@ -243,13 +242,7 @@ export default async function AppLayout({
           thread a width down to a layout that has no business knowing routes.
         */}
         <div className="flex min-w-0 flex-1 flex-col">
-          <CommandPalette>
-            {(open) => (
-              <TopBar onOpenSearch={open}>
-                <Bell feed={feed} zone={scheduleZone()} />
-              </TopBar>
-            )}
-          </CommandPalette>
+          <ShellChrome bell={<Bell feed={feed} zone={scheduleZone()} />} />
           <main className="w-full px-6 py-[22px] pb-[92px] lg:px-8">
             <div className="mx-auto w-full max-w-[1180px] [&:has([data-wide])]:max-w-[1600px]">
               {children}
