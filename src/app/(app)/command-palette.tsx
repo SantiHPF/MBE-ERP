@@ -37,6 +37,17 @@ export function CommandPalette({
 
   const dialogRef = useRef<HTMLDivElement>(null);
 
+  // What had focus right before the palette opened, so it can get that focus
+  // back on close. This is captured at the two call sites that open the
+  // palette -- not in a useEffect -- because the input below has autoFocus,
+  // and React applies autoFocus synchronously during the commit phase, the
+  // same pass that attaches refs, which always runs before any passive
+  // effect fires. By the time a useEffect body keyed on `open` could read
+  // document.activeElement, the palette's own input has already stolen it.
+  // There is no effect timing that sees the real trigger -- it has to be
+  // read before setOpen(true) is even called.
+  const triggerRef = useRef<HTMLElement | null>(null);
+
   // Mirrors `open` for the mount-once keydown listener below, which cannot
   // put `open` in its dependency array without re-registering itself (and
   // duplicate listeners is exactly the bug that guard is there to avoid).
@@ -57,7 +68,13 @@ export function CommandPalette({
     const onKey = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
         e.preventDefault();
-        setOpen((o) => !o);
+        setOpen((o) => {
+          // Only capture on the closed-to-open edge. Capturing on the way
+          // back out would record whatever had focus inside the dialog --
+          // the input, a result -- and overwrite the real trigger with it.
+          if (!o) triggerRef.current = document.activeElement as HTMLElement | null;
+          return !o;
+        });
         return;
       }
       if (!openRef.current) return;
@@ -89,14 +106,18 @@ export function CommandPalette({
     return () => document.removeEventListener("keydown", onKey);
   }, []);
 
-  // Whatever had focus when the palette opened gets it back when the palette
-  // closes, on every path out -- Escape, a backdrop click, or picking a
-  // result. Without this, closing drops focus to <body> and tabbing has to
-  // start over from the top of the page.
+  // Restores focus to whatever was captured in triggerRef -- on every close
+  // path: Escape, a backdrop click, or picking a result. Without this,
+  // closing drops focus to <body> and tabbing has to start over from the top
+  // of the page. Guarded by isConnected because picking a result navigates,
+  // and although the shared layout keeps the top bar mounted across routes,
+  // a detached node is a silent no-op to .focus() rather than an error, so
+  // the guard is cheap insurance against a class of bug rather than a fix
+  // for one actually seen.
   useEffect(() => {
-    if (!open) return;
-    const trigger = document.activeElement as HTMLElement | null;
-    return () => trigger?.focus();
+    if (open) return;
+    const trigger = triggerRef.current;
+    if (trigger && trigger.isConnected) trigger.focus();
   }, [open]);
 
   /*
@@ -124,6 +145,11 @@ export function CommandPalette({
   // A fresh box every time, rather than yesterday's search waiting in it.
   useEffect(() => {
     if (!open) {
+      // Closing invalidates anything still in flight: bumping the id means
+      // a response from a search already dismissed can never match the
+      // "current" id again, even if the user reopens and starts a new
+      // session before that old response lands.
+      requestId.current += 1;
       setQuery("");
       setHits([]);
     }
@@ -134,6 +160,11 @@ export function CommandPalette({
   useEffect(() => {
     setHighlight(0);
   }, [hits]);
+
+  const openPalette = () => {
+    triggerRef.current = document.activeElement as HTMLElement | null;
+    setOpen(true);
+  };
 
   const go = (href: string) => {
     setOpen(false);
@@ -157,7 +188,7 @@ export function CommandPalette({
 
   return (
     <>
-      {children(() => setOpen(true))}
+      {children(openPalette)}
 
       {open && (
         <div
