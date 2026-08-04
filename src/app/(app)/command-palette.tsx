@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { useT } from "@/lib/i18n/client";
 import { search } from "@/lib/search/actions";
@@ -11,6 +11,9 @@ const GROUP_KEY: Record<SearchKind, string> = {
   person: "search.people",
   p1n: "search.p1ns",
 };
+
+const FOCUSABLE =
+  'a[href], button:not([disabled]), input:not([disabled]), [tabindex]:not([tabindex="-1"])';
 
 /**
  * ⌘K.
@@ -29,19 +32,72 @@ export function CommandPalette({
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [hits, setHits] = useState<SearchHit[]>([]);
+  const [highlight, setHighlight] = useState(0);
   const [pending, startTransition] = useTransition();
+
+  const dialogRef = useRef<HTMLDivElement>(null);
+
+  // Mirrors `open` for the mount-once keydown listener below, which cannot
+  // put `open` in its dependency array without re-registering itself (and
+  // duplicate listeners is exactly the bug that guard is there to avoid).
+  const openRef = useRef(open);
+  useEffect(() => {
+    openRef.current = open;
+  }, [open]);
+
+  // Counts up once per search actually sent. A server action cannot be
+  // aborted mid-flight the way a fetch can -- there is no request to cancel,
+  // only an answer to ignore. So instead of cancelling, each response is
+  // stamped with the id it was sent under and only accepted if that id is
+  // still the newest one outstanding when it comes back. That is what stops
+  // a slow "r" from landing after a fast "rev" and clobbering it.
+  const requestId = useRef(0);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
         e.preventDefault();
         setOpen((o) => !o);
+        return;
       }
-      if (e.key === "Escape") setOpen(false);
+      if (!openRef.current) return;
+      if (e.key === "Escape") {
+        setOpen(false);
+        return;
+      }
+      // A dialog that traps focus visually but lets Tab walk into the page
+      // behind the backdrop is not actually modal. The focusable set is
+      // queried here rather than cached because the result list -- and so
+      // the last tab stop -- changes on every keystroke.
+      if (e.key === "Tab") {
+        const dialog = dialogRef.current;
+        if (!dialog) return;
+        const items = Array.from(dialog.querySelectorAll<HTMLElement>(FOCUSABLE));
+        if (items.length === 0) return;
+        const first = items[0];
+        const last = items[items.length - 1];
+        if (e.shiftKey && document.activeElement === first) {
+          e.preventDefault();
+          last.focus();
+        } else if (!e.shiftKey && document.activeElement === last) {
+          e.preventDefault();
+          first.focus();
+        }
+      }
     };
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
   }, []);
+
+  // Whatever had focus when the palette opened gets it back when the palette
+  // closes, on every path out -- Escape, a backdrop click, or picking a
+  // result. Without this, closing drops focus to <body> and tabbing has to
+  // start over from the top of the page.
+  useEffect(() => {
+    if (!open) return;
+    const trigger = document.activeElement as HTMLElement | null;
+    return () => trigger?.focus();
+  }, [open]);
 
   /*
    * Debounced, because this fires a server action per keystroke otherwise.
@@ -56,7 +112,11 @@ export function CommandPalette({
       return;
     }
     const id = setTimeout(() => {
-      startTransition(async () => setHits(await search(q)));
+      const thisRequest = ++requestId.current;
+      startTransition(async () => {
+        const results = await search(q);
+        if (thisRequest === requestId.current) setHits(results);
+      });
     }, 180);
     return () => clearTimeout(id);
   }, [query, open]);
@@ -69,9 +129,30 @@ export function CommandPalette({
     }
   }, [open]);
 
+  // The highlighted row always starts at the top of whatever just arrived,
+  // rather than at whatever index the previous list happened to leave it on.
+  useEffect(() => {
+    setHighlight(0);
+  }, [hits]);
+
   const go = (href: string) => {
     setOpen(false);
     router.push(href);
+  };
+
+  const onInputKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (hits.length === 0) return;
+    if (e.key === "ArrowDown") {
+      e.preventDefault();
+      setHighlight((h) => (h + 1) % hits.length);
+    } else if (e.key === "ArrowUp") {
+      e.preventDefault();
+      setHighlight((h) => (h - 1 + hits.length) % hits.length);
+    } else if (e.key === "Enter") {
+      e.preventDefault();
+      const hit = hits[highlight] ?? hits[0];
+      if (hit) go(hit.href);
+    }
   };
 
   return (
@@ -86,6 +167,7 @@ export function CommandPalette({
           }}
         >
           <div
+            ref={dialogRef}
             role="dialog"
             aria-modal="true"
             aria-label={t("search.open")}
@@ -95,9 +177,10 @@ export function CommandPalette({
               autoFocus
               value={query}
               onChange={(e) => setQuery(e.target.value)}
+              onKeyDown={onInputKeyDown}
               placeholder={t("search.placeholder")}
               className="w-full border-b border-line bg-transparent px-4 py-3 text-body
-                         text-ink outline-none placeholder:text-faint"
+                         text-ink placeholder:text-faint"
             />
 
             <div className="max-h-[380px] overflow-y-auto">
@@ -110,13 +193,14 @@ export function CommandPalette({
                   {t("search.empty", query.trim())}
                 </p>
               ) : (
-                <ul>
+                <ul role="listbox">
                   {hits.map((hit, i) => {
                     // The group heading appears once, above the first of its
                     // kind -- rankHits has already clustered them.
                     const first = i === 0 || hits[i - 1].kind !== hit.kind;
+                    const selected = i === highlight;
                     return (
-                      <li key={`${hit.kind}:${hit.id}`}>
+                      <li key={`${hit.kind}:${hit.id}`} role="presentation">
                         {first && (
                           <p className="eyebrow px-4 pt-3 pb-1">
                             {t(GROUP_KEY[hit.kind])}
@@ -124,9 +208,13 @@ export function CommandPalette({
                         )}
                         <button
                           type="button"
+                          role="option"
+                          aria-selected={selected}
                           onClick={() => go(hit.href)}
-                          className="flex w-full items-baseline gap-2 px-4 py-2 text-left
-                                     transition-colors hover:bg-surface-2"
+                          className={`flex w-full items-baseline gap-2 px-4 py-2 text-left
+                                     transition-colors hover:bg-surface-2 ${
+                                       selected ? "bg-surface-2" : ""
+                                     }`}
                         >
                           <span className="min-w-0 flex-1 truncate text-small">
                             {hit.title}

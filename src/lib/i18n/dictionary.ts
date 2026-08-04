@@ -511,7 +511,6 @@ const en = {
        key exists so the chip is not a magic string in the markup. */
     hint: "⌘K",
     open: "Search",
-    close: "Close search",
     empty: "Nothing matches “{0}”",
     /* Before anything is typed. */
     prompt: "Type to search tasks, people and P1N",
@@ -1567,7 +1566,6 @@ const es: Dictionary = {
     placeholder: "Buscar tarea, persona, P1N…",
     hint: "⌘K",
     open: "Buscar",
-    close: "Cerrar la búsqueda",
     empty: "Nada coincide con «{0}»",
     prompt: "Escribe para buscar tareas, personas y P1N",
     tasks: "Tareas",
