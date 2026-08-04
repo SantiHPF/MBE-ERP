@@ -66,8 +66,29 @@
   --text-lead: 1rem; /* 16px — card titles */
   --text-title: 1.375rem; /* 22px — page titles */
 
-  --radius-card: 8px;
-  --radius-control: 6px;
+  /*
+   * The half-steps the redesign asks for. The scale was six values; the
+   * design lands on thirteen. They go here rather than as arbitrary values
+   * at the call sites so the scale stays enumerable -- the next sub-project
+   * needs somewhere to put a number, and "whatever the design said" is not
+   * somewhere.
+   */
+  --text-nano: 0.625rem; /* 10px — pills, nav group headings */
+  --text-mini: 0.65625rem; /* 10.5px — badges, timestamps */
+  --text-label: 0.71875rem; /* 11.5px — role lines, notes */
+  --text-meta: 0.78125rem; /* 12.5px — secondary values */
+  --text-cell: 0.84375rem; /* 13.5px — nav links, table cells */
+  --text-card: 1.3125rem; /* 21px — running-task name */
+  --text-kpi: 1.5625rem; /* 25px — KPI numbers */
+  --text-stopwatch: 2.875rem; /* 46px — the stopwatch, and only that */
+
+  /* The design's radii, which are a step softer than what was here: cards
+     were 8 and controls 6. Changing the tokens rather than the call sites
+     means every card and button in the app moves together. */
+  --radius-card: 10px;
+  --radius-control: 8px;
+  --radius-nav: 7px;
+  --radius-pop: 12px;
 
   /* Tinted with the ink rather than pure black, so shadows sit in the same
      colour world as everything else instead of greying it down. */
@@ -345,4 +366,118 @@ body {
     background: var(--color-pause-wash);
     color: var(--color-ink);
   }
+
+  /* ---------------------------------------------------------------- tone */
+
+  /*
+   * One custom property instead of a variant per colour.
+   *
+   * Everything below reads --tone, and a wash-filled thing also reads
+   * --tone-wash. A caller sets them to a semantic pair:
+   *
+   *   <span className="pill" style={{ "--tone": "var(--color-run)" }} />
+   *
+   * so run / pause / stall / accent cost nothing per class, and a
+   * sixth tone later costs nothing at all.
+   */
+
+  /* The 3px spine down the left of a card that says which state it is in. */
+  .rail { border-left: 3px solid var(--tone, var(--color-line)); }
+
+  .pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    padding: 0.0625rem 0.5rem;
+    border: 1px solid var(--tone, var(--color-line));
+    border-radius: 999px;
+    color: var(--tone, var(--color-faint));
+    font-size: var(--text-mini);
+    font-weight: 600;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    white-space: nowrap;
+  }
+
+  /* The square in a plan or calendar cell. Sized by its caller, since the
+     matrix and the calendar want different shapes. */
+  .chip {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid var(--tone, var(--color-line));
+    border-radius: 4px;
+    background: var(--tone-wash, transparent);
+    font-size: var(--text-mini);
+    font-weight: 600;
+    color: var(--tone, var(--color-faint));
+  }
+
+  .track {
+    overflow: hidden;
+    height: 6px;
+    border-radius: 999px;
+    background: var(--color-line);
+  }
+  .track-fill {
+    height: 100%;
+    border-radius: 999px;
+    background: var(--tone, var(--color-accent));
+    /* Long enough to read as movement rather than a jump; the suppression
+       rule at the top of this file overrides it under reduced motion. */
+    transition: width 500ms ease;
+  }
+
+  .stopwatch {
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: "tnum";
+    font-size: var(--text-stopwatch);
+    font-weight: 500;
+    letter-spacing: -0.03em;
+    line-height: 1;
+  }
+
+  .kpi-value {
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: "tnum";
+    font-size: var(--text-kpi);
+    font-weight: 600;
+    letter-spacing: -0.02em;
+    color: var(--tone, var(--color-ink));
+  }
+
+  .popover {
+    background: var(--color-surface);
+    border: 1px solid var(--color-line);
+    border-radius: var(--radius-pop);
+    box-shadow: var(--shadow-raised);
+  }
+
+  /* ------------------------------------------------------------- tables */
+
+  .table-erp { width: 100%; border-collapse: collapse; }
+
+  .table-erp thead th {
+    padding: 0.5rem 0.875rem;
+    background: var(--color-surface-2);
+    border-bottom: 1px solid var(--color-line);
+    font-size: var(--text-micro);
+    font-weight: 600;
+    letter-spacing: 0.07em;
+    text-transform: uppercase;
+    color: var(--color-faint);
+    text-align: left;
+  }
+
+  .table-erp tbody td {
+    padding: 0.625rem 0.875rem;
+    border-bottom: 1px solid var(--color-line);
+    font-size: var(--text-cell);
+  }
+
+  /* The card already draws the closing edge. */
+  .table-erp tbody tr:last-child td { border-bottom: 0; }
+  .table-erp tbody tr:hover td { background: var(--color-surface-2); }
 }
