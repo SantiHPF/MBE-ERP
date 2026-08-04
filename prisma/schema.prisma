@@ -62,6 +62,10 @@ model User {
   displayName  String
   role         Role     @default(WORKER)
   locale       Locale   @default(ES)
+  /// When they last opened the alerts popover. Everything newer is unread.
+  /// One nullable column instead of a Notification table with per-row read
+  /// state -- the rows are derived, so there is nothing to mark but the look.
+  notificationsSeenAt DateTime?
   active       Boolean  @default(true)
   createdAt    DateTime @default(now())
 
