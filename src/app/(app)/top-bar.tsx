@@ -21,10 +21,7 @@ export function TopBar({
   onOpenSearch,
   children,
 }: {
-  // Optional for now: layout.tsx is a server component and cannot pass a
-  // callback, and the palette that owns this state arrives in Task 12. That
-  // task makes the prop required again and removes the button's `disabled`.
-  onOpenSearch?: () => void;
+  onOpenSearch: () => void;
   children?: React.ReactNode;
 }) {
   const { t } = useT();
@@ -66,7 +63,6 @@ export function TopBar({
         <button
           type="button"
           onClick={onOpenSearch}
-          disabled={!onOpenSearch}
           aria-label={t("search.open")}
           className="hidden h-[31px] w-[224px] items-center gap-2 rounded-[var(--radius-control)]
                      border border-line-strong px-2.5 text-left text-small text-faint
