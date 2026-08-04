@@ -64,29 +64,35 @@ export function NowBar({ zone }: { zone: string }) {
       /* Stops short of the sidebar from `lg` up, whose own footer is pinned
          to the bottom of the screen -- a full-width bar sat on top of the
          name and the sign-out button. */
-      className="fixed inset-x-0 bottom-0 z-40 border-t border-line bg-surface/97 backdrop-blur lg:left-[208px]"
+      className="fixed inset-x-0 bottom-0 z-40 border-t border-line bg-surface/97 backdrop-blur lg:left-[238px]"
       role="status"
       aria-live="polite"
     >
-      <div className="mx-auto flex max-w-[1600px] flex-wrap items-center gap-x-4 gap-y-2 px-6 py-2.5 lg:px-8">
+      <div className="mx-auto flex max-w-[1180px] flex-wrap items-center gap-x-4 gap-y-2 px-6 py-2.5 lg:px-8">
         {active ? (
-          <>
-            <span
-              className={`h-7 w-[3px] shrink-0 rounded-full ${
-                active.status === "IN_PROGRESS" ? "bg-run" : "bg-pause"
-              }`}
-            />
+          <div
+            /* One --tone on the wrapping element instead of a ternary per
+               part: the rail, the eyebrow and (indirectly) the label all
+               read it, so pausing recolours the whole left end in one move
+               rather than three that can drift apart. */
+            className="flex min-w-0 items-center gap-2.5"
+            style={
+              {
+                "--tone":
+                  active.status === "IN_PROGRESS"
+                    ? "var(--color-run)"
+                    : "var(--color-pause)",
+              } as React.CSSProperties
+            }
+          >
+            <span className="h-7 w-[3px] shrink-0 rounded-full bg-[var(--tone)]" />
             <span className="flex min-w-0 flex-col leading-tight">
-              <span
-                className={`eyebrow ${
-                  active.status === "IN_PROGRESS" ? "text-run" : "text-pause"
-                }`}
-              >
+              <span className="eyebrow text-[var(--tone)]">
                 {active.status === "IN_PROGRESS"
                   ? t("myDay.runningNow")
                   : t("myDay.paused")}
               </span>
-              <span className="truncate text-[13.5px] font-semibold">
+              <span className="truncate text-cell font-semibold">
                 {active.title}
                 {active.session && (
                   <span className="num ml-1.5 font-normal text-faint">
@@ -95,11 +101,11 @@ export function NowBar({ zone }: { zone: string }) {
                 )}
               </span>
             </span>
-          </>
+          </div>
         ) : (
           <span className="flex min-w-0 flex-col leading-tight">
             <span className="eyebrow">{t("myDay.today")}</span>
-            <span className="truncate text-[13.5px] font-medium text-muted">
+            <span className="truncate text-cell font-medium text-muted">
               {state.closed
                 ? t("attendance.dayClosed")
                 : next
