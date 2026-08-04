@@ -31,9 +31,15 @@ export function TopBar({
   const crumb = crumbFor(usePathname());
 
   return (
+    // Sticky only from `lg` up. Below `lg` the sidebar is still the
+    // horizontal mobile nav bar, and it stickies to `top: 0` on its own --
+    // a second sticky element at that offset would land underneath it
+    // once you scrolled past its height, not above it. From `lg` the
+    // sidebar becomes its own scroll region and stops competing for the
+    // viewport, so the bar can safely pin there.
     <header
-      className="sticky top-0 z-30 flex h-[57px] items-center gap-4 border-b border-line
-                 bg-surface/92 px-6 backdrop-blur-[8px] lg:px-8"
+      className="static flex h-[57px] items-center gap-4 border-b border-line
+                 bg-surface/92 px-6 backdrop-blur-[8px] lg:sticky lg:top-0 lg:z-30 lg:px-8"
     >
       <div className="flex min-w-0 items-baseline gap-2">
         {/* An unknown route gets no title rather than a confident wrong one. */}
