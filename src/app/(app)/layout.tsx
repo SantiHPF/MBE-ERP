@@ -17,6 +17,8 @@ import { getNowState } from "@/lib/tasks/now-db";
 import { scheduleZone } from "@/lib/time";
 import { NowProvider } from "./now-provider";
 import { TopBar } from "./top-bar";
+import { getNotifications } from "@/lib/notifications/read";
+import { Bell } from "./notifications/bell";
 
 export default async function AppLayout({
   children,
@@ -41,6 +43,10 @@ export default async function AppLayout({
   // The first count on this page that everybody has. Server-rendered like the
   // one above, and kept fresh between navigations by the poll in NowProvider.
   const unread = await unreadFor(user.id);
+
+  // Role-gated inside getNotifications: a WORKER gets three empty arrays
+  // rather than a special case here.
+  const feed = await getNotifications(user);
 
   const initials = user.displayName
     .split(" ")
@@ -236,7 +242,9 @@ export default async function AppLayout({
           thread a width down to a layout that has no business knowing routes.
         */}
         <div className="flex min-w-0 flex-1 flex-col">
-          <TopBar />
+          <TopBar>
+            <Bell feed={feed} />
+          </TopBar>
           <main className="w-full px-6 py-[22px] pb-[92px] lg:px-8">
             <div className="mx-auto w-full max-w-[1180px] [&:has([data-wide])]:max-w-[1600px]">
               {children}
