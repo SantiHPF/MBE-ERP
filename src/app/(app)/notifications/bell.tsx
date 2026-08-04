@@ -7,7 +7,15 @@ import type { Feed } from "@/lib/notifications/feed";
 import { Icon } from "../icons";
 import { Popover } from "./popover";
 
-export function Bell({ feed }: { feed: Feed }) {
+/**
+ * `zone` arrives as a prop rather than being read here because
+ * `scheduleZone()` reads `process.env.SCHEDULE_TIMEZONE` and so is
+ * server-only -- it cannot run in this client component. It is threaded
+ * down from the server layout (see layout.tsx) for the same reason
+ * NowProvider takes it: the company's day is decided in Madrid, not in
+ * whatever timezone the server process happens to be in.
+ */
+export function Bell({ feed, zone }: { feed: Feed; zone: string }) {
   const { t } = useT();
   const [open, setOpen] = useState(false);
   const box = useRef<HTMLDivElement>(null);
@@ -58,7 +66,9 @@ export function Bell({ feed }: { feed: Feed }) {
         )}
       </button>
 
-      {open && <Popover rows={feed.rows} onNavigate={() => setOpen(false)} />}
+      {open && (
+        <Popover rows={feed.rows} zone={zone} onNavigate={() => setOpen(false)} />
+      )}
     </div>
   );
 }

@@ -13,12 +13,33 @@ const TONE: Record<NotificationRow["tone"], string> = {
 
 export function Popover({
   rows,
+  zone,
   onNavigate,
 }: {
   rows: NotificationRow[];
+  /**
+   * Threaded down from the server layout rather than read here:
+   * `scheduleZone()` reads an environment variable and cannot run in a
+   * client component, and the company's day is decided in Madrid rather
+   * than wherever the server process happens to be.
+   */
+  zone: string;
   onNavigate: () => void;
 }) {
   const { t } = useT();
+
+  // Built once per render, not once per row -- the list can hold twenty of
+  // them and constructing an Intl.DateTimeFormat is not free.
+  //
+  // Locale fixed to "es-ES": hour/minute in 24h form reads the same in both
+  // languages this app supports, so there is nothing to gain from threading
+  // the locale through as well -- this is a deliberate simplification, not
+  // an oversight.
+  const timeFmt = new Intl.DateTimeFormat("es-ES", {
+    hour: "2-digit",
+    minute: "2-digit",
+    timeZone: zone,
+  });
 
   return (
     <div className="popover absolute right-0 top-[calc(100%+8px)] z-50 w-[348px] overflow-hidden">
@@ -62,7 +83,7 @@ export function Popover({
                   </span>
                 </span>
                 <span className="num shrink-0 text-mini text-faint">
-                  {row.at.slice(11, 16)}
+                  {timeFmt.format(new Date(row.at))}
                 </span>
               </Link>
             </li>

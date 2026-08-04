@@ -243,7 +243,7 @@ export default async function AppLayout({
         */}
         <div className="flex min-w-0 flex-1 flex-col">
           <TopBar>
-            <Bell feed={feed} />
+            <Bell feed={feed} zone={scheduleZone()} />
           </TopBar>
           <main className="w-full px-6 py-[22px] pb-[92px] lg:px-8">
             <div className="mx-auto w-full max-w-[1180px] [&:has([data-wide])]:max-w-[1600px]">
