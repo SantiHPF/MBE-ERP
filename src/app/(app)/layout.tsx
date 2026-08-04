@@ -16,6 +16,7 @@ import { ThemeToggle } from "./theme-toggle";
 import { getNowState } from "@/lib/tasks/now-db";
 import { scheduleZone } from "@/lib/time";
 import { NowProvider } from "./now-provider";
+import { TopBar } from "./top-bar";
 
 export default async function AppLayout({
   children,
@@ -110,7 +111,7 @@ export default async function AppLayout({
       <div className="lg:flex lg:min-h-screen">
         {/*
           A sidebar from `lg` up. Below that it stays the horizontal bar it has
-          always been -- a fixed 208px column on a phone leaves nothing for the
+          always been -- a fixed 238px column on a phone leaves nothing for the
           page, and the mobile pass that turns this into a drawer is separate
           work.
         */}
@@ -130,7 +131,10 @@ export default async function AppLayout({
               href="/my-day"
               className="flex shrink-0 items-center gap-2.5 py-3.5 lg:px-1.5 lg:pt-0 lg:pb-5"
             >
-              <span className="flex h-[30px] w-[30px] shrink-0 items-center justify-center rounded-lg bg-accent text-[12.5px] font-bold text-accent-ink">
+              <span
+                aria-hidden="true"
+                className="flex h-[30px] w-[30px] shrink-0 items-center justify-center rounded-lg bg-accent text-[12.5px] font-bold text-accent-ink"
+              >
                 MB
               </span>
               <span className="leading-tight">
@@ -179,10 +183,10 @@ export default async function AppLayout({
             {/* Pinned to the bottom of the column, where it stops competing
                 with the navigation for the top corner.
 
-                In the column the name and the sign-out button cannot share a
-                row -- 208px truncated "Santiago Hernandez" to "Sa…" -- so they
-                stack, and sign-out becomes a quiet full-width action rather
-                than a button squeezed against the edge. */}
+                The name and the sign-out button stack rather than share a
+                row -- when the column was narrower it truncated "Santiago
+                Hernandez" to "Sa…" -- and sign-out stays a quiet full-width
+                action rather than a button squeezed against the edge. */}
             <div className="flex items-center gap-2.5 py-3.5 lg:mt-auto lg:flex-col lg:items-stretch lg:gap-2 lg:border-t lg:border-line lg:px-1 lg:pt-3 lg:pb-0">
               <a
                 href="/me"
@@ -220,18 +224,25 @@ export default async function AppLayout({
         </aside>
 
         {/*
-          The cap belongs on the content, not on `main`.
+          The bar and the column it caps.
 
-          It used to sit on both, and `lg:mx-0` removed the auto margins that
-          were centring it -- so past about 1450px every extra pixel piled up
-          as dead space on the right while the week grids next to it stayed
-          cramped. Now `main` takes the column it is given, and the cap that
-          keeps a line of prose readable on a very wide monitor is applied
-          once, with `mx-auto` so any leftover reads as a margin.
+          1180px is what the design draws every screen at, and it is right for
+          all of them except the two matrix screens -- /plan and /team put five
+          day-columns side by side and were widened on purpose after they came
+          out cramped. So the cap is the design's, and those two opt out by
+          marking their own root `data-wide`.
+
+          Done with :has() rather than a prop so no server component has to
+          thread a width down to a layout that has no business knowing routes.
         */}
-        <main className="w-full px-6 py-7 lg:min-w-0 lg:flex-1 lg:px-8">
-          <div className="mx-auto w-full max-w-[1600px]">{children}</div>
-        </main>
+        <div className="flex min-w-0 flex-1 flex-col">
+          <TopBar />
+          <main className="w-full px-6 py-[22px] pb-[92px] lg:px-8">
+            <div className="mx-auto w-full max-w-[1180px] [&:has([data-wide])]:max-w-[1600px]">
+              {children}
+            </div>
+          </main>
+        </div>
       </div>
       </NowProvider>
     </LocaleProvider>

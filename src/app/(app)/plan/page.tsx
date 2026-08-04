@@ -25,7 +25,9 @@ export default async function PlanPage({
   const spare = week.totalCapacity - week.totalClaimed;
 
   return (
-    <div>
+    /* Five day-columns need more than the 1180px the other screens use;
+       see the cap in (app)/layout.tsx. */
+    <div data-wide>
       <div className="mb-4 flex flex-wrap items-end justify-between gap-4">
         <div>
           <h1 className="page-title">
