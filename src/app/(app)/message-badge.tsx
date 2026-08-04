@@ -54,8 +54,11 @@ export function MessageBadge({ initial }: { initial: number }) {
 
   if (count === 0) return null;
 
+  /* Pause, not accent, and the same as the requests badge in the layout:
+     both mean "n things are waiting for you", and two colours for one
+     meaning reads as two different kinds of thing. */
   return (
-    <span className="num inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-accent px-1 text-[10px] font-semibold text-accent-ink">
+    <span className="num inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-pause px-1 text-[10px] font-semibold text-white">
       {count}
     </span>
   );

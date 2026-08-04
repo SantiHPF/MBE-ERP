@@ -58,24 +58,24 @@ export default async function AppLayout({
     {
       label: t("nav.groupWork"),
       links: [
-        <NavLink key="my-day" href="/my-day">{t("nav.myDay")}</NavLink>,
-        <NavLink key="plan" href="/plan">{t("nav.planWeek")}</NavLink>,
-        <NavLink key="cal" href="/my-calendar">{t("nav.myCalendar")}</NavLink>,
-        <NavLink key="meet" href="/meetings">{t("nav.meetings")}</NavLink>,
-        <NavLink key="msg" href="/messages">
+        <NavLink key="my-day" href="/my-day" icon="day">{t("nav.myDay")}</NavLink>,
+        <NavLink key="plan" href="/plan" icon="plan">{t("nav.planWeek")}</NavLink>,
+        <NavLink key="cal" href="/my-calendar" icon="calendar">{t("nav.myCalendar")}</NavLink>,
+        <NavLink key="meet" href="/meetings" icon="meetings">{t("nav.meetings")}</NavLink>,
+        <NavLink key="msg" href="/messages" icon="messages">
           {t("nav.messages")}
           <MessageBadge initial={unread} />
         </NavLink>,
-        <NavLink key="p1n" href="/p1n">{t("nav.p1n")}</NavLink>,
+        <NavLink key="p1n" href="/p1n" icon="p1n">{t("nav.p1n")}</NavLink>,
       ],
     },
     {
       label: t("nav.groupTeam"),
       links: isManager
         ? [
-            <NavLink key="team" href="/team">{t("nav.team")}</NavLink>,
-            <NavLink key="triage" href="/triage">{t("nav.triage")}</NavLink>,
-            <NavLink key="cat" href="/catalogue">{t("nav.catalogue")}</NavLink>,
+            <NavLink key="team" href="/team" icon="team">{t("nav.team")}</NavLink>,
+            <NavLink key="triage" href="/triage" icon="triage">{t("nav.triage")}</NavLink>,
+            <NavLink key="cat" href="/catalogue" icon="catalogue">{t("nav.catalogue")}</NavLink>,
           ]
         : [],
     },
@@ -84,7 +84,7 @@ export default async function AppLayout({
       links: [
         ...(isHr
           ? [
-              <NavLink key="req" href="/hr/absences">
+              <NavLink key="req" href="/hr/absences" icon="requests">
                 {t("nav.requests")}
                 {waiting > 0 && (
                   <span className="num inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-pause px-1 text-[10px] font-semibold text-white">
@@ -96,8 +96,8 @@ export default async function AppLayout({
           : []),
         ...(isPeopleAdmin
           ? [
-              <NavLink key="people" href="/hr/people">{t("nav.people")}</NavLink>,
-              <NavLink key="crm" href="/crm/sources">{t("nav.crm")}</NavLink>,
+              <NavLink key="people" href="/hr/people" icon="people">{t("nav.people")}</NavLink>,
+              <NavLink key="crm" href="/crm/sources" icon="sources">{t("nav.crm")}</NavLink>,
             ]
           : []),
       ],
@@ -116,24 +116,30 @@ export default async function AppLayout({
         */}
         <aside
           className="sticky top-0 z-40 border-b border-line bg-surface/95 backdrop-blur
-                     lg:top-0 lg:h-screen lg:w-[208px] lg:shrink-0 lg:overflow-y-auto
+                     lg:top-0 lg:h-screen lg:w-[238px] lg:shrink-0 lg:overflow-y-auto
                      lg:border-r lg:border-b-0"
         >
           <div className="mx-auto flex max-w-[1180px] items-center gap-6 px-6 lg:mx-0 lg:h-full lg:max-w-none lg:flex-col lg:items-stretch lg:gap-0 lg:px-3 lg:py-4">
             {/*
-              Built like the stamp lockup in the brand book -- "MBE" over a
-              small tracked descriptor -- rather than an approximation of the
-              shield and owl, which would be a worse counterfeit than no mark
-              at all. Drop the real SVG in here when there is one.
+              The stamp lockup from the brand book: a mark, the name, and a
+              tracked descriptor under it. The square *is* the mark -- an
+              approximation of the shield and owl would be a worse
+              counterfeit than a wordmark.
             */}
-            <span className="flex shrink-0 items-baseline gap-1.5 py-3.5 lg:flex-col lg:items-start lg:gap-0 lg:px-2.5 lg:pt-0 lg:pb-5">
-              <span className="text-[17px] leading-none font-bold tracking-[-0.02em] text-accent">
-                MBE
+            <a
+              href="/my-day"
+              className="flex shrink-0 items-center gap-2.5 py-3.5 lg:px-1.5 lg:pt-0 lg:pb-5"
+            >
+              <span className="flex h-[30px] w-[30px] shrink-0 items-center justify-center rounded-lg bg-accent text-[12.5px] font-bold text-accent-ink">
+                MB
               </span>
-              <span className="text-[10px] leading-none font-semibold tracking-[0.18em] text-faint uppercase lg:mt-1.5">
-                ERP
+              <span className="leading-tight">
+                <span className="block text-body font-semibold tracking-[-0.01em]">
+                  MBE ERP
+                </span>
+                <span className="nav-group block">{t("nav.brandSub")}</span>
               </span>
-            </span>
+            </a>
 
             <nav
               /* The spacing between groups is on the groups themselves now,
@@ -183,14 +189,14 @@ export default async function AppLayout({
                 title={t("common.yourRecord")}
                 className="flex items-center gap-2.5 rounded-md lg:px-1.5 lg:py-1.5 lg:transition-colors lg:hover:bg-surface-2"
               >
-                <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-accent-wash text-[12px] font-semibold text-accent">
+                <span className="flex h-[30px] w-[30px] shrink-0 items-center justify-center rounded-full bg-accent-wash text-[12px] font-semibold text-accent">
                   {initials}
                 </span>
                 <span className="hidden min-w-0 leading-tight sm:block">
-                  <span className="block truncate text-[13px] font-medium">
+                  <span className="block truncate text-[13px] font-[550]">
                     {user.displayName}
                   </span>
-                  <span className="block truncate text-[11px] text-faint">
+                  <span className="block truncate text-micro text-faint">
                     {user.departmentName.replace(/\s*\(.*\)$/, "")}
                   </span>
                 </span>
