@@ -36,13 +36,18 @@ working app with nothing in it, and conclude it is broken. The
 [founding data](#what-must-exist-before-anyone-signs-in) is the actual work of
 launching this.
 
-**3. Only HR has a schedule. ADE, ATIC and MYD will have empty days.** Their
-catalogues load from `fixtures/catalogue.json`, but recurring rules exist only
-for HR (`fixtures/recurring-hr.json`). A department with no recurring rules
-generates no daily work — ever, silently. Either build their rules in
-`/catalogue` before launch, or launch HR first and be explicit that the other
-three are not live yet. **This is the single most likely way for the launch to
-look like a failure.**
+**3. Only HR has a schedule. The other four departments get empty days.** This
+is measured, not predicted — see [the rehearsal](#this-has-been-rehearsed).
+Recurring rules exist only for HR (`fixtures/recurring-hr.json`: 28 rules).
+ADE, ATIC, MYD and ACA have **zero**, and a department with no recurring rules
+generates no daily work — ever, silently, with no error anywhere.
+
+ACA (Academics) is worse off still: it has no catalogue either, so there is
+nothing even to build rules from.
+
+Either build those rules in `/catalogue` before launch, or launch HR first and
+be explicit that the rest are not live yet. **This is the single most likely
+way for the launch to look like a failure.**
 
 **4. Nobody has a password until you create one, and there is no self-service
 reset.** `npm run seed` creates two founding accounts and prints their password
@@ -91,6 +96,40 @@ Measured on `main`, 2026-08-10:
 
 ---
 
+## This has been rehearsed
+
+On 2026-08-10 the launch sequence below was run end to end against an empty
+database on `main`. It is not a paper exercise: every command completed, and
+the numbers here are its actual output.
+
+| Step | Result |
+|---|---|
+| `prisma migrate deploy` | 26 migrations applied, no errors |
+| `npm run seed` | **5** departments, 2 founding accounts, password printed once |
+| `import-catalogue.ts` | 134 tasks — ATIC 37, ADE 43, HR 39, MYD 15, **ACA 0** |
+| `import-recurring.ts fixtures/recurring-hr.json` | 28 rules, HR only |
+| `npm run schedule` | 104 tasks created, 102 assigned, 2 unassigned, 514ms |
+
+**A seeded HR person got a real day** — ten tasks, 362 minutes, laid out from
+09:00 with work scheduled around the midday break, not through it.
+
+**A seeded ATIC person got nothing at all.** Not an error, not a warning: an
+empty day. That is warning 3 above, demonstrated.
+
+**About those 2 unassigned tasks.** Both are "Reunión Semanal y Prep", one per
+week. The HR fixture pins it to Monday 10:00 and also pins "Reunion Calendar"
+to Monday 10:00 — two rules, one slot. With a single HR person, one of them
+cannot be placed, and the engine correctly declines to place it rather than
+double-booking. With a real HR team it lands on somebody else. **This is a
+conflict in the fixture data, not a bug**, but if HR is still one person at
+launch, expect it and fix the rule rather than chasing the scheduler.
+
+The rehearsal ran on a throwaway database, which was dropped afterwards. To
+repeat it, point `DATABASE_URL` at an empty database and run the steps in
+[the runbook](#launch).
+
+---
+
 ## What must exist before anyone signs in
 
 Somebody logging in on the first morning sees a real day only if all of this
@@ -109,10 +148,11 @@ The two rows in bold are the quiet failures. Neither shows an error; both just
 produce an empty day, which reads to the person in front of it as "this thing
 does not work."
 
-**What the fixtures cover.** `fixtures/catalogue.json` has entries for ADE,
-ATIC, MYD and HR — the catalogue is broad. `fixtures/recurring-hr.json` covers
-HR only. So after running both imports, HR has a real working day and the other
-three departments have a catalogue with no schedule attached to it.
+**What the fixtures cover.** `fixtures/catalogue.json` has entries for ADE (43),
+ATIC (37), HR (39) and MYD (15) — 134 tasks, but **nothing for ACA**.
+`fixtures/recurring-hr.json` covers HR alone (28 rules). So after running both
+imports: HR has a real working day, three departments have a catalogue with no
+schedule attached, and ACA has neither.
 
 Both importers are safe to re-run: the catalogue matches on department + name
 and deactivates rather than deletes, and recurring rules are keyed by template
@@ -352,9 +392,10 @@ them after any change to `src/lib/scheduling/`.
 None of these blocks a launch, but each is worth knowing about in advance:
 
 - **Only HR has recurring rules.** ADE, ATIC and MYD have catalogues loaded but
-  no schedules, so those departments generate no daily work until somebody
-  builds them in `/catalogue`. The most consequential item on this list — see
-  warning 3.
+  no schedules, so they generate no daily work until somebody builds rules in
+  `/catalogue`. ACA has no catalogue either. Measured in the rehearsal: HR 104
+  tasks over the fortnight, every other department 0. The most consequential
+  item on this list — see warning 3.
 - **No self-service password reset.** HR resets from `/hr/people`.
 - **Mobile is unfinished.** The one hard blocker is a missing viewport meta tag
   in `src/app/layout.tsx`; after that, touch targets and turning the sidebar
