@@ -537,8 +537,10 @@ A standard Next.js app plus a Postgres database.
 
 - **Database**: any PostgreSQL 15+. Set `DATABASE_URL`. Run
   `npx prisma migrate deploy` on release.
-- **Secrets**: set `SESSION_SECRET` to a real random value. Sessions are
-  httpOnly cookies, `secure` in production.
+- **Secrets**: none required. The session cookie carries a random token and the
+  database stores only its SHA-256; there is nothing to sign. Cookies are
+  httpOnly, `secure` in production. `SESSION_SECRET` is still in
+  `.env.example` but no code reads it.
 - **Timezone**: `SCHEDULE_TIMEZONE` (default `Europe/Madrid`). Working hours are
   stored as minutes-from-midnight wall-clock, which keeps the arithmetic free
   of DST edge cases.
@@ -599,9 +601,10 @@ quality the whole system depends on.
 - **Estimate-vs-actual reporting for managers.** Individuals see their own
   drift on `/me`; nothing surfaces it per task across a department, which is
   what would let the catalogue durations get better.
-- **Notifications beyond messages.** People can now write to each other and the
-  unread badge polls, but nothing yet *raises* a message when work lands in
-  triage or a request reaches HR — those are still badges you have to look at.
+- **Notifications outside the app.** The bell now folds triage's alerts into one
+  ordered list, so work landing in triage does raise something. Nothing leaves
+  the app, though — no email and no push, so anyone not signed in that day
+  hears nothing.
 - **Mobile.** The one real blocker is the missing viewport meta tag in
   `src/app/layout.tsx`; after that, touch targets and turning the sidebar into
   a drawer.

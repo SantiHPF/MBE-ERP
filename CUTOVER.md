@@ -14,27 +14,64 @@ everything below is ordered around that.
 
 ---
 
+## Where the code is
+
+**Repository:** `git@github.com:SantiHPF/MBE-ERP.git` — branch **`main`**.
+
+`main` is the whole product. Clone it and you have everything; there is no
+other branch to remember and nothing sitting uncommitted on a laptop. This was
+not true before 2026-08-10, and any older copy of this document says so.
+
 ## Health of this codebase
+
+Measured on `main` at the state described above, on 2026-08-10:
 
 | | |
 |---|---|
-| Tests | **290 passing**, 16 files (`npm test`) |
+| Tests | **511 passing**, 27 files (`npm test`) |
 | Build | clean (`npm run build`) |
-| Migrations | 17, all applied; `prisma migrate status` reports no drift |
-| End-to-end checks | 4 scripts, all passing (`verify:attendance`, `verify:crm`, `verify:anchors`, `verify:concurrency`) |
+| Migrations | **26**, all applied; `prisma migrate status` reports no drift |
+| End-to-end checks | 7 scripts (`verify:attendance`, `verify:crm`, `verify:anchors`, `verify:concurrency`, `verify:gaps`, `verify:follow`, `verify:sessions`) |
 | Stack | Next.js 16 (App Router), React 19, Prisma 7, PostgreSQL, Tailwind v4 |
 
-> ### ⚠️ Before anything else
->
-> **The last three sessions of work are not committed.** The most recent commit
-> is `026e558` (2026-07-28 10:59). Since then roughly 100 files have changed —
-> attendance, the CRM, the brand rework, the global now-bar and the filters are
-> all sitting in the working tree only. `git status` for the exact figure.
->
-> There is also **no git remote**. This exists on one machine, with no backup.
->
-> Commit and push before planning a cutover. Everything below assumes the code
-> is somewhere other than one laptop.
+**Nothing here has run in production, and no one but its author has reviewed
+it.** Passing tests mean the behaviour that is tested is intact; they are not
+evidence that a real cutover works. The rehearsal in Step 5 is what produces
+that evidence, and it is not optional.
+
+---
+
+## What landed after the last version of this document
+
+Two rounds of work, 44 commits, merged to `main` on 2026-08-10. Specs and plans
+are in `docs/superpowers/`. This matters to a cutover mainly because of the
+**nine new migrations** — an existing deployment cannot skip them.
+
+**Scheduling and workflow** (`2026-07-31-round-three-design.md`)
+
+- Work that goes hand in hand: paired tasks are placed together, and the second
+  half stays put once the first is under way.
+- A task can be held behind a predecessor the engine is not itself placing.
+- Long jobs split across several sittings.
+- When a gap opens, the day offers something useful to fill it.
+- "I cannot do this one": say why, and choose what happens to the task.
+- Messages between people; lunch clock-in and clock-out; contact details for a
+  source institution; bug and suggestion reports raised from inside the app.
+- Seven scheduling fixes — deadlines now bind in fallback placement, must-do
+  work no longer loses the day to a routine, anchored work lands at its anchor,
+  a rule tops up what you planned rather than adding to it, and catalogue tasks
+  stay in their half of the day.
+
+**The shell** (`2026-08-03-shell-redesign-design.md`)
+
+- New sidebar and top bar; the top bar names the page you are on.
+- A notifications bell that folds triage's alerts into one ordered list, with
+  times shown in Madrid rather than UTC.
+- A command palette on ⌘K that jumps to a task, a person or a P1N.
+
+**New migrations, in order:** `follow_on_tasks`, `shift_half`, `work_sessions`,
+`messages`, `task_blocks`, `break_clock`, `source_contact`, `reports`,
+`notifications_seen_at`.
 
 ---
 
@@ -249,9 +286,10 @@ them. Alongside `Absence` (including who decided it and when), `P1n`, and
 5. Spot-check by hand: headcount, one person's working pattern against hours
    you already know, an absence you can verify, the catalogue size.
 6. `npm run schedule` — materialise and assign the fortnight ahead.
-7. Deploy. Set `DATABASE_URL`, `SESSION_SECRET` (a real random value),
-   `SCHEDULE_TIMEZONE`, and `GOOGLE_SERVICE_ACCOUNT_KEY_FILE` if the sheet
-   ingest is in use.
+7. Deploy. Set `DATABASE_URL`, `SCHEDULE_TIMEZONE`, and
+   `GOOGLE_SERVICE_ACCOUNT_KEY_FILE` if the sheet ingest is in use. Leave
+   `SEED_PASSWORD` unset in production. (`SESSION_SECRET` is not used — see
+   [Deployment requirements](#deployment-requirements).)
 8. Set up cron: `npm run schedule` nightly, `npm run ingest` as often as the
    sheet changes. Both are safe to re-run.
 9. Sign in as one real person per department and walk `/my-day`.
@@ -277,8 +315,12 @@ since. The decision point is real, and it is early.
 - `npx prisma migrate deploy` on every release. Several migrations here were
   hand-written because Prisma 7 refuses to generate them non-interactively when
   it wants to warn about something; they are normal migrations in the folder.
-- `SESSION_SECRET` must be a real random value. Sessions are httpOnly cookies,
-  `secure` in production, 30 days.
+- **Sessions need no secret.** The cookie carries a 32-byte random token and the
+  database stores only its SHA-256, so a stolen dump does not hand over live
+  sessions. Cookies are httpOnly, `sameSite=lax`, `secure` in production, 30
+  days. `SESSION_SECRET` appears in `.env.example` but **is not read by any
+  code** — it is a leftover from an earlier design. Setting it does nothing;
+  leaving it unset breaks nothing.
 - `SCHEDULE_TIMEZONE` (default `Europe/Madrid`). Working hours are stored as
   minutes-from-midnight wall-clock, which keeps the scheduler free of DST
   arithmetic.
@@ -317,6 +359,19 @@ All of these were bugs first, and none is visible until the system runs twice.
    repetition.
 7. **Re-running `npm run schedule` over the same window must produce identical
    assignments.** The single property to check after touching the engine.
+8. **A deadline binds in every placement path, including the fallback.** The
+   fallback pass originally ignored it, so a task due by 11:00 could be placed
+   at 16:00 only when the main pass had already given up — a bug that appears
+   solely on busy days.
+9. **The second half of a pair does not move once the first is under way.**
+   Re-running the engine mid-morning must not relocate work somebody has
+   already started against.
+10. **A recurring rule tops up what a human planned; it does not add to it.**
+    The opposite reading double-books the day, and only on days somebody had
+    already planned by hand.
+
+`verify:gaps`, `verify:follow` and `verify:sessions` exist to hold 8–10. Run
+them after any change to `src/lib/scheduling/`.
 
 ---
 
@@ -341,9 +396,9 @@ All of these were bugs first, and none is visible until the system runs twice.
 None of these blocks a cutover, but each may be something the old system
 already does that this one does not:
 
-- **No self-service password reset.** HR resets from `/hr/people`.
-- **No notifications.** Nothing tells a manager work landed in triage, or HR
-  that a request is waiting, beyond a badge they have to look at.
+- **No self-service password reset.** HR resets from `/hr/people`. Still the
+  single most likely thing to swamp launch morning — see
+  [Passwords](#passwords--the-thing-most-likely-to-sink-launch-day).
 - **Mobile is unfinished.** The hard blocker is a missing viewport meta tag in
   `src/app/layout.tsx`; after that, touch targets and turning the sidebar into
   a drawer. If people need this on a phone from day one, do that first.
