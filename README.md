@@ -9,12 +9,11 @@ Interface in Spanish or English, chosen per person; light or dark, per device.
 > ### ⚠️ Putting this live? Do not start from this file.
 >
 > Read **[CUTOVER.md](CUTOVER.md)** first — its opening section is a list of
-> blockers. Replacing the ERP already in use is **a data migration, not a
-> deployment**: there is a live database of real working hours, the import that
-> moves them is not written yet, and nothing here has ever run in production.
+> blockers. The database starts **empty**, and an empty system looks exactly
+> like a broken one: the founding data has to be loaded before anyone signs in,
+> and only HR currently has a schedule.
 >
-> This README explains how the system works. It is not a deployment guide, and
-> following it alone will lose data.
+> This README explains how the system works. It is not a launch guide.
 
 ## What it does
 
