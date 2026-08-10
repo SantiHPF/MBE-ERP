@@ -6,9 +6,15 @@ they actually spend on it.
 
 Interface in Spanish or English, chosen per person; light or dark, per device.
 
-> **Replacing the ERP already in use?** Read [CUTOVER.md](CUTOVER.md) — the
-> data migration, the runbook, and the two things most likely to go wrong on
-> the first morning.
+> ### ⚠️ Putting this live? Do not start from this file.
+>
+> Read **[CUTOVER.md](CUTOVER.md)** first — its opening section is a list of
+> blockers. Replacing the ERP already in use is **a data migration, not a
+> deployment**: there is a live database of real working hours, the import that
+> moves them is not written yet, and nothing here has ever run in production.
+>
+> This README explains how the system works. It is not a deployment guide, and
+> following it alone will lose data.
 
 ## What it does
 

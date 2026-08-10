@@ -14,6 +14,68 @@ everything below is ordered around that.
 
 ---
 
+## ⚠️ Read this before you touch anything
+
+**To whoever is putting this live:** this section is the warning. The rest of
+the document is the detail behind it. Please read this page before scheduling a
+date, and treat anything below as a blocker rather than a note.
+
+**1. This is not a normal deployment.** Do not treat it as "clone, build,
+point DNS at it". There is a live database with real people's working hours in
+it, and those hours have to come across. The import that moves them **does not
+exist yet** — writing it is Step 3, and it is the largest piece of work here,
+not a formality.
+
+**2. Nothing in this repository has ever run in production, and nobody except
+its author has reviewed the code.** The tests pass (511 of them) and it builds
+cleanly, but that only means the parts under test still behave. It is not
+evidence that a cutover works. Assume you are the first person to run this for
+real, because you are.
+
+**3. Five questions must be answered before a date can be chosen.** None can be
+guessed, and each one can invalidate the plan:
+
+  - What is the old system's database schema?
+  - How does it hash passwords? (If this is wrong, **nobody can log in on day
+    one** — and the failure is silent, showing only "wrong details". See
+    [Passwords](#passwords--the-thing-most-likely-to-sink-launch-day).)
+  - What timezone are its timestamps in? Guessing shifts every historic hour by
+    one or two.
+  - Is it the legal *registro de jornada*? If so its records are legally
+    retained for four years and **cannot be dropped** — and this app is not
+    currently built to be that record either. See
+    [Time records](#time-records-and-the-law).
+  - Where is it hosted, and can that host run Node 22+ and PostgreSQL 15+?
+
+**4. Never point any of this at the live old database.** Every step that reads
+the old system — the schema dump in Step 1, the import in Step 3, every
+rehearsal — runs against a **restored copy**. A dump you have not restored and
+opened is not a backup.
+
+**5. Run `npx prisma migrate deploy` on every release.** Not `migrate dev`.
+There are 26 migrations; nine are new in this version. Skip them and the app
+crashes on missing tables.
+
+**6. Rehearse the whole thing end to end, timed, on a fresh restore, before the
+real night.** You need to know whether the import takes four minutes or four
+hours before it is the morning you need it. Step 5 is the runbook.
+
+**7. Expect two problems on the first morning:** people who cannot log in, and
+people who see an empty day. The second is almost always a missing
+`WorkingPattern` — the app looks fine and silently gives them nothing to do.
+Both are fixable live from `/hr/people`, but somebody has to be there.
+
+**One more thing that is easy to get wrong:** `SESSION_SECRET` appears in
+`.env.example` and in older notes. **No code reads it.** Do not spend time on
+it. Sessions are random tokens stored as SHA-256 hashes in the database, and
+there is nothing to sign.
+
+If any of the above cannot be satisfied, say so before a date is announced
+rather than after. Rolling back stops being possible the moment people start
+entering data in the new system, which is the first morning.
+
+---
+
 ## Where the code is
 
 **Repository:** `git@github.com:SantiHPF/MBE-ERP.git` — branch **`main`**.
